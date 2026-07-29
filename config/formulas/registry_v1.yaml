@@ -1,0 +1,41 @@
+current_ratio:
+  display_name: 流动比率
+  version: "1.0"
+  expression: current_assets / current_liabilities
+  required_inputs: [current_assets, current_liabilities]
+  period_rule: same_instant
+  result_unit: ratio
+  rounding: "0.0001"
+  zero_policy: error
+
+debt_ratio:
+  display_name: 资产负债率
+  version: "1.0"
+  expression: total_liabilities / total_assets
+  required_inputs: [total_liabilities, total_assets]
+  period_rule: same_instant
+  result_unit: percent
+  rounding: "0.01"
+  zero_policy: error
+
+receivable_days:
+  display_name: 应收账款周转天数
+  version: "1.0"
+  expression: average(accounts_receivable_begin, accounts_receivable_end) / revenue * day_basis
+  required_inputs: [accounts_receivable_begin, accounts_receivable_end, revenue]
+  period_rule: annual
+  parameters:
+    day_basis: 365
+  result_unit: days
+  rounding: "0.01"
+  zero_policy: error
+
+dscr:
+  display_name: 偿债保障倍数
+  version: "synthetic_policy_v1"
+  expression: cash_available_for_debt_service / debt_service
+  required_inputs: [cash_available_for_debt_service, debt_service]
+  period_rule: same_period
+  result_unit: ratio
+  rounding: "0.0001"
+  zero_policy: error

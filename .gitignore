@@ -1,0 +1,28 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.pytest_tmp/
+.ruff_cache/
+.mypy_cache/
+
+# --- 环境与密钥（禁止提交真实密钥） ---
+.env
+.env.local
+.env.*.local
+
+# --- 本地数据与产物 ---
+data/local_objects/
+data/*.db
+*.sqlite3
+evaluation/reports/local/
+
+# --- IDE ---
+.idea/
+.vscode/
+
+# --- ������ ---
+data/synthetic/*.pdf
+.qoder/

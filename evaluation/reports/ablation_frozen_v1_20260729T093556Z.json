@@ -1,0 +1,3420 @@
+{
+  "summaries": {
+    "E0_dense_only": {
+      "questions": 74,
+      "recall@5": 0.9527027027027027,
+      "all_required@5": 0.918918918918919,
+      "recall@10": 0.9527027027027027,
+      "all_required@10": 0.918918918918919,
+      "recall@20": 0.9527027027027027,
+      "all_required@20": 0.918918918918919,
+      "mrr@10": 0.9425675675675675,
+      "unmapped_questions": 0,
+      "temporal_or_acl_leakage_into_candidates": 0
+    },
+    "E23_hybrid_rrf": {
+      "questions": 74,
+      "recall@5": 0.8941441441441442,
+      "all_required@5": 0.8513513513513513,
+      "recall@10": 0.9121621621621622,
+      "all_required@10": 0.8783783783783784,
+      "recall@20": 1.0,
+      "all_required@20": 1.0,
+      "mrr@10": 0.9208494208494208,
+      "unmapped_questions": 0,
+      "temporal_or_acl_leakage_into_candidates": 0
+    },
+    "E7_hybrid_rerank": {
+      "questions": 74,
+      "recall@5": 0.9481981981981983,
+      "all_required@5": 0.918918918918919,
+      "recall@10": 0.9662162162162162,
+      "all_required@10": 0.9459459459459459,
+      "recall@20": 1.0,
+      "all_required@20": 1.0,
+      "mrr@10": 0.9283033033033032,
+      "unmapped_questions": 0,
+      "temporal_or_acl_leakage_into_candidates": 0
+    }
+  },
+  "channels": {
+    "E0_dense_only": {
+      "config": {
+        "channel": "E0_dense_only",
+        "embedding_provider": "openai_compatible",
+        "embedding_version": "BAAI/bge-m3@api",
+        "sparse_encoder_version": "bm25-jieba-v1",
+        "reranker_version": "-",
+        "dense_top_k": 30,
+        "rrf_k": 60,
+        "collection": "credit_chunks_v2",
+        "parser": "pymupdf:1.0",
+        "unanswerable_skipped": 6
+      },
+      "per_question": [
+        {
+          "question_id": "q01",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q02",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q03",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q04",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q05",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q06",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q07",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q08",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q09",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q10",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q11",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q12",
+          "hit_rank": 2,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q13",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q14",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q15",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q16",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q17",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q18",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q19",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q20",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q21",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q22",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q23",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q24",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q25",
+          "hit_rank": 4,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q26",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q27",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q28",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q29",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q30",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q31",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q32",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q33",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q34",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q35",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q36",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q37",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q38",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q39",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q40",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q41",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q42",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q43",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q44",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q45",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q46",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q47",
+          "hit_rank": null,
+          "recall_at": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": false
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q48",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q49",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q50",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q51",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q52",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q53",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q54",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q55",
+          "hit_rank": 3,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q56",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q57",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q58",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q59",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q60",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q61",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 0.5
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": false
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q62",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q63",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 0.5
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": false
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q64",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 0.5
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": false
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q65",
+          "hit_rank": 3,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q66",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q67",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 0.5
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": false
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q68",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 0.5
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": false
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q75",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q76",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q77",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q78",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q79",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q80",
+          "hit_rank": 3,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        }
+      ]
+    },
+    "E23_hybrid_rrf": {
+      "config": {
+        "channel": "E23_hybrid_rrf",
+        "embedding_provider": "openai_compatible",
+        "embedding_version": "BAAI/bge-m3@api",
+        "sparse_encoder_version": "bm25-jieba-v1",
+        "reranker_version": "-",
+        "dense_top_k": 30,
+        "rrf_k": 60,
+        "collection": "credit_chunks_v2",
+        "parser": "pymupdf:1.0",
+        "unanswerable_skipped": 6
+      },
+      "per_question": [
+        {
+          "question_id": "q01",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q02",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q03",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q04",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q05",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q06",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q07",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q08",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q09",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q10",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q11",
+          "hit_rank": 2,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q12",
+          "hit_rank": 13,
+          "recall_at": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q13",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q14",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q15",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q16",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q17",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q18",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q19",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q20",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.6666666666666666,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q21",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q22",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q23",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q24",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q25",
+          "hit_rank": 7,
+          "recall_at": {
+            "5": 0.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q26",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q27",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q28",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q29",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q30",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q31",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q32",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q33",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q34",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q35",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q36",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q37",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q38",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q39",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q40",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q41",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q42",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q43",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q44",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q45",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q46",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q47",
+          "hit_rank": 16,
+          "recall_at": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q48",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q49",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q50",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q51",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q52",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q53",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q54",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q55",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q56",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q57",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q58",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q59",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q60",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q61",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q62",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q63",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q64",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q65",
+          "hit_rank": 2,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q66",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q67",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q68",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q75",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q76",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q77",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q78",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q79",
+          "hit_rank": 11,
+          "recall_at": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q80",
+          "hit_rank": 11,
+          "recall_at": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        }
+      ]
+    },
+    "E7_hybrid_rerank": {
+      "config": {
+        "channel": "E7_hybrid_rerank",
+        "embedding_provider": "openai_compatible",
+        "embedding_version": "BAAI/bge-m3@api",
+        "sparse_encoder_version": "bm25-jieba-v1",
+        "reranker_version": "BAAI/bge-reranker-v2-m3@api",
+        "dense_top_k": 30,
+        "rrf_k": 60,
+        "collection": "credit_chunks_v2",
+        "parser": "pymupdf:1.0",
+        "unanswerable_skipped": 6
+      },
+      "per_question": [
+        {
+          "question_id": "q01",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q02",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q03",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q04",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q05",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q06",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q07",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q08",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q09",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q10",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q11",
+          "hit_rank": 2,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q12",
+          "hit_rank": 3,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q13",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q14",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q15",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q16",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q17",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q18",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q19",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q20",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.6666666666666666,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q21",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q22",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q23",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q24",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q25",
+          "hit_rank": 9,
+          "recall_at": {
+            "5": 0.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q26",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q27",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q28",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q29",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q30",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q31",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q32",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q33",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q34",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q35",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q36",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q37",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q38",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q39",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q40",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q41",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q42",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q43",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q44",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q45",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q46",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q47",
+          "hit_rank": 12,
+          "recall_at": {
+            "5": 0.0,
+            "10": 0.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q48",
+          "hit_rank": 2,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q49",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q50",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q51",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q52",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q53",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q54",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q55",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q56",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q57",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q58",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q59",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q60",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q61",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q62",
+          "hit_rank": 2,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q63",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q64",
+          "hit_rank": 2,
+          "recall_at": {
+            "5": 0.5,
+            "10": 0.5,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": false,
+            "10": false,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q65",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q66",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q67",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q68",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q75",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q76",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q77",
+          "hit_rank": 4,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q78",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q79",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        },
+        {
+          "question_id": "q80",
+          "hit_rank": 1,
+          "recall_at": {
+            "5": 1.0,
+            "10": 1.0,
+            "20": 1.0
+          },
+          "all_required_at": {
+            "5": true,
+            "10": true,
+            "20": true
+          },
+          "unmapped_keys": []
+        }
+      ]
+    }
+  }
+}
