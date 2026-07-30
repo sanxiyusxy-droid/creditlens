@@ -28,6 +28,8 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.5",
     "psycopg2-binary>=2.9",  # Alembic 同步迁移驱动
+    "streamlit>=1.60.0",
+    "requests>=2.34.2",
 ]
 
 [build-system]
@@ -36,6 +38,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/creditlens"]
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
 
 [tool.ruff]
 line-length = 100

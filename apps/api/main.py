@@ -8,7 +8,7 @@ PostgreSQL / Qdrant / MinIO。注意：内存 Qdrant 进程重启后需重跑种
 import sys
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -130,6 +130,9 @@ async def get_case(case_id: uuid.UUID):
 class QuestionRequest(BaseModel):
     question: str
     top_k: int = 8
+    # 演示时点切换（任务 30）：不传则用案件默认时点
+    as_of_date: date | None = None
+    decision_cutoff_at: datetime | None = None
 
 
 @app.post("/api/v1/cases/{case_id}/questions")
@@ -144,6 +147,12 @@ async def ask_question(case_id: uuid.UUID, body: QuestionRequest):
         trusted = await build_trusted_context(
             session, tenant_id=DEFAULT_TENANT_ID, case_id=case_id, user_id=DEMO_USER_ID
         )
+        # 时点覆盖仅收紧/平移观察时点，ACL 范围仍由服务端派生，不可放宽
+        if body.as_of_date is not None:
+            update: dict = {"as_of_date": body.as_of_date}
+            if body.decision_cutoff_at is not None:
+                update["decision_cutoff_at"] = body.decision_cutoff_at.astimezone(UTC)
+            trusted = trusted.model_copy(update=update)
         snapshot = await freeze_snapshot(
             session,
             trusted,
@@ -175,10 +184,12 @@ async def ask_question(case_id: uuid.UUID, body: QuestionRequest):
             "question": body.question,
             "run_id": str(run.id),
             "snapshot_id": str(snapshot.snapshot_id),
+            "as_of_date": trusted.as_of_date.isoformat(),
             "candidates": [
                 {
                     "section_id": str(c.section_id),
                     "document_version_id": str(c.document_version_id),
+                    "parse_run_id": str(c.parse_run_id),
                     "heading_path": c.heading_path,
                     "page": c.page_start,
                     "text": c.text,
@@ -402,6 +413,40 @@ async def get_run(run_id: uuid.UUID):
                 }
                 for c in claims
             ],
+        }
+
+
+@app.get("/api/v1/runs/{run_id}/report")
+async def get_run_report(run_id: uuid.UUID):
+    """最新报告版本（P0-3 持久化产物；APPROVED_DRAFT ≠ 真实授信批准）。"""
+    from creditlens.application.trusted_context import build_trusted_context
+    from creditlens.infrastructure.postgres.models import ReportVersion
+
+    async with session_scope(session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID) as session:
+        run = await session.get(ReviewRun, run_id)
+        if run is None:
+            raise HTTPException(404, "RUN_NOT_FOUND")
+        try:
+            await build_trusted_context(
+                session, DEFAULT_TENANT_ID, run.case_id, user_id=DEMO_USER_ID
+            )
+        except CreditLensError as exc:
+            raise HTTPException(404, "RUN_NOT_FOUND") from exc
+        report = await session.scalar(
+            select(ReportVersion)
+            .where(ReportVersion.run_id == run_id)
+            .order_by(ReportVersion.version_no.desc())
+            .limit(1)
+        )
+        if report is None:
+            raise HTTPException(404, "REPORT_NOT_READY")
+        return {
+            "run_id": str(run_id),
+            "version_no": report.version_no,
+            "status": report.status,
+            "content_hash": report.content_hash,
+            "created_at": report.created_at.isoformat(),
+            "content": report.content_json,
         }
 
 

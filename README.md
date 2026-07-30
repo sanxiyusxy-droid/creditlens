@@ -96,3 +96,35 @@ uv run python scripts/run_evaluation.py --dataset evaluation/datasets/frozen_v1.
 Snapshot 冻结（文档 + 财务事实）、RLS 行级隔离与 60 项自动化测试。
 **不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做并发与容量验证。
 
+## 演示（8–12 分钟）
+
+```powershell
+docker compose up -d
+powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
+# 浏览器打开 http://localhost:8501
+```
+
+![演示页](docs/images/demo_screenshot.png)
+
+五幕编排见 [docs/演示脚本.md](docs/演示脚本.md)：
+① 政策时点切换（同题不同审查日 → 命中不同版本条款）→
+② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
+④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
+
+## 冻结指标（v1.0，简历口径）
+
+frozen_v1 评测集（合成语料：1 案件 / 3 逻辑文档 / 4 文档版本 / 80 题 =
+74 可答 + 6 拒答），bge-m3 + bge-reranker-v2-m3 + DeepSeek，真实栈
+（PG16 + Qdrant + MinIO）+ RLS 业务角色下，**三次重复运行验证**：
+
+| 指标 | 数值 | 备注 |
+|---|---|---|
+| 混合+精排（E7）Recall@20 | **1.000** | 三次一致；Dense 单通道为 0.953 |
+| Dense（E0）Recall@5 / MRR@10 | 0.953 / 0.943 | 三次一致 |
+| 独立回表 Leakage（时点/ACL/案件） | **0** | 全通道、独立于检索链路的回表审计 |
+| Policy Version Accuracy（12 道版本时点题） | 100% | 新旧政策版本命中正确 |
+| 检索延迟 P95 | Dense 248ms / E7 875ms | 单机单并发，含模型 API 往返 |
+| 自动化测试 | 60 passed | 含安全边界 8 + 故障注入 5 + P0 防回归 6 |
+
+注：E23/E5 混合通道存在 ±1 题的运行间波动（RRF 平分排序），未纳入冻结口径。
+

@@ -22,7 +22,7 @@ evaluation/reports/local/
 # --- IDE ---
 .idea/
 .vscode/
-
-# --- Éú³ÉÎï ---
-data/synthetic/*.pdf
 .qoder/
+
+# --- ç”Ÿæˆç‰© ---
+data/synthetic/*.pdf
