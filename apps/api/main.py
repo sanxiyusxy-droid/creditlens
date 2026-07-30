@@ -253,12 +253,17 @@ async def _execute_review_background(run_id: uuid.UUID, case_id: uuid.UUID) -> N
             await supervisor.execute_full_review(
                 session, trusted, snapshot, run=run, commit_each_stage=True
             )
-    except Exception:
-        # 失败不得假成功：Run 置 FAILED 并保留已写入的 Trace（文档 §13）
+    except Exception as exc:
+        # 失败不得假成功：Run 置 FAILED 并保留已写入的 Trace（文档 §13）；
+        # 记录异常类型便于排查（v1.0 演示踩坑教训）
         async with session_scope(session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID) as session:
             run = await session.get(ReviewRun, run_id)
             if run is not None and run.status not in {"COMPLETED", "HUMAN_REVIEW"}:
                 run.status = "FAILED"
+                run.model_manifest = {
+                    **(run.model_manifest or {}),
+                    "failure_reason": f"{type(exc).__name__}: {str(exc)[:200]}",
+                }
 
 
 @app.post("/api/v1/cases/{case_id}/runs", status_code=202)

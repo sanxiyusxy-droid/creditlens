@@ -59,21 +59,36 @@ with tab1:
         "政策适用性由 as_of_date 决定（2026-01-01 起新版政策生效：负债率上限 65%→70%、"
         "流动比率 1.2→1.0）。检索前硬过滤 + Snapshot 冻结，时点错误的版本根本不进入候选。"
     )
-    question = st.text_input("问题", "流动资金贷款对资产负债率的要求是多少？")
+    with st.form("qa_form"):
+        question = st.text_input(
+            "问题（输入后按回车或点下方按钮，将同时以两个时点检索对比）",
+            "流动资金贷款对资产负债率的要求是多少？",
+        )
+        submitted = st.form_submit_button("🔍 双时点对比检索", type="primary")
+    if submitted and question.strip():
+        for as_of, cutoff in (
+            ("2026-06-30", None),
+            ("2025-06-30", "2025-06-30T15:59:59+00:00"),
+        ):
+            payload = {"question": question, "top_k": 3, "as_of_date": as_of}
+            if cutoff:
+                payload["decision_cutoff_at"] = cutoff
+            with st.spinner(f"以 {as_of} 冻结 Snapshot + 硬过滤检索中..."):
+                st.session_state[f"qa-{as_of}"] = _post(
+                    f"/api/v1/cases/{case_id}/questions", payload
+                )
+        st.session_state["qa-question"] = question
+
+    shown_question = st.session_state.get("qa-question")
+    if shown_question:
+        st.caption(f"当前结果对应问题：**{shown_question}**")
     col_a, col_b = st.columns(2)
-    for col, as_of, cutoff, label in (
-        (col_a, "2026-06-30", None, "审查日 2026-06-30（新政策 v2026 生效）"),
-        (col_b, "2025-06-30", "2025-06-30T15:59:59+00:00", "审查日 2025-06-30（旧政策 v2024 生效）"),
+    for col, as_of, label in (
+        (col_a, "2026-06-30", "审查日 2026-06-30（新政策 v2026 生效）"),
+        (col_b, "2025-06-30", "审查日 2025-06-30（旧政策 v2024 生效）"),
     ):
         with col:
             st.markdown(f"**{label}**")
-            if st.button(f"以 {as_of} 检索", key=f"asof-{as_of}"):
-                payload = {"question": question, "top_k": 3, "as_of_date": as_of}
-                if cutoff:
-                    payload["decision_cutoff_at"] = cutoff
-                with st.spinner("冻结 Snapshot + 硬过滤检索中..."):
-                    data = _post(f"/api/v1/cases/{case_id}/questions", payload)
-                st.session_state[f"qa-{as_of}"] = data
             data = st.session_state.get(f"qa-{as_of}")
             if data:
                 for c in data["candidates"]:

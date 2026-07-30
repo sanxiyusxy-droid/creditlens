@@ -199,9 +199,12 @@ class Supervisor:
         run.state_version += 1
         await seq.emit("STATE_CHANGED", {"from": old, "to": new_status})
         await session.flush()
-        # P0-4：阶段 Checkpoint——提交后 SSE 立即可见，异常不回滚已完成阶段
+        # P0-4：阶段 Checkpoint——提交后 SSE 立即可见，异常不回滚已完成阶段；
+        # checkpoint_commit 会恢复 SET LOCAL 的 RLS 上下文（commit 即失效）
         if getattr(self, "_commit_each_stage", False):
-            await session.commit()
+            from creditlens.infrastructure.postgres.session import checkpoint_commit
+
+            await checkpoint_commit(session)
 
     async def _persist_artifacts(
         self, session: AsyncSession, run: ReviewRun, artifacts: list[AgentArtifact]
