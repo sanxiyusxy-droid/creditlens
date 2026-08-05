@@ -211,6 +211,9 @@ class TestP03StateMachine:
             run_id=run.id,
             target_claim_ids=[str(claim_ids[0])],
             action="APPROVE_CLAIM",
+            # P1：幂等键 + 乐观锁为必填契约
+            idempotency_key="partial-approve",
+            target_version=run.state_version,
         )
         status = await resume_after_human_review(session, run.id, decision)
         assert status == "HUMAN_REVIEW", "仍有 blocking Claim 时不得完成"
@@ -227,6 +230,8 @@ class TestP03StateMachine:
             run_id=run.id,
             target_claim_ids=[],
             action="SUBMIT_REPORT",
+            idempotency_key="submit-blocked",
+            target_version=run.state_version,
         )
         with pytest.raises(InvalidStateTransitionError):
             await resume_after_human_review(session, run.id, decision)
@@ -243,6 +248,7 @@ class TestP03StateMachine:
             target_claim_ids=[str(c) for c in claim_ids],
             action="APPROVE_CLAIM",
             idempotency_key="idem-1",
+            target_version=run.state_version,
         )
         status = await resume_after_human_review(session, run.id, decision)
         assert status == "COMPLETED"
@@ -259,6 +265,7 @@ class TestP03StateMachine:
             target_claim_ids=[],
             action="APPROVE_CLAIM",
             idempotency_key="idem-1",
+            target_version=run.state_version,
         )
         assert await resume_after_human_review(session, run.id, dup) == "COMPLETED"
         reports = (

@@ -55,6 +55,7 @@ def _candidate_to_evidence(candidate: RetrievedCandidate) -> AgentEvidenceRef:
         content_hash=candidate.text_hash,
         document_version_id=candidate.document_version_id,
         section_id=candidate.section_id,
+        parse_run_id=candidate.parse_run_id,
         page_number=candidate.page_start,
         source_available_at=utc_now().astimezone(UTC),
     )

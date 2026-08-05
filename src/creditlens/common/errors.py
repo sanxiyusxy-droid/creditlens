@@ -52,5 +52,15 @@ class ActionNotAuthorizedError(CreditLensError):
     error_code = "ACTION_NOT_AUTHORIZED"
 
 
+class InvalidReviewRequestError(CreditLensError):
+    """P1：复核请求本身不合法（缺幂等键/乐观锁、Claim 不存在或不属于该 Run）。
+
+    API 映射 422：与"状态机不允许"（409/INVALID_STATE_TRANSITION）区分，
+    调用方需要修正请求而不是重试。
+    """
+
+    error_code = "INVALID_REVIEW_REQUEST"
+
+
 class InsufficientEvidenceError(CreditLensError):
     error_code = "INSUFFICIENT_EVIDENCE"

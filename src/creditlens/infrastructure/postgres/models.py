@@ -461,7 +461,7 @@ class ArtifactRecord(Base):
     lifecycle_status: Mapped[str] = mapped_column(String(16), default="CREATED")
     # CREATED|VALIDATED|VERIFIED|ACCEPTED|REJECTED|STALE
     execution_status: Mapped[str] = mapped_column(String(32), default="SUCCESS")
-    # SUCCESS|PARTIAL|INSUFFICIENT_EVIDENCE|FAILED
+    # SUCCESS|PARTIAL|DEGRADED|INSUFFICIENT_EVIDENCE|FAILED
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     input_hash: Mapped[str] = mapped_column(String(64), default="")
     output_hash: Mapped[str] = mapped_column(String(64), default="")

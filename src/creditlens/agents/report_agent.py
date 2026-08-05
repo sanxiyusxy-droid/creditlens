@@ -19,6 +19,7 @@ from creditlens.common.hashing import sha256_text
 from creditlens.infrastructure.postgres.models import (
     ArtifactRecord,
     ClaimRecord,
+    EvidenceRecord,
     ReportVersion,
     ReviewRun,
 )
@@ -73,8 +74,9 @@ class ReportAgent:
             await session.scalars(select(ClaimRecord).where(ClaimRecord.run_id == run.id))
         ).all()
 
-        # WP3：从 Artifact payload 构建 evidence_id -> 真实 locator 映射，
-        # 报告可直接回原文（document_version/section/page）
+        # WP3：构建 evidence_id -> 真实 locator 映射，报告可直接回原文
+        # P1：优先取独立落库的 EvidenceRecord（含 parse_run_id，可证明引用的是
+        # Snapshot 冻结的解析批次）；Artifact payload 作为兜底来源
         artifacts = (
             await session.scalars(select(ArtifactRecord).where(ArtifactRecord.run_id == run.id))
         ).all()
@@ -85,9 +87,24 @@ class ReportAgent:
                     "evidence_type": evidence.get("evidence_type"),
                     "document_version_id": evidence.get("document_version_id"),
                     "section_id": evidence.get("section_id"),
+                    "parse_run_id": evidence.get("parse_run_id"),
                     "page_number": evidence.get("page_number"),
                     "content_hash": evidence.get("content_hash"),
                 }
+        evidence_rows = (
+            await session.scalars(select(EvidenceRecord).where(EvidenceRecord.run_id == run.id))
+        ).all()
+        for row in evidence_rows:
+            locator_by_evidence[str(row.id)] = {
+                "evidence_type": row.evidence_type,
+                "document_version_id": str(row.document_version_id)
+                if row.document_version_id
+                else None,
+                "section_id": str(row.section_id) if row.section_id else None,
+                "parse_run_id": (row.locator or {}).get("parse_run_id"),
+                "page_number": row.page_number,
+                "content_hash": row.content_hash,
+            }
 
         accepted = [c for c in claims if c.review_status in {"AUDITED", "HUMAN_APPROVED"}]
         insufficient = [c for c in claims if c.verdict == "INSUFFICIENT_EVIDENCE"]

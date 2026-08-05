@@ -24,12 +24,17 @@ from creditlens.agents.policy_agent import PolicyAgent
 from creditlens.agents.report_agent import ReportAgent
 from creditlens.agents.risk_agent import RiskAgent
 from creditlens.common.clock import utc_now
-from creditlens.common.errors import ConcurrentReviewConflictError, InvalidStateTransitionError
+from creditlens.common.errors import (
+    ConcurrentReviewConflictError,
+    InvalidReviewRequestError,
+    InvalidStateTransitionError,
+)
 from creditlens.infrastructure.postgres.models import (
     ArtifactRecord,
     CaseDocument,
     ClaimRecord,
     CreditCase,
+    EvidenceRecord,
     HumanDecision,
     ReviewRun,
     RunEvent,
@@ -152,6 +157,26 @@ class Supervisor:
                 result = await agent.run(run.id, task_key, trusted)
                 professional.append(result)
                 await seq.emit("TASK_COMPLETED", {"task": name, "claims": len(result.claims)})
+                # P1：Agent 产出但工具部分失败（execution_status=DEGRADED）时，
+                # Run Manifest 必须同样标记降级——报告读者需要知道结论是降级产出
+                if result.execution_status == "DEGRADED":
+                    degraded_agents.append(name)
+                    run.model_manifest = {
+                        **(run.model_manifest or {}),
+                        "degraded_agents": degraded_agents,
+                        "degraded": True,
+                    }
+                    await seq.emit(
+                        "TASK_DEGRADED",
+                        {
+                            "task": name,
+                            "reason": "TOOL_PARTIAL_FAILURE",
+                            "issues": [
+                                issue for issue in result.unresolved_issues if issue.get("degraded")
+                            ],
+                        },
+                    )
+                    await session.flush()
                 if name == "risk":
                     # WP3：Risk 阈值配置版本写入 Manifest，评测/审计口径可追溯
                     threshold_version = getattr(agent, "threshold_version", None)
@@ -193,13 +218,46 @@ class Supervisor:
         await self._persist_artifacts(session, run, professional)
 
         await self._transition(session, run, seq, "CHALLENGING")
-        challenge = await self._challenger.run(run.id, "challenger", trusted, professional)
+        # P1：Challenger 异常同样必须落 FAILED Artifact + RunEvent，不允许整个 Run
+        # 以未捕获异常方式中断（否则 Trace 里看不到发生了什么）。反证缺失不阻断
+        # 报告，但 Run 必须标记 DEGRADED——审查员需知道本次未经过反证检验。
+        try:
+            challenge = await self._challenger.run(run.id, "challenger", trusted, professional)
+        except Exception as exc:
+            challenge = AgentArtifact(
+                run_id=run.id,
+                task_id="challenger",
+                producer="challenger",
+                execution_status="FAILED",
+                unresolved_issues=[{"error": type(exc).__name__, "stage": "challenger"}],
+            )
+            degraded_agents.append("challenger")
+            run.model_manifest = {
+                **(run.model_manifest or {}),
+                "degraded_agents": degraded_agents,
+                "degraded": True,
+            }
+            await seq.emit("TASK_FAILED", {"task": "challenger", "error": type(exc).__name__})
         await self._persist_artifacts(session, run, [challenge])
         all_artifacts = [*professional, challenge]
 
         await self._transition(session, run, seq, "AUDITING")
         # WP3：Auditor 同步复核 Case/Snapshot/cutoff
-        audit = await self._auditor.verify(session, trusted, all_artifacts, snapshot=snapshot)
+        # P1：Auditor 异常属安全关键——审计不可用时不得放行报告，Run 转 FAILED
+        try:
+            audit = await self._auditor.verify(session, trusted, all_artifacts, snapshot=snapshot)
+        except Exception as exc:
+            audit_failed = AgentArtifact(
+                run_id=run.id,
+                task_id="auditor",
+                producer="auditor",
+                execution_status="FAILED",
+                unresolved_issues=[{"error": type(exc).__name__, "stage": "auditor"}],
+            )
+            await self._persist_artifacts(session, run, [audit_failed])
+            await seq.emit("AUDIT_FAILED", {"error": type(exc).__name__})
+            await self._transition(session, run, seq, "FAILED", force=True)
+            return RunOutcome(run.id, run.status, [*all_artifacts, audit_failed])
         await seq.emit(
             "AUDIT_COMPLETED",
             {
@@ -264,7 +322,7 @@ class Supervisor:
     async def _persist_artifacts(
         self, session: AsyncSession, run: ReviewRun, artifacts: list[AgentArtifact]
     ) -> None:
-        """Artifact/Claim Append-only 持久化。"""
+        """Artifact/Claim/Evidence Append-only 持久化。"""
         for artifact in artifacts:
             record = ArtifactRecord(
                 id=artifact.artifact_id,
@@ -278,6 +336,9 @@ class Supervisor:
                 payload=artifact.model_dump(mode="json"),
             )
             session.add(record)
+            # P1：EvidenceRecord 独立落库——报告/审计可直接从 evidence 表
+            # 追溯到冻结 Snapshot 中的原始段落，不必解析 Artifact payload
+            await self._persist_evidence(session, run, artifact)
             for claim in artifact.claims:
                 session.add(
                     ClaimRecord(
@@ -304,6 +365,55 @@ class Supervisor:
                         },
                     )
                 )
+        await session.flush()
+
+    @staticmethod
+    async def _persist_evidence(
+        session: AsyncSession, run: ReviewRun, artifact: AgentArtifact
+    ) -> None:
+        """P1：把 Agent 引用的证据落成独立 EvidenceRecord（同 Run 内幂等去重）。
+
+        evidence_id 由 (section_id, text_hash) 派生，天然稳定；同一 Run 内多个
+        Agent 引用同一段落只保留一条记录。locator 含 parse_run_id，使报告能证明
+        引用的是 Snapshot 冻结的那个解析批次。
+        """
+        for ref in artifact.evidence:
+            existing = await session.get(EvidenceRecord, ref.evidence_id)
+            if existing is not None:
+                continue
+            session.add(
+                EvidenceRecord(
+                    id=ref.evidence_id,
+                    tenant_id=run.tenant_id,
+                    run_id=run.id,
+                    evidence_type=ref.evidence_type,
+                    source_id=ref.source_id,
+                    document_version_id=ref.document_version_id,
+                    section_id=ref.section_id,
+                    page_number=ref.page_number,
+                    locator={
+                        "document_version_id": str(ref.document_version_id)
+                        if ref.document_version_id
+                        else None,
+                        "section_id": str(ref.section_id) if ref.section_id else None,
+                        # 回原文必需：定位到具体解析批次
+                        "parse_run_id": str(ref.parse_run_id) if ref.parse_run_id else None,
+                        "page_number": ref.page_number,
+                        "fact_id": str(ref.fact_id) if ref.fact_id else None,
+                        "calculation_id": str(ref.calculation_id) if ref.calculation_id else None,
+                    },
+                    content_hash=ref.content_hash,
+                    snapshot={
+                        "snapshot_id": str(run.input_snapshot_id)
+                        if run.input_snapshot_id
+                        else None,
+                        "as_of_date": run.as_of_date.isoformat() if run.as_of_date else None,
+                    },
+                    valid_from=ref.valid_from,
+                    valid_to=ref.valid_to,
+                    source_available_at=ref.source_available_at,
+                )
+            )
         await session.flush()
 
     @staticmethod
@@ -409,34 +519,80 @@ async def resume_after_human_review(
       （PENDING/NEEDS_REWORK）全部解决后，Run 才 REPORTING→COMPLETED，
       且报告版本持久化是 COMPLETED 前置条件；
     - REQUEST_CHANGES/REQUEST_MORE_INFORMATION 进入 REWORK，可再回 HUMAN_REVIEW。
+
+    P1 并发安全收口（顺序幂等 -> 真正并发安全）：
+    - 以 `SELECT ... FOR UPDATE` 锁定 Run 行，使同一 Run 的并发决定串行化；
+      两个不同 idempotency_key 的并发请求不再能同时通过版本校验；
+    - idempotency_key 与 expected_state_version 强制提供（缺失 -> 422），
+      否则乐观锁形同虚设；
+    - 唯一约束冲突（并发同键）视为重复提交，返回既有结果而非 500；
+    - 目标 Claim 不存在或不属于本 Run -> 422，不再静默忽略。
     安全拒绝（ACL/越权）不走此路径（文档 §11.5）。
     """
-    run = await session.get(ReviewRun, run_id)
+    from sqlalchemy.exc import IntegrityError
+
+    if not decision.idempotency_key:
+        raise InvalidReviewRequestError("必须提供 idempotency_key（并发/重试安全前提）")
+    if decision.target_version is None:
+        raise InvalidReviewRequestError("必须提供 expected_state_version（乐观锁前提）")
+
+    # 行锁：并发请求在此串行化（SQLite 无 FOR UPDATE，由 SQLAlchemy 自动忽略，
+    # 单测仍走同一代码路径；真实并发保护在 PostgreSQL 生效）
+    run = await session.scalar(select(ReviewRun).where(ReviewRun.id == run_id).with_for_update())
     if run is None:
         raise InvalidStateTransitionError("Run 不存在")
 
     # 幂等键先于状态检查：已完成 Run 的重复提交应幂等返回，而非报错
-    if decision.idempotency_key:
-        duplicate = await session.scalar(
-            select(HumanDecision.id).where(
-                HumanDecision.run_id == run_id,
-                HumanDecision.idempotency_key == decision.idempotency_key,
-            )
+    duplicate = await session.scalar(
+        select(HumanDecision.id).where(
+            HumanDecision.run_id == run_id,
+            HumanDecision.idempotency_key == decision.idempotency_key,
         )
-        if duplicate is not None:
-            return run.status  # 幂等：不重复应用
+    )
+    if duplicate is not None:
+        return run.status  # 幂等：不重复应用
 
     if run.status not in {"HUMAN_REVIEW", "REWORK"}:
         raise InvalidStateTransitionError("Run 不在可人工处理状态")
 
     # WP3 乐观锁：expected_state_version 不匹配 -> 并发审批冲突（API 映射 409）
-    if decision.target_version is not None and decision.target_version != run.state_version:
+    if decision.target_version != run.state_version:
         raise ConcurrentReviewConflictError(
             "Run 状态版本已变更，请刷新后重试",
             {"expected": decision.target_version, "actual": run.state_version},
         )
 
+    # 目标 Claim 校验：不存在或跨 Run 一律拒绝请求，不静默跳过
+    if decision.action in {"APPROVE_CLAIM", "REJECT_CLAIM"}:
+        if not decision.target_claim_ids:
+            raise InvalidReviewRequestError(f"{decision.action} 必须指定 target_claim_ids")
+        for raw_id in decision.target_claim_ids:
+            try:
+                claim_uuid = uuid.UUID(str(raw_id))
+            except (ValueError, AttributeError, TypeError) as exc:
+                raise InvalidReviewRequestError(f"非法 Claim ID: {raw_id}") from exc
+            claim = await session.get(ClaimRecord, claim_uuid)
+            if claim is None or claim.run_id != run.id:
+                raise InvalidReviewRequestError(
+                    "目标 Claim 不存在或不属于该 Run",
+                    {"claim_id": str(raw_id), "run_id": str(run.id)},
+                )
+
     session.add(decision)
+    try:
+        # 提前 flush：让唯一约束 (run_id, idempotency_key) 在此处判定，
+        # 并发同键的落败方按"重复提交"处理而不是 500
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        refreshed = await session.get(ReviewRun, run_id)
+        return refreshed.status if refreshed else "UNKNOWN"
+
+    # 决定一旦生效立即推进 state_version：否则"部分批准"这类不改变 Run 状态的
+    # 决定会让版本号停滞，第二个不同幂等键的请求可以用同一版本再次通过乐观锁
+    run.state_version += 1
+    await session.flush()
+
     seq = _EventWriter(session, run, resume=True)
     await seq.emit("HUMAN_DECISION", {"action": decision.action})
 

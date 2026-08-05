@@ -636,3 +636,100 @@ async def test_report_agent_status_verified_then_approved(session):
     assert approved.status == "APPROVED_DRAFT"
     assert approved.version_no == 2
     assert approved.content_hash == draft.content_hash, "内容不变则哈希不变"
+
+
+# ====================== P1：Evidence 闭环 ======================
+
+
+async def test_evidence_record_persisted_with_parse_run_locator(session):
+    """P1：Agent 引用的证据独立落库为 EvidenceRecord，locator 含 parse_run_id。
+
+    报告可从 evidence 表直接追溯到冻结 Snapshot 中的原始段落，
+    不必解析 Artifact payload。
+    """
+    from creditlens.agents.contracts import AgentEvidenceRef
+    from creditlens.agents.supervisor import Supervisor
+    from creditlens.infrastructure.postgres.models import EvidenceRecord
+
+    await _make_world(session)
+    run = ReviewRun(
+        tenant_id=TENANT,
+        case_id=CASE,
+        as_of_date=AS_OF,
+        decision_cutoff_at=CUTOFF,
+    )
+    session.add(run)
+    await session.flush()
+
+    section_id = uuid.uuid4()
+    version_id = uuid.uuid4()
+    parse_run_id = uuid.uuid4()
+    ref = AgentEvidenceRef(
+        evidence_id=uuid.uuid5(uuid.NAMESPACE_URL, f"evidence:{section_id}:hash-x"),
+        evidence_type="DOCUMENT_SPAN",
+        source_id=section_id,
+        content_hash="hash-x",
+        document_version_id=version_id,
+        section_id=section_id,
+        parse_run_id=parse_run_id,
+        page_number=7,
+        source_available_at=CUTOFF,
+    )
+    artifact = AgentArtifact(
+        run_id=run.id,
+        task_id="policy_review",
+        producer="policy_analyst",
+        evidence=[ref],
+        claims=[
+            AgentClaim(
+                category="ELIGIBILITY",
+                statement="符合准入条件。",
+                verdict="SUPPORTED",
+                supporting_evidence_ids=[ref.evidence_id],
+                as_of_date=AS_OF,
+            )
+        ],
+    )
+    # 同一证据被两个 Artifact 引用：EvidenceRecord 只应存在一条
+    await Supervisor._persist_evidence(session, run, artifact)
+    await Supervisor._persist_evidence(session, run, artifact)
+
+    rows = (
+        await session.scalars(select(EvidenceRecord).where(EvidenceRecord.run_id == run.id))
+    ).all()
+    assert len(rows) == 1, "同一 evidence_id 在同 Run 内不得重复落库"
+    record = rows[0]
+    assert record.section_id == section_id
+    assert record.page_number == 7
+    assert record.locator["parse_run_id"] == str(parse_run_id), "locator 必须含 parse_run_id"
+    assert record.locator["section_id"] == str(section_id)
+    assert record.content_hash == "hash-x"
+
+
+async def test_report_locator_carries_parse_run_id_from_evidence_table(session):
+    """P1：报告 Locator 带 parse_run_id（来源为落库的 EvidenceRecord）。"""
+    from creditlens.infrastructure.postgres.models import EvidenceRecord
+
+    run, claim, section_id, _ = await _make_report_world(session)
+    evidence_id = uuid.UUID(claim.payload["supporting_evidence_ids"][0])
+    parse_run_id = uuid.uuid4()
+    session.add(
+        EvidenceRecord(
+            id=evidence_id,
+            tenant_id=TENANT,
+            run_id=run.id,
+            evidence_type="DOCUMENT_SPAN",
+            source_id=section_id,
+            section_id=section_id,
+            page_number=3,
+            locator={"section_id": str(section_id), "parse_run_id": str(parse_run_id)},
+            content_hash="hash-loc",
+            source_available_at=CUTOFF,
+        )
+    )
+    await session.flush()
+
+    content = await ReportAgent().generate(session, run)
+    locator = content.claims[0].evidence_locators[0]
+    assert locator["parse_run_id"] == str(parse_run_id)
+    assert locator["section_id"] == str(section_id)

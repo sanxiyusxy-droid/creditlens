@@ -85,6 +85,8 @@ class RiskAgent:
                         "error": type(exc).__name__,
                     }
                 )
+                # P1：工具部分失败体现在 Artifact 执行状态上（供 Supervisor 标 DEGRADED）
+                artifact.execution_status = "DEGRADED"
                 continue
 
             if calc.status != "CALCULATED":
@@ -141,6 +143,9 @@ class RiskAgent:
                         "error": type(exc).__name__,
                     }
                 )
+                # P1：工具部分失败必须体现在 Artifact 执行状态上，
+                # 否则 Supervisor/报告层无法得知本次风险分析是降级产出
+                artifact.execution_status = "DEGRADED"
                 continue
 
             # WP2：消费 Packed Sections（含相邻复核与预算控制）
@@ -182,7 +187,9 @@ class RiskAgent:
                     uncertainty_reason="材料有限，未覆盖全部风险维度",
                 )
             )
-            artifact.execution_status = "PARTIAL"
+            # 证据不足是 PARTIAL；但若已因工具失败标记 DEGRADED，保留更严重的降级语义
+            if artifact.execution_status != "DEGRADED":
+                artifact.execution_status = "PARTIAL"
 
         # WP3：阈值配置版本随 Artifact 可追溯（Supervisor 另写入 Manifest）
         artifact.unresolved_issues.append({"risk_threshold_version": self.threshold_version})

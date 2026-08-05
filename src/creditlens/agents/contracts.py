@@ -25,6 +25,9 @@ class AgentEvidenceRef(BaseModel):
     content_hash: str
     document_version_id: uuid.UUID | None = None
     section_id: uuid.UUID | None = None
+    # P1：parse_run_id 是回原文的必要定位信息——同一 Section 在不同解析批次
+    # 的页码/坐标可能不同，缺失时无法证明引用的是 Snapshot 冻结的那一版
+    parse_run_id: uuid.UUID | None = None
     page_number: int | None = None
     fact_id: uuid.UUID | None = None
     calculation_id: uuid.UUID | None = None
@@ -69,7 +72,11 @@ class AgentArtifact(BaseModel):
     lifecycle_status: Literal[
         "CREATED", "VALIDATED", "VERIFIED", "ACCEPTED", "REJECTED", "STALE"
     ] = "CREATED"
-    execution_status: Literal["SUCCESS", "PARTIAL", "INSUFFICIENT_EVIDENCE", "FAILED"] = "SUCCESS"
+    # DEGRADED：Agent 产出了结果但依赖的工具/检索部分失败（与 PARTIAL 区分：
+    # PARTIAL 指证据不足导致结论不完整，DEGRADED 指执行链路本身发生了失败）
+    execution_status: Literal[
+        "SUCCESS", "PARTIAL", "DEGRADED", "INSUFFICIENT_EVIDENCE", "FAILED"
+    ] = "SUCCESS"
     claims: list[AgentClaim] = Field(default_factory=list)
     evidence: list[AgentEvidenceRef] = Field(default_factory=list)
     calculations: list[CalculationArtifact] = Field(default_factory=list)

@@ -2,6 +2,9 @@
 
 - Anchor 映射：gold_evidence_key -> 当前 Parse Run 的 Section ID（按 logical_key +
   article_anchor/heading 匹配），映射失败记为 unmapped，不静默丢弃；
+- 映射必须限定在 GoldMappingScope（tenant + case_documents 绑定 + Snapshot 冻结
+  parse_run）内，否则黄金证据可能命中跨租户/跨案件/非冻结解析版本的 Section，
+  使 Recall 指标虚高（P0 加固）；
 - Recall@K / MRR@K / AllRequiredEvidence@K；
 - NDCG@K / Precision@K；
 - Retrieved Evidence Precision / Recall（候选层证据命中率；无答案生成层，
@@ -19,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from creditlens.evaluation.gold_schema import GoldDataset, GoldEvidenceAnchor, GoldQuestion
 from creditlens.infrastructure.postgres.models import (
+    CaseDocument,
     Document,
     DocumentSection,
     DocumentVersion,
@@ -26,18 +30,41 @@ from creditlens.infrastructure.postgres.models import (
 from creditlens.retrieval.contracts import RetrievedCandidate
 
 
+@dataclass(frozen=True)
+class GoldMappingScope:
+    """Gold Anchor 映射的安全边界（与被评测检索链路使用同一冻结世界）。
+
+    - tenant_id：租户隔离，避免跨租户同名 logical_key 命中；
+    - case_id：只认 case_documents 绑定到本案件的 DocumentVersion；
+    - allowed_parse_run_ids：只认本次 Snapshot 冻结的 Parse Run，
+      避免命中已 SUPERSEDED 或尚未激活的解析结果。
+    """
+
+    tenant_id: uuid.UUID
+    case_id: uuid.UUID
+    allowed_parse_run_ids: frozenset[uuid.UUID]
+
+
 async def map_anchor_to_section_ids(
-    session: AsyncSession, anchor: GoldEvidenceAnchor
+    session: AsyncSession, anchor: GoldEvidenceAnchor, scope: GoldMappingScope
 ) -> set[uuid.UUID]:
-    """稳定锚点 -> 当前激活 Parse Run 下的 Section ID 集合。"""
+    """稳定锚点 -> Snapshot 冻结 Parse Run 下的 Section ID 集合（限定在 scope 内）。"""
     rows = (
         await session.execute(
             select(DocumentSection, DocumentVersion)
             .join(DocumentVersion, DocumentVersion.id == DocumentSection.document_version_id)
             .join(Document, Document.id == DocumentVersion.document_id)
+            .join(CaseDocument, CaseDocument.document_version_id == DocumentVersion.id)
             .where(
                 Document.logical_key == anchor.logical_document_key,
                 DocumentVersion.version_label == anchor.version_label,
+                # 安全限定：租户 + 案件绑定（三张表同时校验，避免单点绕过）
+                Document.tenant_id == scope.tenant_id,
+                DocumentVersion.tenant_id == scope.tenant_id,
+                DocumentSection.tenant_id == scope.tenant_id,
+                CaseDocument.case_id == scope.case_id,
+                # 只认本次 Snapshot 冻结的解析版本
+                DocumentSection.parse_run_id.in_(scope.allowed_parse_run_ids),
             )
         )
     ).all()
@@ -110,6 +137,7 @@ async def evaluate_question(
     dataset: GoldDataset,
     question: GoldQuestion,
     candidates: list[RetrievedCandidate],
+    scope: GoldMappingScope,
     ks: tuple[int, ...] = (5, 10, 20),
 ) -> QuestionResult:
     anchors = dataset.anchor_by_key()
@@ -121,7 +149,7 @@ async def evaluate_question(
         mapped_set: list[set[uuid.UUID]] = []
         for key in evidence_set:
             anchor = anchors.get(key)
-            ids = await map_anchor_to_section_ids(session, anchor) if anchor else set()
+            ids = await map_anchor_to_section_ids(session, anchor, scope) if anchor else set()
             if not ids:
                 unmapped.append(key)
             mapped_set.append(ids)

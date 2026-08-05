@@ -10,6 +10,8 @@
 时点切换 → 完整预审 DAG → 证据回原文页 → HITL 复核与报告 → Trace 审计。
 """
 
+import hashlib
+
 import requests
 import streamlit as st
 
@@ -214,6 +216,13 @@ with tab4:
                         "target_claim_ids": approved,
                         "reason_code": "DEMO",
                         "reason": "演示：正反证据已核对",
+                        # 幂等键 + 乐观锁为必填契约：键随所选 Claim 稳定，
+                        # 重复点击不会重复应用；版本不符返回 409
+                        "idempotency_key": (
+                            f"demo-approve-{run['state_version']}-"
+                            f"{hashlib.sha256(','.join(sorted(approved)).encode()).hexdigest()[:12]}"
+                        ),
+                        "expected_state_version": run["state_version"],
                     },
                 )
                 st.success(f"提交后状态：{result['status']}（部分批准会保持 HUMAN_REVIEW）")

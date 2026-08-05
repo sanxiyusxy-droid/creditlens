@@ -34,8 +34,8 @@ from creditlens.application.snapshot_service import freeze_snapshot
 from creditlens.application.trusted_context import acl_scope_hash, build_trusted_context
 from creditlens.common.clock import utc_now
 from creditlens.common.config import get_settings
-from creditlens.evaluation.gold_schema import GoldDataset
-from creditlens.evaluation.recall import EvalReport, evaluate_question
+from creditlens.evaluation.gold_schema import GoldDataset, GoldQuestion
+from creditlens.evaluation.recall import EvalReport, GoldMappingScope, evaluate_question
 from creditlens.infrastructure.llm.embedding import build_embedding_provider
 from creditlens.infrastructure.objectstore import build_object_store
 from creditlens.infrastructure.postgres.models import Base
@@ -67,6 +67,83 @@ CASE_KEY_MAP = {
     "golden_case_002": CASE_ID_002,
     "golden_case_003": CASE_ID_003,
 }
+
+
+def question_context_key(question: GoldQuestion) -> tuple[str, str, str]:
+    """P0：题目所属的冻结世界键 =（案件, as_of_date, decision_cutoff_at）。
+
+    同一案件下不同时点的题目必须使用各自时点冻结的 Snapshot，
+    否则时点约束（政策有效期、材料可获得性）在评测中形同虚设。
+    """
+    return (
+        question.case_key,
+        question.as_of_date.isoformat(),
+        question.decision_cutoff_at.astimezone(UTC).isoformat(),
+    )
+
+
+def git_provenance() -> dict:
+    """P0-3：Git 溯源（commit + dirty 标记）。dirty=true 的报告不得用于对外引用。"""
+    import subprocess
+
+    def run(*args: str) -> str | None:
+        try:
+            out = subprocess.run(
+                ["git", *args],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+            return out.stdout.strip() if out.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    commit = run("rev-parse", "HEAD")
+    status = run("status", "--porcelain")
+    return {
+        "git_commit": commit or "unknown",
+        "git_branch": run("rev-parse", "--abbrev-ref", "HEAD") or "unknown",
+        "git_describe": run("describe", "--tags", "--always", "--dirty") or "unknown",
+        # dirty：工作区存在未提交改动，指标不可作为冻结证据引用
+        "git_dirty": bool(status) if status is not None else None,
+        "git_dirty_files": len(status.splitlines()) if status else 0,
+    }
+
+
+def file_hashes() -> dict:
+    """P0-3：锁文件/配置/语料 Hash（判定两次评测是否同一输入世界）。"""
+    from creditlens.common.hashing import sha256_bytes
+
+    targets = {
+        "uv_lock_sha256": PROJECT_ROOT / "uv.lock",
+        "formula_registry_sha256": PROJECT_ROOT / "config" / "formulas" / "registry_v1.yaml",
+        "seed_corpus_sha256": PROJECT_ROOT / "scripts" / "seed_synthetic_data.py",
+    }
+    out: dict = {}
+    for key, path in targets.items():
+        out[key] = sha256_bytes(path.read_bytes()) if path.exists() else "missing"
+    # 检索阈值/阈值版本等运行期配置（影响指标可复现性）
+    return out
+
+
+def runtime_environment(settings) -> dict:
+    """P0-3：运行环境与关键检索配置（影响可复现性的最小必要集）。"""
+    import platform
+
+    return {
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "dense_top_k": settings.dense_top_k,
+        "rrf_k": settings.rrf_k,
+        "embedding_provider": settings.embedding_provider,
+        "embedding_model": settings.embedding_model,
+        "rerank_provider": settings.rerank_provider,
+        "rerank_model": settings.rerank_model,
+        "orchestrator_enable_rerank": settings.orchestrator_enable_rerank,
+        "parser": f"{settings.parser_name}:{settings.parser_version}",
+    }
 
 
 async def audit_final_candidates(session, trusted, candidates) -> int:
@@ -136,26 +213,30 @@ async def evaluate_channel(
     leakage = 0
     independent_violations = 0
     unanswerable_skipped = 0
+    rerank_degraded_count = 0
+    rerank_degrade_reasons: dict[str, int] = {}
     latencies_ms: list[float] = []
     async with session_scope(factory, tenant_id=TENANT_ID, user_id=DEMO_USER_ID) as session:
         for question in dataset.questions:
-            # WP4：按题目 case_key 取对应案件的 TrustedContext/Snapshot
-            if question.case_key not in case_contexts:
-                raise KeyError(f"案件 {question.case_key} 未在 Seed 映射中定义")
-            base_trusted, case_snapshot = case_contexts[question.case_key]
-            # 评测问题的时点必须与案件上下文一致；request_id 每题独立
-            question_trusted = base_trusted.model_copy(
-                update={
-                    "request_id": uuid.uuid4(),
-                    "as_of_date": question.as_of_date,
-                    "decision_cutoff_at": question.decision_cutoff_at.astimezone(UTC),
-                }
+            # P0：按 (case_key, as_of_date, decision_cutoff_at) 取对应时点的
+            # TrustedContext/Snapshot——同一案件的不同时点必须使用不同冻结世界
+            context_key = question_context_key(question)
+            if context_key not in case_contexts:
+                raise KeyError(f"题目 {question.question_id} 的时点上下文 {context_key} 未冻结")
+            question_trusted, case_snapshot = case_contexts[context_key]
+            # 时点已在冻结时固定；每题只需独立 request_id
+            question_trusted = question_trusted.model_copy(
+                update={"request_id": uuid.uuid4()},
             )
             started = time.perf_counter()
             retrieval = await retrieve_fn(
                 session, question_trusted, question.question, case_snapshot
             )
             latencies_ms.append((time.perf_counter() - started) * 1000)
+            if getattr(retrieval, "rerank_degraded", False):
+                rerank_degraded_count += 1
+                reason = getattr(retrieval, "rerank_degraded_reason", None) or "UNKNOWN"
+                rerank_degrade_reasons[reason] = rerank_degrade_reasons.get(reason, 0) + 1
             leakage += sum(
                 1
                 for r in retrieval.rejected
@@ -169,8 +250,14 @@ async def evaluate_channel(
                 # 拒答题不计入 Recall（无黄金证据）；正确拒答属答案层指标
                 unanswerable_skipped += 1
                 continue
+            # Gold 映射与检索使用同一冻结世界（租户 + 案件绑定 + Snapshot parse-run）
+            scope = GoldMappingScope(
+                tenant_id=question_trusted.tenant_id,
+                case_id=question_trusted.case_id,
+                allowed_parse_run_ids=frozenset(case_snapshot.allowed_parse_run_ids),
+            )
             results.append(
-                await evaluate_question(session, dataset, question, retrieval.candidates)
+                await evaluate_question(session, dataset, question, retrieval.candidates, scope)
             )
     report = EvalReport(
         dataset_id=dataset.dataset_id,
@@ -190,6 +277,9 @@ async def evaluate_channel(
     )
     report.config["unanswerable_skipped"] = unanswerable_skipped
     report.config["independent_leakage_violations"] = independent_violations
+    # P0-3：Reranker 降级可观测（次数 + 原因分布），而不是只记 degraded=true
+    report.config["rerank_degraded_questions"] = rerank_degraded_count
+    report.config["rerank_degrade_reasons"] = dict(sorted(rerank_degrade_reasons.items()))
     if latencies_ms:
         ordered = sorted(latencies_ms)
         report.config["latency_p50_ms"] = round(ordered[len(ordered) // 2], 1)
@@ -251,14 +341,27 @@ async def main(dataset_path: Path, split: str) -> None:
 
     await seed_environment(factory, store, qdrant, settings)
 
-    # 服务端派生可信上下文并冻结 Snapshot（WP4：逐案件独立冻结）
-    case_contexts: dict[str, tuple] = {}
+    # 服务端派生可信上下文并冻结 Snapshot
+    # P0：按 (case_key, as_of_date, decision_cutoff_at) 逐时点冻结——
+    # 同一案件多个时点的题目各自拿到与其时点一致的冻结世界
+    case_contexts: dict[tuple[str, str, str], tuple] = {}
     async with session_scope(factory, tenant_id=TENANT_ID, user_id=DEMO_USER_ID) as session:
-        for case_key in sorted({q.case_key for q in dataset.questions}):
-            case_id = CASE_KEY_MAP.get(case_key)
+        combos: dict[tuple[str, str, str], GoldQuestion] = {}
+        for question in dataset.questions:
+            combos.setdefault(question_context_key(question), question)
+        for context_key in sorted(combos):
+            question = combos[context_key]
+            case_id = CASE_KEY_MAP.get(question.case_key)
             if case_id is None:
-                raise SystemExit(f"题目引用了未知案件 {case_key}")
-            trusted = await build_trusted_context(session, TENANT_ID, case_id)
+                raise SystemExit(f"题目引用了未知案件 {question.case_key}")
+            base_trusted = await build_trusted_context(session, TENANT_ID, case_id)
+            # 时点在冻结前注入，使 Snapshot 的 as_of/cutoff 与被评测题目一致
+            trusted = base_trusted.model_copy(
+                update={
+                    "as_of_date": question.as_of_date,
+                    "decision_cutoff_at": question.decision_cutoff_at.astimezone(UTC),
+                }
+            )
             snapshot = await freeze_snapshot(
                 session,
                 trusted,
@@ -266,7 +369,11 @@ async def main(dataset_path: Path, split: str) -> None:
                 summaries_collection=settings.summaries_collection_name,
                 acl_hash=acl_scope_hash(trusted),
             )
-            case_contexts[case_key] = (trusted, snapshot)
+            case_contexts[context_key] = (trusted, snapshot)
+    print(
+        f"已冻结 {len(case_contexts)} 个时点上下文"
+        f"（案件×as_of×cutoff 组合），覆盖 {len(dataset.questions)} 题"
+    )
 
     embedder = build_embedding_provider(settings)
     reranker = build_reranker(settings) or LexicalOverlapReranker()
@@ -417,7 +524,7 @@ async def main(dataset_path: Path, split: str) -> None:
         f"ablation_{dataset.dataset_id}_{split}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.json"
     )
 
-    # 可复现 Manifest
+    # 可复现 Manifest（P0-3：Git 溯源 + 输入 Hash + 冻结世界标识 + 运行环境）
     from creditlens.common.hashing import sha256_bytes
 
     manifest = {
@@ -433,6 +540,31 @@ async def main(dataset_path: Path, split: str) -> None:
         "collection_point_count": qdrant.count(settings.chunks_collection_name).count,
         "summaries_point_count": qdrant.count(settings.summaries_collection_name).count,
         "generated_at": utc_now().isoformat(),
+        **git_provenance(),
+        **file_hashes(),
+        "runtime": runtime_environment(settings),
+        # 冻结世界：每个（案件, as_of, cutoff）组合的 Snapshot 与 parse-run 标识
+        "frozen_contexts": [
+            {
+                "case_key": key[0],
+                "as_of_date": key[1],
+                "decision_cutoff_at": key[2],
+                "snapshot_id": str(snapshot.snapshot_id),
+                "parse_run_ids": sorted(str(p) for p in snapshot.allowed_parse_run_ids),
+                "fact_count": len(snapshot.allowed_fact_ids),
+                "chunks_collection": snapshot.chunks_collection,
+                "summaries_collection": snapshot.summaries_collection,
+            }
+            for key, (_, snapshot) in sorted(case_contexts.items())
+        ],
+        # 各通道 Reranker 降级观测（次数 + 原因分布），来自 evaluate_channel
+        "rerank_degradation": {
+            name: {
+                "degraded_questions": data["config"].get("rerank_degraded_questions", 0),
+                "reasons": data["config"].get("rerank_degrade_reasons", {}),
+            }
+            for name, data in per_channel.items()
+        },
     }
     try:
         from sqlalchemy import text as sa_text

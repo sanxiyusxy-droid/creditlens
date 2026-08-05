@@ -1,9 +1,8 @@
 # 本地集成测试环境：PG + Qdrant（无 MinIO/Redis，测试用 local_fs）
-# 用法：docker compose -f docker-compose.test.yml up -d
-#       docker compose -f docker-compose.test.yml exec -T postgres psql -U postgres -d creditlens_test -f - < infra/postgres/ci_role.sql
-#       DATABASE_URL=postgresql://postgres:postgres@localhost:5433/creditlens_test uv run alembic upgrade head
-#       docker compose -f docker-compose.test.yml exec -T postgres psql -U postgres -d creditlens_test -f - < infra/postgres/rls_policies.sql
-#       （授权 + Seed + 测试见 .gitlab-ci.yml integration 阶段，本地等价执行）
+# 一条命令完成建库/迁移/RLS/授权/Seed/测试（与 CI 同序列）：
+#     powershell -ExecutionPolicy Bypass -File scripts/run_integration.ps1
+# 该脚本全程使用业务角色 creditlens_app（NOSUPERUSER NOBYPASSRLS），
+# 不以超级用户绕过 RLS——否则 RLS 隔离测试等于没测。
 
 services:
   postgres:
@@ -28,7 +27,9 @@ services:
     ports:
       - "6334:6333"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      # qdrant 镜像不含 curl/wget：用 bash 的 /dev/tcp 探测端口，
+      # 否则服务实际可用却一直显示 unhealthy
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333' || exit 1"]
       interval: 3s
       timeout: 3s
       retries: 10

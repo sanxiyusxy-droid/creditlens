@@ -425,8 +425,10 @@ class ReviewDecisionRequest(BaseModel):
     target_claim_ids: list[uuid.UUID] = []
     reason_code: str = ""
     reason: str = ""
-    idempotency_key: str | None = None  # WP3：幂等键
-    expected_state_version: int | None = None  # WP3：乐观锁，冲突返回 409
+    # P1：幂等键与乐观锁改为必填——可选时并发请求可绕过版本校验，
+    # 缺失即 422（契约错误），不再静默按"不校验"处理
+    idempotency_key: str
+    expected_state_version: int
 
 
 @app.post("/api/v1/runs/{run_id}/review-decisions")

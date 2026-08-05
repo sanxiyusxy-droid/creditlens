@@ -24,7 +24,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from creditlens.agents.supervisor import resume_after_human_review
-from creditlens.common.errors import ConcurrentReviewConflictError, InvalidStateTransitionError
+from creditlens.common.errors import (
+    ConcurrentReviewConflictError,
+    InvalidReviewRequestError,
+    InvalidStateTransitionError,
+)
 from creditlens.infrastructure.postgres.models import (
     AppUser,
     ArtifactRecord,
@@ -126,6 +130,11 @@ async def _make_run(session, *, status="HUMAN_REVIEW", claim_status="PENDING"):
 
 
 def _decision(run, *, action="APPROVE_CLAIM", claim_ids=None, idem=None, version=None):
+    """构造人工决定。
+
+    P1：幂等键与乐观锁在服务层为必填契约，测试默认填入合法值；
+    需要验证"缺失"行为的用例显式传 idem=""/version=None。
+    """
     return HumanDecision(
         tenant_id=TENANT,
         case_id=CASE,
@@ -133,8 +142,8 @@ def _decision(run, *, action="APPROVE_CLAIM", claim_ids=None, idem=None, version
         target_claim_ids=[str(c) for c in (claim_ids or [])],
         action=action,
         reviewer_id=USER,
-        idempotency_key=idem,
-        target_version=version,
+        idempotency_key=f"auto-{uuid.uuid4()}" if idem is None else idem,
+        target_version=run.state_version if version is None else version,
     )
 
 
@@ -214,6 +223,91 @@ async def test_hitl_wrong_state_rejected(hitl_session):
     with pytest.raises(InvalidStateTransitionError):
         await resume_after_human_review(
             session, run.id, _decision(run, claim_ids=[claim.id], idem="late")
+        )
+
+
+# ====================== P1：并发安全契约 ======================
+
+
+async def test_hitl_requires_idempotency_key(hitl_session):
+    """缺 idempotency_key -> 422（并发/重试安全前提，不允许静默放行）。"""
+    session = hitl_session
+    run, claim = await _make_run(session)
+    with pytest.raises(InvalidReviewRequestError):
+        await resume_after_human_review(
+            session, run.id, _decision(run, claim_ids=[claim.id], idem="")
+        )
+
+
+async def test_hitl_requires_expected_state_version(hitl_session):
+    """缺 expected_state_version -> 422（否则乐观锁形同虚设）。"""
+    session = hitl_session
+    run, claim = await _make_run(session)
+    decision = _decision(run, claim_ids=[claim.id], idem="no-version")
+    decision.target_version = None
+    with pytest.raises(InvalidReviewRequestError):
+        await resume_after_human_review(session, run.id, decision)
+
+
+async def test_hitl_unknown_claim_id_rejected(hitl_session):
+    """不存在的 Claim ID -> 422，不再静默忽略（否则等于空批准）。"""
+    session = hitl_session
+    run, _ = await _make_run(session)
+    with pytest.raises(InvalidReviewRequestError):
+        await resume_after_human_review(
+            session, run.id, _decision(run, claim_ids=[uuid.uuid4()], idem="ghost")
+        )
+    await session.rollback()
+
+
+async def test_hitl_cross_run_claim_id_rejected(hitl_session):
+    """跨 Run 的 Claim ID -> 422（防止在 A Run 上批准 B Run 的结论）。"""
+    session = hitl_session
+    run_a, _ = await _make_run(session)
+    _run_b, claim_b = await _make_run(session)
+    claim_b_id = claim_b.id
+    await session.commit()  # 固化两个 Run，使回滚只撤销被拒的决定
+    with pytest.raises(InvalidReviewRequestError):
+        await resume_after_human_review(
+            session, run_a.id, _decision(run_a, claim_ids=[claim_b_id], idem="cross")
+        )
+    await session.rollback()
+    # B 的 Claim 未被 A 的决定改动
+    reloaded = await session.get(ClaimRecord, claim_b_id)
+    assert reloaded.review_status == "PENDING"
+
+
+async def test_hitl_empty_claim_ids_rejected(hitl_session):
+    """APPROVE/REJECT 必须指定目标 Claim -> 空列表 422（防止空批准推进状态）。"""
+    session = hitl_session
+    run, _ = await _make_run(session)
+    with pytest.raises(InvalidReviewRequestError):
+        await resume_after_human_review(session, run.id, _decision(run, claim_ids=[], idem="empty"))
+
+
+async def test_hitl_second_decision_sees_bumped_version(hitl_session):
+    """第二个不同幂等键的决定必须带新版本号：用旧版本提交 -> 409。
+
+    这是并发安全的核心不变量——即使两个请求各自幂等键不同，
+    也不能都基于同一个 state_version 通过校验。
+    """
+    session = hitl_session
+    run, claim = await _make_run(session)
+    stale_version = run.state_version
+    # 第一个决定（REQUEST_CHANGES：不终结 Run，便于验证后续提交）
+    await resume_after_human_review(
+        session,
+        run.id,
+        _decision(run, action="REQUEST_CHANGES", idem="first", version=stale_version),
+    )
+    await session.refresh(run)
+    assert run.state_version > stale_version, "决定应推进 state_version"
+    # 第二个决定沿用旧版本 -> 冲突
+    with pytest.raises(ConcurrentReviewConflictError):
+        await resume_after_human_review(
+            session,
+            run.id,
+            _decision(run, claim_ids=[claim.id], idem="second", version=stale_version),
         )
 
 
@@ -314,13 +408,14 @@ async def _api_run(factory, role: str):
 async def test_api_reviewer_can_approve_and_reviewer_injected(api_client):
     """REVIEWER 可审批；reviewer_id 由服务端注入。"""
     client, factory = api_client
-    run_id, claim_id, _ = await _api_run(factory, "REVIEWER")
+    run_id, claim_id, version = await _api_run(factory, "REVIEWER")
     response = await client.post(
         f"/api/v1/runs/{run_id}/review-decisions",
         json={
             "action": "APPROVE_CLAIM",
             "target_claim_ids": [str(claim_id)],
             "idempotency_key": "api-approve-1",
+            "expected_state_version": version,
         },
     )
     assert response.status_code == 200, response.text
@@ -332,13 +427,57 @@ async def test_api_reviewer_can_approve_and_reviewer_injected(api_client):
         assert decision.reviewer_id == API_USER, "reviewer 必须服务端注入"
 
 
+async def test_api_missing_concurrency_fields_rejected(api_client):
+    """P1：缺 idempotency_key / expected_state_version -> 422（契约必填）。"""
+    client, factory = api_client
+    run_id, claim_id, version = await _api_run(factory, "REVIEWER")
+    bodies = [
+        {"action": "APPROVE_CLAIM", "target_claim_ids": [str(claim_id)]},
+        {
+            "action": "APPROVE_CLAIM",
+            "target_claim_ids": [str(claim_id)],
+            "idempotency_key": "only-key",
+        },
+        {
+            "action": "APPROVE_CLAIM",
+            "target_claim_ids": [str(claim_id)],
+            "expected_state_version": version,
+        },
+    ]
+    for body in bodies:
+        response = await client.post(f"/api/v1/runs/{run_id}/review-decisions", json=body)
+        assert response.status_code == 422, f"{body} 应被拒绝: {response.text}"
+
+
+async def test_api_cross_run_claim_returns_422(api_client):
+    """P1：目标 Claim 不属于该 Run -> 422（不再静默忽略）。"""
+    client, factory = api_client
+    run_id, _, version = await _api_run(factory, "REVIEWER")
+    response = await client.post(
+        f"/api/v1/runs/{run_id}/review-decisions",
+        json={
+            "action": "APPROVE_CLAIM",
+            "target_claim_ids": [str(uuid.uuid4())],
+            "idempotency_key": "ghost-claim",
+            "expected_state_version": version,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "INVALID_REVIEW_REQUEST"
+
+
 async def test_api_viewer_forbidden_403(api_client):
     """VIEWER 无审批权限 -> 403。"""
     client, factory = api_client
-    run_id, claim_id, _ = await _api_run(factory, "VIEWER")
+    run_id, claim_id, version = await _api_run(factory, "VIEWER")
     response = await client.post(
         f"/api/v1/runs/{run_id}/review-decisions",
-        json={"action": "APPROVE_CLAIM", "target_claim_ids": [str(claim_id)]},
+        json={
+            "action": "APPROVE_CLAIM",
+            "target_claim_ids": [str(claim_id)],
+            "idempotency_key": "viewer-try",
+            "expected_state_version": version,
+        },
     )
     assert response.status_code == 403
 
@@ -352,6 +491,7 @@ async def test_api_concurrent_conflict_returns_409(api_client):
         json={
             "action": "APPROVE_CLAIM",
             "target_claim_ids": [str(claim_id)],
+            "idempotency_key": "stale-version",
             "expected_state_version": version + 10,
         },
     )
@@ -361,10 +501,16 @@ async def test_api_concurrent_conflict_returns_409(api_client):
 async def test_api_unimplemented_actions_closed(api_client):
     """WP3：未真正实现的复核动作从 API 删除（RERUN_TASK 等 -> 422）。"""
     client, factory = api_client
-    run_id, claim_id, _ = await _api_run(factory, "REVIEWER")
+    run_id, claim_id, version = await _api_run(factory, "REVIEWER")
     for action in ("RERUN_TASK", "OVERRIDE_WITH_REASON"):
         response = await client.post(
             f"/api/v1/runs/{run_id}/review-decisions",
-            json={"action": action, "target_claim_ids": [str(claim_id)]},
+            # 并发字段填齐，确保 422 来自动作白名单而不是字段缺失
+            json={
+                "action": action,
+                "target_claim_ids": [str(claim_id)],
+                "idempotency_key": f"closed-{action}",
+                "expected_state_version": version,
+            },
         )
         assert response.status_code == 422, f"{action} 不应开放"

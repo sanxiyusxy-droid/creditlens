@@ -41,7 +41,7 @@ jobs:
           uv run ruff check src/ tests/ apps/ scripts/
           uv run ruff format --check src/ tests/ apps/ scripts/
 
-  # ---------- Unit Tests ----------
+  # ---------- Unit / Security / 非集成 E2E ----------
   unit:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -54,8 +54,10 @@ jobs:
         run: |
           pip install uv
           uv sync --frozen
-      - name: Unit & security tests
-        run: uv run pytest tests/unit/ tests/security/ -x -q --timeout=120
+      - name: Non-integration tests（unit + security + 非集成 E2E，全量门禁）
+        # -m "not integration"：覆盖 tests/ 下所有不需要真实栈的用例（含 e2e 中的 sqlite 用例），
+        # 避免按目录枚举造成的覆盖缺口
+        run: uv run pytest -m "not integration" -q --timeout=180
 
   # ---------- Integration Tests（真实 PG + Qdrant + RLS） ----------
   integration:
@@ -115,3 +117,5 @@ jobs:
           uv run pytest tests/e2e/ -m integration -ra -q --timeout=300 | tee integration_result.txt
           # Integration 必须 0 skip / 0 fail：出现 skipped 即失败
           ! grep -q 'skipped' integration_result.txt
+          # 必须确有用例通过（防止 collection 为空被当成成功）
+          grep -Eq '[0-9]+ passed' integration_result.txt

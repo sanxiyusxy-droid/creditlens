@@ -84,6 +84,9 @@ class OrchestratedResult(BaseModel):
     trace: dict = {}
     packing: dict | None = None
     channel_config: dict = {}
+    # 精排降级可观测（评测/Run Manifest 直接消费，不必解析 trace 字典）
+    rerank_degraded: bool = False
+    rerank_degraded_reason: str | None = None
 
 
 @dataclass
@@ -200,9 +203,12 @@ class RetrievalOrchestrator:
             exact_candidates, exact_rejected = await self._exact_match(
                 session, trusted, spec.exact_terms, snapshot
             )
+            # 拒绝记录与 Trace 无条件保留：Exact 候选全部被拒（旧政策/跨案件/
+            # 未来材料）是最需要审计的情形，不能因 candidates 为空而丢失证据
+            all_rejected.extend(exact_rejected)
             if exact_candidates:
                 ranked_lists["EXACT"] = exact_candidates
-                all_rejected.extend(exact_rejected)
+            if exact_candidates or exact_rejected:
                 route_traces.append(_make_trace("EXACT", exact_candidates, exact_rejected))
 
         # 3. RRF 融合
@@ -215,17 +221,24 @@ class RetrievalOrchestrator:
         )
 
         # 4. Cross-Encoder 精排（可选）：请求精排但 Reranker 缺失/异常 -> 降级必须记录
+        # 降级不只记 bool，还记录可归因的原因（缺失 / 异常类型 + 摘要），
+        # 便于在评测 Manifest 与 Trace 中区分"没配精排"与"精排调用失败"
         rerank_applied = False
         rerank_degraded = False
+        rerank_degraded_reason: str | None = None
+        rerank_error_detail: str | None = None
         if cfg.enable_rerank:
             if self.reranker is None:
                 rerank_degraded = True
+                rerank_degraded_reason = "RERANKER_NOT_CONFIGURED"
             else:
                 try:
                     fused = await self._rerank(query, fused)
                     rerank_applied = True
-                except Exception:
+                except Exception as exc:  # 精排失败不阻断检索，但必须留痕
                     rerank_degraded = True
+                    rerank_degraded_reason = f"RERANK_CALL_FAILED:{type(exc).__name__}"
+                    rerank_error_detail = str(exc)[:200]
 
         # 5. 重编 rank + 截断
         final: list[RetrievedCandidate] = []
@@ -260,6 +273,8 @@ class RetrievalOrchestrator:
             },
             "rerank_applied": rerank_applied,
             "rerank_degraded": rerank_degraded,
+            "rerank_degraded_reason": rerank_degraded_reason,
+            "rerank_error_detail": rerank_error_detail,
             "reranker_version": self.reranker.version if self.reranker else None,
             "fused_count": len(fused),
             "final_count": len(final),
@@ -273,6 +288,7 @@ class RetrievalOrchestrator:
             "rrf_k": self.rrf_k,
             "rerank": rerank_applied,
             "rerank_degraded": rerank_degraded,
+            "rerank_degraded_reason": rerank_degraded_reason,
             "top_k_per_route": cfg.top_k_per_route,
             "collection": collection_name,
             "packing_tokens": packing_result.total_tokens_est if packing_result else None,
@@ -287,6 +303,8 @@ class RetrievalOrchestrator:
             trace=trace,
             packing=packing_result.model_dump(mode="json") if packing_result else None,
             channel_config=channel_config,
+            rerank_degraded=rerank_degraded,
+            rerank_degraded_reason=rerank_degraded_reason,
         )
 
     async def _rerank(self, query: str, fused: list[FusedCandidate]) -> list[FusedCandidate]:

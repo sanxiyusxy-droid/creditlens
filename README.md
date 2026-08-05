@@ -31,9 +31,9 @@
 
 ```powershell
 uv sync
-uv run python scripts/seed_synthetic_data.py   # 合成政策 PDF -> 入库 -> 索引
-uv run python scripts/run_evaluation.py        # 20 条 Smoke 问题 Recall@K 报告
-uv run pytest                                  # 单元 + 端到端测试
+uv run python scripts/seed_synthetic_data.py   # 合成政策 PDF -> 入库 -> 索引（三案件）
+uv run python scripts/run_evaluation.py        # 默认 frozen_v2 test（121 题）五通道消融
+uv run pytest -m "not integration"             # 单元 + 安全 + 非集成 E2E（CI 同一门禁）
 ```
 
 > 注意：离线模式的本地库 `data/creditlens_local.db` 由 `create_all` 创建，
@@ -98,19 +98,20 @@ alembic revision / collection point count / 模型版本）。
 ### 集成测试
 
 ```powershell
-docker compose -f docker-compose.test.yml up -d
-$env:DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5433/creditlens_test"
-$env:QDRANT_URL="http://localhost:6334"
-uv run pytest tests/e2e/ -m integration
+# 一条命令完成：建库 → 业务角色 → Alembic → RLS 基线 → 授权 → Seed → 集成测试
+# 全程使用 NOSUPERUSER NOBYPASSRLS 业务角色（不以超级用户绕过 RLS）
+powershell -ExecutionPolicy Bypass -File scripts\run_integration.ps1
 ```
 
 ## 项目定位（诚实口径）
 
 授信预审 RAG / Multi-Agent **在线化原型**：统一 Retrieval Orchestrator（Dense +
-Sparse + Summary + Exact → RRF → Rerank → Context Packing）、5 Agent DAG
-（Policy / Financial / Risk / Challenger / Auditor + Report）、文档版本化、
-Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题）、真实栈 CI 与集成测试。
-**不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做并发与容量验证。
+Sparse + Summary + Exact → RRF → Rerank → Context Packing）、中心化 Supervisor
+固定 DAG 编排六项专业职责（Policy / Financial / Risk / Challenger / Auditor /
+Report）、文档版本化、Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题，
+冻结 test 121 题）、真实栈 CI 与集成测试。
+**不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做容量与压力验证；
+HITL 已做行锁 + 乐观锁 + 幂等键的并发保护，但未做大规模并发压测。
 
 ## 演示（8–12 分钟）
 

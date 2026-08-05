@@ -23,6 +23,8 @@ from creditlens.infrastructure.postgres.models import (
     CreditCase,
     FinancialFact,
     HumanDecision,
+    ReportVersion,
+    ReviewRun,
     RunEvent,
 )
 from creditlens.tools.gateway import ToolCallDeniedError
@@ -125,9 +127,19 @@ async def test_hitl_resume(session, qdrant, with_facts):
     supervisor, _ = build_supervisor(session, qdrant, HashEmbedding(), snapshot)
     outcome = await supervisor.execute_full_review(session, trusted, snapshot)
     if outcome.status != "HUMAN_REVIEW":
-        pytest.skip("本次运行未触发人工复核")
+        # 未触发人工复核时走的是另一条合法路径：自动完成且报告已持久化。
+        # 不 skip（skip 会掩盖回归），改为断言该路径本身正确。
+        assert outcome.status == "COMPLETED", (
+            f"非 HUMAN_REVIEW 时只允许 COMPLETED，实际 {outcome.status}"
+        )
+        report = await session.scalar(
+            select(ReportVersion).where(ReportVersion.run_id == outcome.run_id)
+        )
+        assert report is not None, "COMPLETED 必须已持久化报告版本"
+        return
 
     pending = outcome.audit.needs_human_review_claim_ids
+    run = await session.get(ReviewRun, outcome.run_id)
     decision = HumanDecision(
         tenant_id=TENANT_ID,
         case_id=case.id,
@@ -136,6 +148,9 @@ async def test_hitl_resume(session, qdrant, with_facts):
         action="APPROVE_CLAIM",
         reason_code="REVIEWED_OK",
         reason="正反证据已人工核对",
+        # P1：幂等键 + 乐观锁为必填契约
+        idempotency_key=f"e2e-approve-{outcome.run_id}",
+        target_version=run.state_version,
     )
     status = await supervisor.resume_after_human_review(session, outcome.run_id, decision)
     assert status == "COMPLETED"
