@@ -1,0 +1,117 @@
+# CreditLens GitHub Actions CI
+# 三阶段：lint -> unit -> integration（真实 PG + Qdrant + RLS 业务角色 + Seed）
+#
+# Integration 说明（v1.1）：
+# - Qdrant 镜像固定版本（与 uv.lock 的 qdrant-client 1.18.0 对应）；
+# - 测试库 creditlens_test 由 postgres service 通过 POSTGRES_DB 创建；
+# - 以超级用户执行 Alembic 迁移与 RLS 基线（管理账号与业务账号分离）；
+# - 业务角色 creditlens_app 为 NOSUPERUSER NOBYPASSRLS（RLS 测试前提）；
+# - Seed 与测试均以业务角色连接，RLS 上下文由 session_scope 注入；
+# - 阶段末尾断言 0 skip（DATABASE_URL/QDRANT_URL 已在 env 中提供）；
+# - 与 .gitlab-ci.yml 保持同一 CI 序列（GitLab 账户验证受阻期间以本流水线为准）。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ---------- Lint ----------
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv & sync
+        run: |
+          pip install uv
+          uv sync --frozen
+      - name: Ruff
+        run: |
+          uv run ruff check src/ tests/ apps/ scripts/
+          uv run ruff format --check src/ tests/ apps/ scripts/
+
+  # ---------- Unit Tests ----------
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv & sync
+        run: |
+          pip install uv
+          uv sync --frozen
+      - name: Unit & security tests
+        run: uv run pytest tests/unit/ tests/security/ -x -q --timeout=120
+
+  # ---------- Integration Tests（真实 PG + Qdrant + RLS） ----------
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: [lint, unit]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: creditlens_test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      qdrant:
+        image: qdrant/qdrant:v1.18.0
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # 业务角色（NOSUPERUSER NOBYPASSRLS）：Seed 与测试均以此连接
+      DATABASE_URL: "postgresql+asyncpg://creditlens_app:creditlens_app@localhost:5432/creditlens_test"
+      QDRANT_URL: "http://localhost:6333"
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv & sync
+        run: |
+          pip install uv
+          uv sync --frozen
+      - name: Provision test database（管理身份：角色/迁移/RLS/授权）
+        run: |
+          # 1) 管理身份（超级用户）：创建 NOSUPERUSER NOBYPASSRLS 业务角色
+          psql -h localhost -U postgres -d creditlens_test -f infra/postgres/ci_role.sql
+          # 2) 管理身份：Alembic 迁移（env.py 自动剥离 +asyncpg 走同步驱动）
+          DATABASE_URL="postgresql://postgres:postgres@localhost:5432/creditlens_test" uv run alembic upgrade head
+          # 3) 管理身份：应用 RLS 基线（ENABLE + FORCE + 租户/案件级策略）
+          psql -h localhost -U postgres -d creditlens_test -f infra/postgres/rls_policies.sql
+          # 4) 管理身份：向业务角色授权（表已由 Alembic 创建，owner 为 postgres）
+          psql -h localhost -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app;"
+      - name: Seed（业务身份：三案件幂等 Seed）
+        run: uv run python scripts/seed_synthetic_data.py
+      - name: Integration tests（0 skip / 0 fail 门禁）
+        run: |
+          uv run pytest tests/e2e/ -m integration -ra -q --timeout=300 | tee integration_result.txt
+          # Integration 必须 0 skip / 0 fail：出现 skipped 即失败
+          ! grep -q 'skipped' integration_result.txt

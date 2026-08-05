@@ -107,7 +107,7 @@ uv run pytest tests/e2e/ -m integration
 授信预审 RAG / Multi-Agent **在线化原型**：统一 Retrieval Orchestrator（Dense +
 Sparse + Summary + Exact → RRF → Rerank → Context Packing）、5 Agent DAG
 （Policy / Financial / Risk / Challenger / Auditor + Report）、文档版本化、
-Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题）、GitLab CI 与集成测试。
+Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题）、真实栈 CI 与集成测试。
 **不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做并发与容量验证。
 
 ## 演示（8–12 分钟）
