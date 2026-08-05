@@ -1,5 +1,7 @@
 # CreditLens
 
+[![CI](https://github.com/sanxiyusxy-droid/creditlens/actions/workflows/ci.yml/badge.svg)](https://github.com/sanxiyusxy-droid/creditlens/actions/workflows/ci.yml)
+
 小微企业授信尽调与审查 Multi-Agent 系统 —— 证据优先的深度 RAG 实现。
 
 > 本项目为技术演示，使用合成数据；系统只做"授信审查辅助与证据整理"，
