@@ -60,9 +60,7 @@ def build_hard_filter(
         qm.FieldCondition(key="quality_status", match=qm.MatchValue(value="BLOCKED")),
     ]
     cutoff = trusted.decision_cutoff_at.astimezone(UTC).isoformat()
-    must.append(
-        qm.FieldCondition(key="source_available_at", range=qm.DatetimeRange(lte=cutoff))
-    )
+    must.append(qm.FieldCondition(key="source_available_at", range=qm.DatetimeRange(lte=cutoff)))
     # D3（v0.6）：政策有效期下推向量层。as_of ∉ [valid_from, valid_to) 的政策类
     # 候选直接排除；null 值不匹配 range 条件，非政策文档不受影响。
     # 回表复核仍保留同一检查作为第二道防线（文档 §8.6/§8.8）。
@@ -196,9 +194,7 @@ async def verify_candidate(
         return "PARSE_RUN_NOT_IN_SNAPSHOT"
     # Snapshot 冻结：只接受冻结集合内的 Parse Run（含 SUPERSEDED，
     # 支持历史 Run 继续访问旧解析批次）
-    if snapshot is not None and candidate.parse_run_id not in set(
-        snapshot.allowed_parse_run_ids
-    ):
+    if snapshot is not None and candidate.parse_run_id not in set(snapshot.allowed_parse_run_ids):
         return "PARSE_RUN_NOT_IN_SNAPSHOT"
 
     version = await session.get(DocumentVersion, candidate.document_version_id)

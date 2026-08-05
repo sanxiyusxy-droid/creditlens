@@ -71,7 +71,9 @@ class SparseRetriever:
         rejected: list[RetrievedCandidate] = []
         for rank, hit in enumerate(hits, start=1):
             candidate = _hit_to_candidate(hit, rank, "SPARSE")
-            reason = await verify_candidate(session, trusted, candidate, hit.payload or {}, snapshot)
+            reason = await verify_candidate(
+                session, trusted, candidate, hit.payload or {}, snapshot
+            )
             if reason is None:
                 candidates.append(candidate)
             else:
@@ -135,8 +137,13 @@ class HybridRetriever:
 
         if enable_sparse:
             sparse = await self._sparse.retrieve(
-                session, trusted, query, collection_name,
-                top_k=top_k_per_route, exact_terms=exact_terms, snapshot=snapshot,
+                session,
+                trusted,
+                query,
+                collection_name,
+                top_k=top_k_per_route,
+                exact_terms=exact_terms,
+                snapshot=snapshot,
             )
             ranked_lists["SPARSE"] = sparse.candidates
             rejected.extend(sparse.rejected)
@@ -188,5 +195,10 @@ class HybridRetriever:
         scores = await self._reranker.score(
             query, [f.candidate.text or " ".join(f.candidate.heading_path) for f in fused]
         )
-        order = sorted(range(len(fused)), key=lambda i: scores[i], reverse=True)
+        # 平分确定性 tie-break（WP6）
+        order = sorted(
+            range(len(fused)),
+            key=lambda i: (scores[i], fused[i].candidate.section_id),
+            reverse=True,
+        )
         return [fused[i] for i in order]

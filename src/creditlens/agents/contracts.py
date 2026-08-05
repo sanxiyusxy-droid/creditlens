@@ -20,9 +20,7 @@ class AgentEvidenceRef(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     evidence_id: uuid.UUID
-    evidence_type: Literal[
-        "DOCUMENT_SPAN", "TABLE_CELL", "SQL_FACT", "CALCULATION", "POLICY_RULE"
-    ]
+    evidence_type: Literal["DOCUMENT_SPAN", "TABLE_CELL", "SQL_FACT", "CALCULATION", "POLICY_RULE"]
     source_id: uuid.UUID
     content_hash: str
     document_version_id: uuid.UUID | None = None
@@ -57,6 +55,8 @@ class AgentClaim(BaseModel):
     uncertainty_reason: str | None = None
     recommended_follow_up: list[str] = Field(default_factory=list)
     review_status: str = "PENDING"
+    # v1.1：Challenger 反证时记录被质疑的原始 Claim ID
+    source_claim_id: uuid.UUID | None = None
 
 
 class AgentArtifact(BaseModel):

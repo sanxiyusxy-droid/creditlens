@@ -45,9 +45,15 @@ class TestP01SnapshotFact:
         registry = FormulaRegistry()
 
         before = await compute_metric_for_entity(
-            session, registry, TENANT_ID, case.borrower_entity_id,
-            "debt_ratio", "1.0", PERIOD_END,
-            case_id=case.id, decision_cutoff_at=CUTOFF,
+            session,
+            registry,
+            TENANT_ID,
+            case.borrower_entity_id,
+            "debt_ratio",
+            "1.0",
+            PERIOD_END,
+            case_id=case.id,
+            decision_cutoff_at=CUTOFF,
             allowed_fact_ids=snapshot.allowed_fact_ids,
         )
         assert before.status == "CALCULATED"
@@ -55,18 +61,30 @@ class TestP01SnapshotFact:
         # 底层世界变化：新增一条"更大负债"的事实（模拟重述/补录）
         session.add(
             FinancialFact(
-                tenant_id=TENANT_ID, case_id=case.id, entity_id=case.borrower_entity_id,
-                metric_code="total_liabilities", period_end=PERIOD_END, period_type="INSTANT",
-                value=Decimal("99000000"), canonical_value=Decimal("99000000"),
-                consolidation_scope="CONSOLIDATED", extraction_method="MANUAL",
+                tenant_id=TENANT_ID,
+                case_id=case.id,
+                entity_id=case.borrower_entity_id,
+                metric_code="total_liabilities",
+                period_end=PERIOD_END,
+                period_type="INSTANT",
+                value=Decimal("99000000"),
+                canonical_value=Decimal("99000000"),
+                consolidation_scope="CONSOLIDATED",
+                extraction_method="MANUAL",
             )
         )
         await session.flush()
 
         after = await compute_metric_for_entity(
-            session, registry, TENANT_ID, case.borrower_entity_id,
-            "debt_ratio", "1.0", PERIOD_END,
-            case_id=case.id, decision_cutoff_at=CUTOFF,
+            session,
+            registry,
+            TENANT_ID,
+            case.borrower_entity_id,
+            "debt_ratio",
+            "1.0",
+            PERIOD_END,
+            case_id=case.id,
+            decision_cutoff_at=CUTOFF,
             allowed_fact_ids=snapshot.allowed_fact_ids,
         )
         assert after.result == before.result, "历史 Snapshot 的计算不得随底层 Fact 变化"
@@ -77,10 +95,16 @@ class TestP01SnapshotFact:
         case = with_facts["case"]
         session.add(
             FinancialFact(
-                tenant_id=TENANT_ID, case_id=case.id, entity_id=case.borrower_entity_id,
-                metric_code="total_liabilities", period_end=PERIOD_END, period_type="INSTANT",
-                value=Decimal("1"), canonical_value=Decimal("1"),
-                consolidation_scope="CONSOLIDATED", extraction_method="MANUAL",
+                tenant_id=TENANT_ID,
+                case_id=case.id,
+                entity_id=case.borrower_entity_id,
+                metric_code="total_liabilities",
+                period_end=PERIOD_END,
+                period_type="INSTANT",
+                value=Decimal("1"),
+                canonical_value=Decimal("1"),
+                consolidation_scope="CONSOLIDATED",
+                extraction_method="MANUAL",
                 source_available_at=CUTOFF + timedelta(days=30),
             )
         )
@@ -97,15 +121,24 @@ class TestP01SnapshotFact:
 
 class TestP02CrossCaseIsolation:
     async def test_same_tenant_other_case_preview_denied(
-        self, session, qdrant, object_store, seeded  # noqa: F811
+        self,
+        session,
+        qdrant,
+        object_store,
+        seeded,  # noqa: F811
     ):
         """同租户、另一个案件的授权用户不能预览本案件证据。"""
         # 案件 B（同租户）+ 用户 B
         other_case = CreditCase(
-            tenant_id=TENANT_ID, case_number="other-001",
-            borrower_entity_id=(await session.scalars(select(CreditCase))).first().borrower_entity_id,
-            product_code="working_capital", requested_amount=Decimal("1000000"),
-            application_date=date(2026, 6, 30), as_of_date=date(2026, 6, 30),
+            tenant_id=TENANT_ID,
+            case_number="other-001",
+            borrower_entity_id=(await session.scalars(select(CreditCase)))
+            .first()
+            .borrower_entity_id,
+            product_code="working_capital",
+            requested_amount=Decimal("1000000"),
+            application_date=date(2026, 6, 30),
+            as_of_date=date(2026, 6, 30),
             decision_cutoff_at=CUTOFF,
         )
         session.add(other_case)
@@ -134,8 +167,12 @@ class TestP02CrossCaseIsolation:
 class TestP03StateMachine:
     async def _setup_run(self, session, case, review_statuses):
         run = ReviewRun(
-            tenant_id=TENANT_ID, case_id=case.id, run_type="FULL_REVIEW",
-            status="HUMAN_REVIEW", as_of_date=date(2026, 6, 30), decision_cutoff_at=CUTOFF,
+            tenant_id=TENANT_ID,
+            case_id=case.id,
+            run_type="FULL_REVIEW",
+            status="HUMAN_REVIEW",
+            as_of_date=date(2026, 6, 30),
+            decision_cutoff_at=CUTOFF,
         )
         session.add(run)
         await session.flush()
@@ -149,9 +186,14 @@ class TestP03StateMachine:
         claim_ids = []
         for status in review_statuses:
             claim = ClaimRecord(
-                tenant_id=TENANT_ID, run_id=run.id, artifact_id=artifact.id,
-                category="ELIGIBILITY", statement="测试", verdict="SUPPORTED",
-                as_of_date=date(2026, 6, 30), review_status=status,
+                tenant_id=TENANT_ID,
+                run_id=run.id,
+                artifact_id=artifact.id,
+                category="ELIGIBILITY",
+                statement="测试",
+                verdict="SUPPORTED",
+                as_of_date=date(2026, 6, 30),
+                review_status=status,
             )
             session.add(claim)
             await session.flush()
@@ -164,8 +206,11 @@ class TestP03StateMachine:
         case = (await session.scalars(select(CreditCase))).first()
         run, claim_ids = await self._setup_run(session, case, ["PENDING", "PENDING"])
         decision = HumanDecision(
-            tenant_id=TENANT_ID, case_id=case.id, run_id=run.id,
-            target_claim_ids=[str(claim_ids[0])], action="APPROVE_CLAIM",
+            tenant_id=TENANT_ID,
+            case_id=case.id,
+            run_id=run.id,
+            target_claim_ids=[str(claim_ids[0])],
+            action="APPROVE_CLAIM",
         )
         status = await resume_after_human_review(session, run.id, decision)
         assert status == "HUMAN_REVIEW", "仍有 blocking Claim 时不得完成"
@@ -177,8 +222,11 @@ class TestP03StateMachine:
         case = (await session.scalars(select(CreditCase))).first()
         run, _claim_ids = await self._setup_run(session, case, ["NEEDS_REWORK"])
         decision = HumanDecision(
-            tenant_id=TENANT_ID, case_id=case.id, run_id=run.id,
-            target_claim_ids=[], action="SUBMIT_REPORT",
+            tenant_id=TENANT_ID,
+            case_id=case.id,
+            run_id=run.id,
+            target_claim_ids=[],
+            action="SUBMIT_REPORT",
         )
         with pytest.raises(InvalidStateTransitionError):
             await resume_after_human_review(session, run.id, decision)
@@ -189,23 +237,28 @@ class TestP03StateMachine:
         case = (await session.scalars(select(CreditCase))).first()
         run, claim_ids = await self._setup_run(session, case, ["PENDING", "NEEDS_REWORK"])
         decision = HumanDecision(
-            tenant_id=TENANT_ID, case_id=case.id, run_id=run.id,
-            target_claim_ids=[str(c) for c in claim_ids], action="APPROVE_CLAIM",
+            tenant_id=TENANT_ID,
+            case_id=case.id,
+            run_id=run.id,
+            target_claim_ids=[str(c) for c in claim_ids],
+            action="APPROVE_CLAIM",
             idempotency_key="idem-1",
         )
         status = await resume_after_human_review(session, run.id, decision)
         assert status == "COMPLETED"
-        report = await session.scalar(
-            select(ReportVersion).where(ReportVersion.run_id == run.id)
-        )
+        report = await session.scalar(select(ReportVersion).where(ReportVersion.run_id == run.id))
         assert report is not None, "COMPLETED 前必须持久化报告版本"
         assert report.status == "APPROVED_DRAFT"
         assert len(report.content_json["claims"]) == 2
 
         # 幂等键：重复提交返回当前状态，不产生第二份决定/报告
         dup = HumanDecision(
-            tenant_id=TENANT_ID, case_id=case.id, run_id=run.id,
-            target_claim_ids=[], action="APPROVE_CLAIM", idempotency_key="idem-1",
+            tenant_id=TENANT_ID,
+            case_id=case.id,
+            run_id=run.id,
+            target_claim_ids=[],
+            action="APPROVE_CLAIM",
+            idempotency_key="idem-1",
         )
         assert await resume_after_human_review(session, run.id, dup) == "COMPLETED"
         reports = (

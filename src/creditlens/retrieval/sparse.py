@@ -16,7 +16,41 @@ SPARSE_ENCODER_NAME = "bm25-jieba-v1"
 
 # 精简中文停用词表（版本化：改动即升级 encoder version）
 _STOPWORDS = frozenset(
-    ["的", "了", "和", "是", "在", "有", "与", "及", "或", "对", "为", "由", "于", "从", "被", "把", "就", "都", "而", "且", "其", "之", "以", "等", "各", "该", "本", "我", "你", "他", "她", "它", "们"]
+    [
+        "的",
+        "了",
+        "和",
+        "是",
+        "在",
+        "有",
+        "与",
+        "及",
+        "或",
+        "对",
+        "为",
+        "由",
+        "于",
+        "从",
+        "被",
+        "把",
+        "就",
+        "都",
+        "而",
+        "且",
+        "其",
+        "之",
+        "以",
+        "等",
+        "各",
+        "该",
+        "本",
+        "我",
+        "你",
+        "他",
+        "她",
+        "它",
+        "们",
+    ]
 )
 
 
@@ -47,7 +81,9 @@ class Bm25SparseEncoder:
         values = [float(counts[i]) for i in indices]
         return indices, values
 
-    def encode_query(self, text: str, extra_terms: list[str] | None = None) -> tuple[list[int], list[float]]:
+    def encode_query(
+        self, text: str, extra_terms: list[str] | None = None
+    ) -> tuple[list[int], list[float]]:
         tokens = tokenize(text)
         for term in extra_terms or []:
             tokens.extend(tokenize(term))

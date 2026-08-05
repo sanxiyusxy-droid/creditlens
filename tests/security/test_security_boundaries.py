@@ -46,18 +46,14 @@ class TestDefaultDeny:
 
 class TestMembershipBoundary:
     async def test_user_without_membership_denied(self, session, seeded):  # noqa: F811
-        user = AppUser(
-            tenant_id=TENANT_ID, external_subject="analyst-x", display_name="无授权用户"
-        )
+        user = AppUser(tenant_id=TENANT_ID, external_subject="analyst-x", display_name="无授权用户")
         session.add(user)
         await session.flush()
         with pytest.raises(AclDeniedError):
             await build_trusted_context(session, TENANT_ID, seeded["case_id"], user_id=user.id)
 
     async def test_revoked_membership_denied(self, session, seeded):  # noqa: F811
-        user = AppUser(
-            tenant_id=TENANT_ID, external_subject="analyst-y", display_name="已撤销用户"
-        )
+        user = AppUser(tenant_id=TENANT_ID, external_subject="analyst-y", display_name="已撤销用户")
         session.add(user)
         await session.flush()
         session.add(
@@ -73,14 +69,10 @@ class TestMembershipBoundary:
             await build_trusted_context(session, TENANT_ID, seeded["case_id"], user_id=user.id)
 
     async def test_active_membership_allowed(self, session, seeded):  # noqa: F811
-        user = AppUser(
-            tenant_id=TENANT_ID, external_subject="analyst-z", display_name="授信审查员"
-        )
+        user = AppUser(tenant_id=TENANT_ID, external_subject="analyst-z", display_name="授信审查员")
         session.add(user)
         await session.flush()
-        session.add(
-            CaseMembership(case_id=seeded["case_id"], user_id=user.id, case_role="ANALYST")
-        )
+        session.add(CaseMembership(case_id=seeded["case_id"], user_id=user.id, case_role="ANALYST"))
         await session.flush()
         trusted = await build_trusted_context(
             session, TENANT_ID, seeded["case_id"], user_id=user.id
@@ -95,7 +87,11 @@ class TestMembershipBoundary:
 
 class TestSnapshotFreeze:
     async def test_reparse_does_not_change_started_run(
-        self, session, qdrant, object_store, seeded  # noqa: F811
+        self,
+        session,
+        qdrant,
+        object_store,
+        seeded,  # noqa: F811
     ):
         """执行中重新解析（新 ParseRun 激活）后，旧 Snapshot 的 Run 仍只看旧解析批次。"""
         trusted = await build_trusted_context(session, TENANT_ID, seeded["case_id"])
@@ -121,8 +117,12 @@ class TestSnapshotFreeze:
         # 旧 Snapshot 检索：候选全部来自冻结的旧 Parse Run（含 SUPERSEDED）
         retriever = DenseRetriever(qdrant, seeded["embedder"])
         result = await retriever.retrieve(
-            session, trusted, "资产负债率不得高于多少", COLLECTION,
-            top_k=20, snapshot=old_snapshot,
+            session,
+            trusted,
+            "资产负债率不得高于多少",
+            COLLECTION,
+            top_k=20,
+            snapshot=old_snapshot,
         )
         assert result.candidates, "旧 Snapshot 应仍可检索旧解析批次"
         assert all(c.parse_run_id in old_parse_runs for c in result.candidates)
@@ -134,8 +134,12 @@ class TestSnapshotFreeze:
         )
         assert ingest2.parse_run_id in set(new_snapshot.allowed_parse_run_ids)
         result2 = await retriever.retrieve(
-            session, trusted, "资产负债率不得高于多少", COLLECTION,
-            top_k=20, snapshot=new_snapshot,
+            session,
+            trusted,
+            "资产负债率不得高于多少",
+            COLLECTION,
+            top_k=20,
+            snapshot=new_snapshot,
         )
         assert result2.candidates
         assert all(c.parse_run_id == ingest2.parse_run_id for c in result2.candidates)
@@ -149,7 +153,11 @@ INJECTION_TEXT = (
 
 class TestPromptInjection:
     async def test_injected_document_cannot_trigger_tools(
-        self, session, qdrant, object_store, seeded  # noqa: F811
+        self,
+        session,
+        qdrant,
+        object_store,
+        seeded,  # noqa: F811
     ):
         """恶意文档内容只是数据：不改变工具 Allowlist，不触发越权调用（文档 §12.3）。"""
         import fitz
@@ -202,6 +210,7 @@ class TestPromptInjection:
             "policy_analyst": {"search_policy"},
             "financial_analyst": {"compute_metric"},
             "challenger": {"search_counter_evidence"},
+            "risk_analyst": {"compute_metric", "search_risk_evidence"},
         }
         for call in gateway.calls:
             assert call.status != "DENIED", "文档内容不应引发任何越权调用尝试"
@@ -214,7 +223,9 @@ class TestPromptInjection:
                 assert "approve" not in claim.statement.lower()
 
     async def test_injected_section_exists_only_as_data(
-        self, session, seeded  # noqa: F811
+        self,
+        session,
+        seeded,  # noqa: F811
     ):
         """注入文本入库后只是普通 Section 数据，quality/hash 契约不变。"""
         sections = (

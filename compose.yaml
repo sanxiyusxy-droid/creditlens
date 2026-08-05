@@ -18,7 +18,8 @@ services:
       retries: 10
 
   qdrant:
-    image: qdrant/qdrant:v1.12.4
+    # 固定版本：与 uv.lock 的 qdrant-client 1.18.0 对应（v1.1）
+    image: qdrant/qdrant:v1.18.0
     ports:
       - "6333:6333"
       - "6334:6334"

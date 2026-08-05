@@ -11,13 +11,22 @@ from dataclasses import dataclass, field
 
 from creditlens.retrieval.contracts import RetrievedCandidate
 
-# E0 融合基线使用等权；加权值是第二组实验起点（文档 §8.9）
+# E0 融合基线使用等权；加权值是第二组实验起点（文档 §8.9）。
+# v1.1：通道名支持 "ROUTE:variant_id" 形式（每个 Query Variant 独立排名列表），
+# 权重按前缀 ROUTE 查找。
 DEFAULT_ROUTE_WEIGHTS = {
     "DENSE": 1.0,
     "SPARSE": 1.0,
     "SUMMARY": 1.0,
     "EXACT": 1.0,
 }
+
+
+def route_weight(channel: str, weights: dict[str, float]) -> float:
+    """通道权重：支持 "ROUTE:variant" 命名，按 ROUTE 前缀取权重。"""
+    if channel in weights:
+        return weights[channel]
+    return weights.get(channel.split(":", 1)[0], 1.0)
 
 
 @dataclass
@@ -44,7 +53,7 @@ def rrf_fuse(
     channel_ranks: dict = defaultdict(dict)
 
     for channel, candidates in ranked_lists.items():
-        weight = weights.get(channel, 1.0)
+        weight = route_weight(channel, weights)
         seen_in_channel: set = set()
         for candidate in candidates:
             key = candidate.section_id
@@ -57,6 +66,7 @@ def rrf_fuse(
                 by_section[key] = candidate
 
     # text_hash 二次去重（不同 section 相同文本保留一个）
+    # 平分时按 section_id 确定性 tie-break，避免插入顺序造成排序抖动（WP6）
     fused = sorted(
         (
             FusedCandidate(
@@ -66,7 +76,7 @@ def rrf_fuse(
             )
             for key in by_section
         ),
-        key=lambda f: f.fusion_score,
+        key=lambda f: (f.fusion_score, f.candidate.section_id),
         reverse=True,
     )
     seen_hashes: set[str] = set()

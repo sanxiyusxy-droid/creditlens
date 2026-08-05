@@ -60,18 +60,42 @@ def _candidate_to_evidence(candidate: RetrievedCandidate) -> AgentEvidenceRef:
     )
 
 
+def consume_evidence_sections(result, limit: int = 4) -> list[RetrievedCandidate]:
+    """WP2：Agent 实际消费 Packed Sections（而非只拿候选元数据）。
+
+    优先返回 Context Packing 输出（已过预算/配额/相邻复核）；
+    Packing 关闭或为空时回退融合候选原文。"""
+    packing = getattr(result, "packing", None)
+    if packing and packing.get("sections"):
+        return [_dict_to_candidate(s) for s in packing["sections"][:limit]]
+    return list(getattr(result, "candidates", [])[:limit])
+
+
+def _dict_to_candidate(s: dict) -> RetrievedCandidate:
+    return RetrievedCandidate(
+        section_id=uuid.UUID(str(s["section_id"])),
+        document_id=uuid.UUID(str(s["document_id"])),
+        document_version_id=uuid.UUID(str(s["document_version_id"])),
+        parse_run_id=uuid.UUID(int=0),
+        page_start=int(s.get("page_start", 0)),
+        page_end=int(s.get("page_start", 0)),
+        heading_path=list(s.get("heading_path") or []),
+        text=s.get("text", ""),
+        text_hash=s.get("text_hash", ""),
+        channel="PACKED",
+        rank=int(s.get("rank", 0)),
+        raw_score=0.0,
+    )
+
+
 class PolicyAgent:
     def __init__(self, gateway: ToolGateway, chat=None):
         self._gateway = gateway
         self._chat = chat  # OpenAICompatChat | None；None 时使用确定性模板
 
-    async def _make_statement(
-        self, topic: str, candidates: list[RetrievedCandidate]
-    ) -> str:
+    async def _make_statement(self, topic: str, candidates: list[RetrievedCandidate]) -> str:
         """优先 LLM 概括（不可信数据包裹 + 结构化输出）；失败降级模板语句。"""
-        heading = " / ".join(
-            (c.heading_path[-1] if c.heading_path else "条款") for c in candidates
-        )
+        heading = " / ".join((c.heading_path[-1] if c.heading_path else "条款") for c in candidates)
         fallback = f"审查日适用政策中与「{topic}」相关的条款为：{heading}。"
         if self._chat is None:
             return fallback
@@ -109,7 +133,7 @@ class PolicyAgent:
             result = await self._gateway.invoke(
                 AGENT_ROLE, "search_policy", trusted=trusted, query=query
             )
-            top = result.candidates[:2]
+            top = consume_evidence_sections(result, limit=2)
             if not top:
                 artifact.claims.append(
                     AgentClaim(

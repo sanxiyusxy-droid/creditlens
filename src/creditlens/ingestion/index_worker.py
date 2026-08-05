@@ -101,9 +101,7 @@ class IndexWorker:
         # Embedding 输入拼接受控上下文（文档 §7.10）
         heading_path = " > ".join(section.heading_path or [])
         embed_input = (
-            f"[文档类型] {document.document_type}\n"
-            f"[标题路径] {heading_path}\n"
-            f"[正文] {section.text}"
+            f"[文档类型] {document.document_type}\n[标题路径] {heading_path}\n[正文] {section.text}"
         )
         vector = (await self._embedder.embed_documents([embed_input]))[0]
 
@@ -126,7 +124,9 @@ class IndexWorker:
             "document_version_id": str(version.id),
             "parse_run_id": str(section.parse_run_id),
             "section_id": str(section.id),
-            "parent_section_id": str(section.parent_section_id) if section.parent_section_id else None,
+            "parent_section_id": str(section.parent_section_id)
+            if section.parent_section_id
+            else None,
             "entity_ids": entity_ids,
             "document_type": document.document_type,
             "product_codes": product_codes,
@@ -209,9 +209,7 @@ class IndexWorker:
         entity_ids: list[str] = []
         case_rows = (
             await session.execute(
-                select(CaseDocument.case_id).where(
-                    CaseDocument.document_version_id == version.id
-                )
+                select(CaseDocument.case_id).where(CaseDocument.document_version_id == version.id)
             )
         ).all()
         if case_rows:

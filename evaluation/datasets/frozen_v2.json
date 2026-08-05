@@ -1,0 +1,4413 @@
+{
+  "dataset_id": "frozen_v2",
+  "dataset_version": "2.1.0",
+  "anchors": [
+    {
+      "gold_evidence_key": "policy2026:art01",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第一条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art02",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第二条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art03",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第三条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art04",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第四条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art05",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第五条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art06",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第六条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art07",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第七条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art08",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第八条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art09",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第九条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art10",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art12",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十二条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art13",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十三条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art14",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十四条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art15",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十五条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art16",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十六条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art17",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十七条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art18",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十八条"
+    },
+    {
+      "gold_evidence_key": "policy2026:art19",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十九条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art04",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第四条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art06",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第六条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art07",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第七条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art08",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第八条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art09",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第九条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art10",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art14",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十四条"
+    },
+    {
+      "gold_evidence_key": "policy2024:art16",
+      "logical_document_key": "policy_manufacturing_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十六条"
+    },
+    {
+      "gold_evidence_key": "reg:art01",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第一条"
+    },
+    {
+      "gold_evidence_key": "reg:art02",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第二条"
+    },
+    {
+      "gold_evidence_key": "reg:art04",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第四条"
+    },
+    {
+      "gold_evidence_key": "reg:art05",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第五条"
+    },
+    {
+      "gold_evidence_key": "reg:art06",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第六条"
+    },
+    {
+      "gold_evidence_key": "reg:art07",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第七条"
+    },
+    {
+      "gold_evidence_key": "reg:art08",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第八条"
+    },
+    {
+      "gold_evidence_key": "reg:art09",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第九条"
+    },
+    {
+      "gold_evidence_key": "reg:art10",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十条"
+    },
+    {
+      "gold_evidence_key": "reg:art11",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十一条"
+    },
+    {
+      "gold_evidence_key": "reg:art12",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十二条"
+    },
+    {
+      "gold_evidence_key": "reg:art13",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十三条"
+    },
+    {
+      "gold_evidence_key": "reg:art14",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十四条"
+    },
+    {
+      "gold_evidence_key": "reg:art15",
+      "logical_document_key": "regulation_wc_admin",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十五条"
+    },
+    {
+      "gold_evidence_key": "ar2025:sec1",
+      "logical_document_key": "annual_report_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "一、公司基本情况"
+    },
+    {
+      "gold_evidence_key": "ar2025:sec2",
+      "logical_document_key": "annual_report_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "二、经营情况讨论与分析"
+    },
+    {
+      "gold_evidence_key": "ar2025:sec3",
+      "logical_document_key": "annual_report_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "三、财务概要"
+    },
+    {
+      "gold_evidence_key": "ar2025:sec4",
+      "logical_document_key": "annual_report_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "四、主要客户情况"
+    },
+    {
+      "gold_evidence_key": "ar2025:sec5",
+      "logical_document_key": "annual_report_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "五、风险因素"
+    },
+    {
+      "gold_evidence_key": "ar2025:sec6",
+      "logical_document_key": "annual_report_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "六、审计意见"
+    },
+    {
+      "gold_evidence_key": "ar2025:sec7",
+      "logical_document_key": "annual_report_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "七、重大事项"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art01",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第一条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art02",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第二条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art03",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第三条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art04",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第四条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art05",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第五条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art06",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第六条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art07",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第七条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art08",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第八条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art09",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第九条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art10",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art11",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十一条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art12",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十二条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art13",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十三条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art14",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十四条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art15",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十五条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art16",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十六条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art17",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十七条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art18",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十八条"
+    },
+    {
+      "gold_evidence_key": "techpol2026:art19",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2026",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十九条"
+    },
+    {
+      "gold_evidence_key": "techpol2024:art04",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第四条"
+    },
+    {
+      "gold_evidence_key": "techpol2024:art06",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第六条"
+    },
+    {
+      "gold_evidence_key": "techpol2024:art07",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第七条"
+    },
+    {
+      "gold_evidence_key": "techpol2024:art08",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第八条"
+    },
+    {
+      "gold_evidence_key": "techpol2024:art09",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第九条"
+    },
+    {
+      "gold_evidence_key": "techpol2024:art10",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十条"
+    },
+    {
+      "gold_evidence_key": "techpol2024:art16",
+      "logical_document_key": "policy_tech_wc",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十六条"
+    },
+    {
+      "gold_evidence_key": "ar_tech:sec1",
+      "logical_document_key": "annual_report_tech_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "一、公司基本情况"
+    },
+    {
+      "gold_evidence_key": "ar_tech:sec2",
+      "logical_document_key": "annual_report_tech_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "二、经营情况讨论与分析"
+    },
+    {
+      "gold_evidence_key": "ar_tech:sec3",
+      "logical_document_key": "annual_report_tech_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "三、财务概要"
+    },
+    {
+      "gold_evidence_key": "ar_tech:sec4",
+      "logical_document_key": "annual_report_tech_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "四、主要客户情况"
+    },
+    {
+      "gold_evidence_key": "ar_tech:sec5",
+      "logical_document_key": "annual_report_tech_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "五、风险因素"
+    },
+    {
+      "gold_evidence_key": "ar_tech:sec6",
+      "logical_document_key": "annual_report_tech_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "六、审计意见"
+    },
+    {
+      "gold_evidence_key": "ar_tech:sec7",
+      "logical_document_key": "annual_report_tech_2025",
+      "version_label": "2025",
+      "locator_type": "ARTICLE",
+      "article_anchor": "七、重大事项"
+    },
+    {
+      "gold_evidence_key": "factreg:art01",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第一条"
+    },
+    {
+      "gold_evidence_key": "factreg:art02",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第二条"
+    },
+    {
+      "gold_evidence_key": "factreg:art03",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第三条"
+    },
+    {
+      "gold_evidence_key": "factreg:art04",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第四条"
+    },
+    {
+      "gold_evidence_key": "factreg:art05",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第五条"
+    },
+    {
+      "gold_evidence_key": "factreg:art06",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第六条"
+    },
+    {
+      "gold_evidence_key": "factreg:art07",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第七条"
+    },
+    {
+      "gold_evidence_key": "factreg:art08",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第八条"
+    },
+    {
+      "gold_evidence_key": "factreg:art09",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第九条"
+    },
+    {
+      "gold_evidence_key": "factreg:art10",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十条"
+    },
+    {
+      "gold_evidence_key": "factreg:art11",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十一条"
+    },
+    {
+      "gold_evidence_key": "factreg:art12",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十二条"
+    },
+    {
+      "gold_evidence_key": "factreg:art13",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十三条"
+    },
+    {
+      "gold_evidence_key": "factreg:art14",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十四条"
+    },
+    {
+      "gold_evidence_key": "factreg:art15",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十五条"
+    },
+    {
+      "gold_evidence_key": "factreg:art16",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十六条"
+    },
+    {
+      "gold_evidence_key": "factreg:art17",
+      "logical_document_key": "regulation_factoring",
+      "version_label": "2024",
+      "locator_type": "ARTICLE",
+      "article_anchor": "第十七条"
+    }
+  ],
+  "questions": [
+    {
+      "question_id": "q001",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "本行流动资金贷款对借款人资产负债率的要求是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art06"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q002",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "哪些行业的企业不得准入小微流动资金贷款？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art05"
+        ]
+      ],
+      "tags": [
+        "exclusion"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q003",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "单一小微企业借款人的流动资金贷款余额上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art09"
+        ]
+      ],
+      "tags": [
+        "amount"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q004",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "流动资金贷款期限最长可以是多久？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art10"
+        ]
+      ],
+      "tags": [
+        "term"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q005",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "申请流贷需要提交哪些材料？",
+      "intent": "MATERIAL_COMPLETENESS",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art12"
+        ]
+      ],
+      "tags": [
+        "material"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q006",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "如果企业财务指标不达标，还有什么例外准入途径？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art08",
+          "policy2026:art06"
+        ]
+      ],
+      "tags": [
+        "exception",
+        "multi_hop"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q007",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "银行流水材料需要覆盖多长期间？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art14"
+        ]
+      ],
+      "tags": [
+        "bank_flow"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q008",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人经营现金流有什么要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art06"
+        ]
+      ],
+      "tags": [
+        "cash_flow"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q009",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "发现贷款资金被挪用于股权投资应当如何处理？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art15"
+        ]
+      ],
+      "tags": [
+        "post_loan"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q010",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "什么情况下应当启动风险预警？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art16"
+        ]
+      ],
+      "tags": [
+        "risk_signal"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q011",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人信用记录方面有哪些准入要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art07"
+        ]
+      ],
+      "tags": [
+        "credit_record"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q012",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "企业成立多久才能申请本行流动资金贷款？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art04"
+        ]
+      ],
+      "tags": [
+        "eligibility"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q013",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "展期申请应在何时提出，展期后总期限有何限制？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art17"
+        ]
+      ],
+      "tags": [
+        "extension"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q014",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "财务报表未经审计时可以用什么材料替代？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art13"
+        ]
+      ],
+      "tags": [
+        "audit"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q015",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "本办法适用于哪些贷款业务？流动资金贷款的定义是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art02"
+        ]
+      ],
+      "tags": [
+        "definition"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q016",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "本办法什么时候开始施行？替代了哪个旧版本？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art19"
+        ]
+      ],
+      "tags": [
+        "effective_date"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q017",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "担保覆盖率要达到多少才能走例外准入？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art08"
+        ]
+      ],
+      "tags": [
+        "threshold",
+        "exception"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q018",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "客户集中度多高会触发预警？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art16"
+        ]
+      ],
+      "tags": [
+        "concentration"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q019",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "流贷客户流动比率的最低要求是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art06"
+        ]
+      ],
+      "tags": [
+        "threshold",
+        "abbreviation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q020",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "制造业企业这次申请流贷，哪些准入条款和例外条款需要同时核查？",
+      "intent": "FULL_CREDIT_REVIEW",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art05",
+          "policy2026:art06",
+          "policy2026:art08"
+        ]
+      ],
+      "tags": [
+        "multi_hop"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q021",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "本次审查日适用的资产负债率上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art06"
+        ]
+      ],
+      "tags": [
+        "version",
+        "threshold"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2025年审查日应命中2024版65%，而非2026版70%"
+    },
+    {
+      "question_id": "q022",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "当前有效办法下单户贷款余额上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art09"
+        ]
+      ],
+      "tags": [
+        "version",
+        "amount"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q023",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "贷款期限和展期有什么规定？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art10"
+        ]
+      ],
+      "tags": [
+        "version",
+        "term"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q024",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "银行流水需要提供多长期间？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art14"
+        ]
+      ],
+      "tags": [
+        "version",
+        "bank_flow"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q025",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "财务指标不达标时有没有例外准入通道？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art08"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "exception"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版无例外准入条款，只有担保要求；不得召回2026版第八条"
+    },
+    {
+      "question_id": "q026",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "贷款担保方式有什么要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art08"
+        ]
+      ],
+      "tags": [
+        "version",
+        "guarantee"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q027",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人信用记录有什么要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art07"
+        ]
+      ],
+      "tags": [
+        "version",
+        "credit_record"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q028",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "企业需要持续经营满几年？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art04"
+        ]
+      ],
+      "tags": [
+        "version",
+        "eligibility"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版三年 vs 2026版两年"
+    },
+    {
+      "question_id": "q029",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "对借款人净利润有什么要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art06"
+        ]
+      ],
+      "tags": [
+        "version"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q030",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "流水较上年下降多少会触发预警？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art16"
+        ]
+      ],
+      "tags": [
+        "version",
+        "threshold"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版20% vs 2026版30%"
+    },
+    {
+      "question_id": "q031",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "流水较上年下降多少会触发预警？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art16"
+        ]
+      ],
+      "tags": [
+        "version",
+        "threshold"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "与q030同问不同时点"
+    },
+    {
+      "question_id": "q032",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "现行版本办法自何时施行、废止了哪个文件？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art19"
+        ]
+      ],
+      "tags": [
+        "version",
+        "effective_date"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q033",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "监管指引对受托支付的金额标准是怎么规定的？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art10"
+        ]
+      ],
+      "tags": [
+        "regulation",
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q034",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "采用受托支付时贷款人应当审核什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art11"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q035",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "自主支付方式下贷款人如何核查贷款用途？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art12"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q036",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "监管规定流动资金贷款不得用于哪些用途？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art07"
+        ]
+      ],
+      "tags": [
+        "regulation",
+        "exclusion"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q037",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "贷款资金能否挪用于房地产开发或购买有价证券？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art08"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q038",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "能否向没有实际经营活动的空壳企业发放流动资金贷款？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art06"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q039",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "监管要求如何测算借款人营运资金需求、防止超额授信？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art05"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q040",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "贷前调查应当核实借款人哪些方面情况？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art04"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q041",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "监管对贷后检查的最低频率要求是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art14"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q042",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人未按约定用途使用贷款时，贷款人可以采取哪些措施？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art15"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q043",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "监管指引中流动资金贷款的定义是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art02"
+        ]
+      ],
+      "tags": [
+        "regulation",
+        "definition"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q044",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款合同中关于贷款用途应当约定什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art09"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q045",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "贷款人对借款人账户资金流动有什么监测义务？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art13"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q046",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "监管发〔2024〕7号是哪份文件？其制定目的是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art01"
+        ]
+      ],
+      "tags": [
+        "exact_identifier"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q047",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人的主营业务和主要产品应用领域是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec1"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q048",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "2025年度营业收入是多少？同比增长多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q049",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "年报披露的资产负债率是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q050",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "经营活动现金流量净额是多少？较上年如何变化？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "cash_flow"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q051",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "应收账款为什么大幅增长？增长了多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "receivable"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q052",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "第一大客户是谁？销售占比多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec4"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "concentration"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q053",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "与第一大客户的结算周期发生了什么变化？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec4"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q054",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "年报披露了哪些客户集中方面的风险？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec5"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "risk"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q055",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "应收账款回收风险是如何披露的？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec5"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "risk"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q056",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "原材料价格波动对公司成本的影响有多大？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec5"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "risk"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q057",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "年报的审计意见类型是什么？由哪家机构出具？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec6"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "audit"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q058",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "公司是否存在重大诉讼或对外担保？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec7"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q059",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "公司的产能利用率大约是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q060",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "公司成立于何时？注册资本多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec1"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q061",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人的资产负债率是否满足现行政策上限要求？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art06",
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "multi_hop"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q062",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "第一大客户销售占比是否已触发政策的风险预警情形？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art16",
+          "ar2025:sec4"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "concentration"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q063",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人年报审计情况是否满足政策对财务报表审计的要求？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art13",
+          "ar2025:sec6"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "audit"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q064",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人经营现金流状况是否满足政策的准入要求？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art06",
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "cash_flow"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q065",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "本笔贷款用途为采购原材料，是否符合用途管制要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art07"
+        ],
+        [
+          "policy2026:art15"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "purpose"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q066",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "年报披露的应收账款风险与政策的哪些预警情形相关？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art16",
+          "ar2025:sec5"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "risk"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q067",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人是否存在被列入经营异常名录等政策预警情形？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art16",
+          "ar2025:sec7"
+        ]
+      ],
+      "tags": [
+        "cross_doc"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q068",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "若借款人需走例外准入，其对外担保情况是否构成障碍？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art08",
+          "ar2025:sec7"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "exception"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q069",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人实际控制人的个人征信记录如何？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料不包含个人征信信息",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q070",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人在其他银行的贷款余额是多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料不包含他行授信信息",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q071",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "2026年上半年各月银行流水明细是怎样的？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料未包含银行流水明细",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q072",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "法定代表人的身份证号码是多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "涉及个人敏感信息且材料中不存在",
+      "tags": [
+        "refusal",
+        "privacy"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q073",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "公司下一年度的盈利预测是多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "材料不含前瞻性预测信息，系统不做估算",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q074",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "抵押物的评估价值是多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "本案无抵押物评估材料",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q075",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "流贷的钱能拿去炒股吗？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art08"
+        ],
+        [
+          "reg:art07"
+        ]
+      ],
+      "tags": [
+        "colloquial"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q076",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "单笔支付超过贷款金额百分之三十且超过一百万元时应采用什么支付方式？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art10"
+        ]
+      ],
+      "tags": [
+        "exact_number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q077",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "现行的资负率红线是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art06"
+        ]
+      ],
+      "tags": [
+        "abbreviation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q078",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "新版办法由哪个部门负责解释？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art18"
+        ]
+      ],
+      "tags": [
+        "misc"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q079",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "2025年提出申请的话，企业要成立满几年才行？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2024:art04"
+        ]
+      ],
+      "tags": [
+        "version",
+        "colloquial"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q080",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "贷款资金可以拿去买理财产品吗？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "reg:art08"
+        ]
+      ],
+      "tags": [
+        "colloquial"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q081",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业流贷对资产负债率的上限要求是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q082",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业认定标准是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art03"
+        ]
+      ],
+      "tags": [
+        "definition"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q083",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业流贷重点支持哪些领域？哪些不得准入？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art05"
+        ]
+      ],
+      "tags": [
+        "exclusion"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q084",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业借款人需要持续经营多长时间？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art04"
+        ]
+      ],
+      "tags": [
+        "eligibility"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q085",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业流贷对流动比率的最低要求是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q086",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "对研发投入占比有什么要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06"
+        ]
+      ],
+      "tags": [
+        "threshold",
+        "rd"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q087",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业流贷单户余额上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art09"
+        ]
+      ],
+      "tags": [
+        "amount"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q088",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "贷款期限最长可以是多久？研发项目有何特殊规定？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art10"
+        ]
+      ],
+      "tags": [
+        "term"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q089",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技金融优惠利率较基准利率下浮上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art11"
+        ]
+      ],
+      "tags": [
+        "rate"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q090",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "申请科技型企业流贷需要提交哪些材料？",
+      "intent": "MATERIAL_COMPLETENESS",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art12"
+        ]
+      ],
+      "tags": [
+        "material"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q091",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "成立不满两年的企业需要提交什么特殊材料？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art13"
+        ]
+      ],
+      "tags": [
+        "material",
+        "exception"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q092",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "什么情况下可以例外准入？担保覆盖率要求是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art08"
+        ]
+      ],
+      "tags": [
+        "exception",
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q093",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业流贷信用记录方面有什么要求？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art07"
+        ]
+      ],
+      "tags": [
+        "credit_record"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q094",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "哪些情形应当启动科技型企业贷款风险预警？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16"
+        ]
+      ],
+      "tags": [
+        "risk_signal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q095",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "核心技术人员离职多少会触发预警？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16"
+        ]
+      ],
+      "tags": [
+        "risk_signal",
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q096",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "展期应在到期前多少天提出？展期后最长期限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art17"
+        ]
+      ],
+      "tags": [
+        "extension"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q097",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "科技型企业流贷办法由哪个部门解释？何时施行？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art18",
+          "techpol2026:art19"
+        ]
+      ],
+      "tags": [
+        "misc"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q098",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "贷款资金被挪用于非经营性支出应如何处理？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art15"
+        ]
+      ],
+      "tags": [
+        "post_loan"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q099",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "同一实际控制人控制的多家企业额度如何计算？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art09"
+        ]
+      ],
+      "tags": [
+        "amount",
+        "concentration"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q100",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "银行流水应覆盖多长期间？季节性企业有何特殊规定？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art14"
+        ]
+      ],
+      "tags": [
+        "bank_flow"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q101",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子的营业收入是多少？同比增长多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q102",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子的资产负债率是多少？流动比率是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q103",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "经营活动现金流量净额是多少？同比变化如何？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "cash_flow"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q104",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "应收账款增长了多少？周转天数有何变化？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "receivable"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q105",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "第一大客户销售额占比多少？结算周期有何变化？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec4"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "concentration"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q106",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "前五大客户收入占比是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec4"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "concentration"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q107",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "研发费用占营业收入的比例是多少？研发人员有多少人？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "rd"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q108",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "公司有哪些主要风险因素？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec5"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "risk"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q109",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "审计意见类型是什么？由哪家事务所出具？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec6"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "audit"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q110",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "公司是否有对外担保？担保余额多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec7"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q111",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "公司何时成立？注册资本和实缴资本分别是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec1"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q112",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "公司是否获得高新技术企业认定？拥有多少专利？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec1"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "rd"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q113",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "第一大供应商采购占比多少？存在什么风险？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec4",
+          "ar_tech:sec5"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "concentration"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q114",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "综合毛利率是多少？较上年有何变化？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q115",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "公司B轮融资情况如何？投后估值多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec7"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q116",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子的资产负债率是否满足科技型流贷政策上限？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06",
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "multi_hop"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q117",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子的流动比率是否满足政策准入要求？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06",
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "threshold"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q118",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子的研发投入占比是否满足政策要求？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06",
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "rd"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q119",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "第一大客户占比是否已触发政策风险预警？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16",
+          "ar_tech:sec4"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "concentration"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q120",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "年报审计情况是否满足科技型企业流贷对财务报表的要求？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art13",
+          "ar_tech:sec6"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "audit"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q121",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "公司成立年限是否满足科技型企业流贷准入要求？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art04",
+          "ar_tech:sec1"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "eligibility"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q122",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "核心技术人员数量是否触发离职预警阈值？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16",
+          "ar_tech:sec5"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "risk_signal"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q123",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "申请金额1500万是否超过科技型企业单户余额上限？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art09"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "amount"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q124",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子是否属于科技型企业流贷重点支持领域？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art05",
+          "ar_tech:sec1"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "eligibility"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q125",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子是否存在知识产权诉讼风险？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16",
+          "ar_tech:sec7"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "risk"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q126",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "2025年审查时科技型企业流贷资产负债率上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2024:art06"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "threshold"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版70% vs 2026版75%"
+    },
+    {
+      "question_id": "q127",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "2025年审查时单户贷款余额上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2024:art09"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "amount"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版1000万 vs 2026版2000万"
+    },
+    {
+      "question_id": "q128",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "2025年审查时贷款期限最长是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2024:art10"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "term"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版12个月 vs 2026版18个月"
+    },
+    {
+      "question_id": "q129",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "2025年审查时企业需要经营满多少年？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2024:art04"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "eligibility"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版两年 vs 2026版一年"
+    },
+    {
+      "question_id": "q130",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "2025年审查时逾期次数上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2024:art07"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "credit_record"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版三次 vs 2026版两次"
+    },
+    {
+      "question_id": "q131",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "2025年审查时担保覆盖率要求是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2024:art08"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "threshold"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版150% vs 2026版120%"
+    },
+    {
+      "question_id": "q132",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "2025年审查时流水下降多少触发预警？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2025-06-30",
+      "decision_cutoff_at": "2025-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2024:art16"
+        ]
+      ],
+      "tags": [
+        "version_trap",
+        "threshold"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "2024版20% vs 2026版40%"
+    },
+    {
+      "question_id": "q133",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子实际控制人的配偶个人资产有多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料不包含个人资产信息",
+      "tags": [
+        "refusal",
+        "privacy"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q134",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子2026年的订单情况如何？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "材料不含2026年经营数据",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q135",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子在央行的征信报告内容是什么？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料不包含央行征信报告",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q136",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子的股票市值是多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "公司为非上市企业，无市值信息",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q137",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微电子竞争对手的市场份额排名如何？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料不含行业竞争格局数据",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q138",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子有没有被列入失信被执行人名单？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料不包含司法执行信息",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q139",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子今年能赚多少钱？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "系统不做前瞻性盈利预测",
+      "tags": [
+        "refusal",
+        "colloquial"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q140",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "科技型流贷的资负率红线是多少来着？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06"
+        ]
+      ],
+      "tags": [
+        "colloquial",
+        "abbreviation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q141",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "高企流贷最多能借多少钱？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art09"
+        ]
+      ],
+      "tags": [
+        "colloquial",
+        "abbreviation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q142",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "研发费用占比不到3%能申请科技贷吗？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06",
+          "techpol2026:art08"
+        ]
+      ],
+      "tags": [
+        "colloquial",
+        "exception"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q143",
+      "case_key": "golden_case_002",
+      "split": "test",
+      "question": "星辰微的应收账款周转天数延长到多少天了？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "colloquial",
+        "abbreviation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q144",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "商业保理业务的定义是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art02"
+        ]
+      ],
+      "tags": [
+        "definition"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q145",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "商业保理公司注册资本最低要求是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art03"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q146",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理业务的基础贸易关系审查内容包括哪些？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art05"
+        ]
+      ],
+      "tags": [
+        "compliance"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q147",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "商业保理公司不得有哪些行为？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art06"
+        ]
+      ],
+      "tags": [
+        "exclusion"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q148",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理融资余额与净资产的比例上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art07"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q149",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "有追索权保理融资比例上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art08"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q150",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "无追索权保理融资比例上限是多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art08"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q151",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理公司应建立哪些风险管理制度？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art09"
+        ]
+      ],
+      "tags": [
+        "risk_management"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q152",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "应收账款逾期多少天应列入关注类？多少天列入可疑类？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art11"
+        ]
+      ],
+      "tags": [
+        "threshold",
+        "risk"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q153",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "一般风险准备金余额不低于融资余额的百分之几？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art12"
+        ]
+      ],
+      "tags": [
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q154",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理公司每月报表应在多少个工作日内报送？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art13"
+        ]
+      ],
+      "tags": [
+        "compliance"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q155",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "监管部门可以对保理公司采取哪些监管措施？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art15"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q156",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理公司能否基于虚构贸易背景开展融资？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art04"
+        ]
+      ],
+      "tags": [
+        "compliance",
+        "exclusion"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q157",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "对同一债务人的保理融资余额不得超过净资产的多少？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art07"
+        ]
+      ],
+      "tags": [
+        "threshold",
+        "concentration"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q158",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理公司应当如何管理债务人集中度？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art10"
+        ]
+      ],
+      "tags": [
+        "concentration",
+        "risk_management"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q159",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理指引由哪个部门负责解释？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art16"
+        ]
+      ],
+      "tags": [
+        "misc"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q160",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理指引的文号是什么？制定目的是什么？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art01"
+        ]
+      ],
+      "tags": [
+        "exact_identifier"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q161",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "保理融资与流贷管理办法对资金用途的监管有何异同？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art04",
+          "policy2026:art15"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "cross_product"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q162",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "借款人的应收账款情况是否适合开展保理融资？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art05",
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "receivable"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q163",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "借款人前五大客户集中度对保理业务有何风险？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art10",
+          "ar2025:sec4"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "concentration"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q164",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理公司能否吸收公众存款来发放保理融资？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art06"
+        ]
+      ],
+      "tags": [
+        "exclusion"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q165",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理公司可以从事催收讨债业务吗？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art06"
+        ]
+      ],
+      "tags": [
+        "exclusion",
+        "colloquial"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q166",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理公司的现场检查由谁执行？公司有何义务？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art14"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q167",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "重大事项应在多少个工作日内报告？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art13"
+        ]
+      ],
+      "tags": [
+        "compliance",
+        "threshold"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q168",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "恒达精密机械的法定代表人是谁？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料未包含恒达精密机械的年报或工商信息",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q169",
+      "case_key": "golden_case_003",
+      "split": "test",
+      "question": "恒达精密机械去年的净利润是多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料未包含恒达精密机械的财务数据",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q170",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理融资的钱能拿去炒房吗？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art04"
+        ]
+      ],
+      "tags": [
+        "colloquial"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q171",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子短期借款和长期借款分别是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q172",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子汽车电子领域收入增长了多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q173",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子的产能利用率是多少？二期产线何时投产？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q174",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子存货增长了多少？主要原因是什么？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q175",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子的财务费用是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q176",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子员工总数多少？研发人员占比多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec1"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "rd"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q177",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子关联交易情况如何？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec7"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q178",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子实际控制人持股比例是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec1"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q179",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子在研项目有哪些？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "rd"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q180",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微电子净利率是多少？较上年变化如何？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar_tech:sec2"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q181",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理业务中供应商转让的是什么权利？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art02"
+        ]
+      ],
+      "tags": [
+        "definition"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q182",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理公司违反指引规定可能面临什么后果？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art15"
+        ]
+      ],
+      "tags": [
+        "regulation"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q183",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理公司能发放贷款吗？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art06"
+        ]
+      ],
+      "tags": [
+        "exclusion",
+        "colloquial"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q184",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "示例制造业年报中的应收账款能否作为保理业务的基础资产？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art04",
+          "factreg:art05",
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "cross_product"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q185",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理融资比例限制与流贷额度限制有何区别？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art08",
+          "policy2026:art09"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "cross_product"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q186",
+      "case_key": "golden_case_001",
+      "split": "test",
+      "question": "借款人的所有者权益是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q187",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人的总资产和总负债分别是多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q188",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人存货较期初增长了多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "number"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q189",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人前五大供应商采购占比多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec4"
+        ]
+      ],
+      "tags": [
+        "annual_report",
+        "concentration"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q190",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人有没有完成融资？估值多少？",
+      "intent": "FINANCIAL_FACT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "ar2025:sec7"
+        ]
+      ],
+      "tags": [
+        "annual_report"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q191",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "如果星辰微的流动比率只有0.92，能走例外准入吗？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art06",
+          "techpol2026:art08",
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "exception"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q192",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微经营现金流下降是否触发政策预警？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16",
+          "ar_tech:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "cash_flow"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q193",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微有没有重大诉讼？是否触发知识产权诉讼预警？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16",
+          "ar_tech:sec7"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "risk"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q194",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人对外担保余额占净资产比例是否影响例外准入？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art08",
+          "ar2025:sec7",
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "exception"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q195",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人应收账款周转天数变化与政策预警的关联？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "policy2026:art16",
+          "ar2025:sec3"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "risk"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q196",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "保理公司能用暴力手段追偿债务吗？",
+      "intent": "POLICY_QA",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "factreg:art06"
+        ]
+      ],
+      "tags": [
+        "exclusion",
+        "colloquial"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "q197",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微前五大客户应收占比多少？是否触发集中度预警？",
+      "intent": "CROSS_SOURCE_CONFLICT",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [
+        [
+          "techpol2026:art16",
+          "ar_tech:sec3",
+          "ar_tech:sec4"
+        ]
+      ],
+      "tags": [
+        "cross_doc",
+        "concentration"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "question_id": "q198",
+      "case_key": "golden_case_001",
+      "split": "dev",
+      "question": "借款人研发投入占比多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "示例制造业年报未披露研发投入数据",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q199",
+      "case_key": "golden_case_003",
+      "split": "dev",
+      "question": "恒达精密机械有哪些应收账款债务人？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "案件材料未包含恒达精密机械的应收账款明细",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "q200",
+      "case_key": "golden_case_002",
+      "split": "dev",
+      "question": "星辰微2024年的营收是多少？",
+      "intent": "UNANSWERABLE",
+      "as_of_date": "2026-06-30",
+      "decision_cutoff_at": "2026-06-30T15:59:59Z",
+      "required_evidence_sets": [],
+      "answerable": false,
+      "expected_refusal_reason": "年报仅披露2025年度数据及同比，未直接列示2024年营收绝对值",
+      "tags": [
+        "refusal"
+      ],
+      "difficulty": "hard",
+      "annotator_notes": "虽然可从同比增长率反推，但系统不应做推算"
+    }
+  ]
+}

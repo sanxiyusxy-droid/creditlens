@@ -92,6 +92,16 @@ class Settings(BaseSettings):
     fused_candidate_limit: int = 80
     rrf_k: int = 60
 
+    # --- 统一编排器（v1.1） ---
+    orchestrator_enable_summary: bool = True
+    orchestrator_enable_exact: bool = True
+    orchestrator_enable_rerank: bool = True
+
+    # --- Context Packing（文档 §8.13） ---
+    context_token_budget: int = 4096
+    context_max_per_document_ratio: float = 0.6
+    context_expand_adjacent: bool = True
+
     # --- 上传限制（文档 §7.3） ---
     max_file_size_mb: int = 100
     max_pages: int = 500

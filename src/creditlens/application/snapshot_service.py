@@ -126,8 +126,7 @@ async def freeze_snapshot(
                 FinancialFact.tenant_id == case.tenant_id,
                 FinancialFact.entity_id == case.borrower_entity_id,
                 or_(FinancialFact.case_id == case.id, FinancialFact.case_id.is_(None)),
-                FinancialFact.source_available_at
-                <= trusted.decision_cutoff_at.astimezone(UTC),
+                FinancialFact.source_available_at <= trusted.decision_cutoff_at.astimezone(UTC),
                 FinancialFact.verification_status != "REJECTED",
                 FinancialFact.id.not_in(superseded),
             )
@@ -141,9 +140,7 @@ async def freeze_snapshot(
         "case_version": case.version,
         "members": sorted(f"{v}:{p}" for v, p in members),
         "facts": sorted(str(f) for f in fact_ids),
-        "collections": sorted(
-            c for c in [chunks_collection, summaries_collection or ""] if c
-        ),
+        "collections": sorted(c for c in [chunks_collection, summaries_collection or ""] if c),
         "acl_scope_hash": acl_hash,
         "as_of_date": trusted.as_of_date.isoformat(),
         "decision_cutoff_at": trusted.decision_cutoff_at.isoformat(),
@@ -160,15 +157,11 @@ async def freeze_snapshot(
     )
 
 
-async def load_snapshot_context(
-    session: AsyncSession, snapshot_id: uuid.UUID
-) -> SnapshotContext:
+async def load_snapshot_context(session: AsyncSession, snapshot_id: uuid.UUID) -> SnapshotContext:
     """从数据库还原冻结上下文（Run 恢复/续跑时使用）。"""
     members = (
         await session.execute(
-            select(SnapshotDocument.parse_run_id).where(
-                SnapshotDocument.snapshot_id == snapshot_id
-            )
+            select(SnapshotDocument.parse_run_id).where(SnapshotDocument.snapshot_id == snapshot_id)
         )
     ).all()
     facts = (

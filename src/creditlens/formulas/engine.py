@@ -52,9 +52,7 @@ class FormulaRegistry:
                 result_unit=spec.get("result_unit", "ratio"),
                 rounding=Decimal(str(spec.get("rounding", "0.0001"))),
                 zero_policy=spec.get("zero_policy", "error"),
-                parameters={
-                    k: Decimal(str(v)) for k, v in (spec.get("parameters") or {}).items()
-                },
+                parameters={k: Decimal(str(v)) for k, v in (spec.get("parameters") or {}).items()},
             )
             self._formulas[f"{code}@{definition.version}"] = definition
 

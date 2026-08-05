@@ -163,9 +163,13 @@ class CreditCase(Base):
 class CaseMembership(Base):
     __tablename__ = "case_memberships"
 
-    case_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("credit_cases.id"), primary_key=True)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        GUID, ForeignKey("credit_cases.id"), primary_key=True
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("app_users.id"), primary_key=True)
-    case_role: Mapped[str] = mapped_column(String(32), primary_key=True)  # OWNER|ANALYST|REVIEWER|VIEWER
+    case_role: Mapped[str] = mapped_column(
+        String(32), primary_key=True
+    )  # OWNER|ANALYST|REVIEWER|VIEWER
     granted_by: Mapped[uuid.UUID | None] = mapped_column(GUID, nullable=True)
     granted_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -176,14 +180,18 @@ class CaseMembership(Base):
 
 class Document(Base):
     __tablename__ = "documents"
-    __table_args__ = (UniqueConstraint("tenant_id", "logical_key", name="uq_documents_logical_key"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "logical_key", name="uq_documents_logical_key"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_id)
     tenant_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("tenants.id"))
     logical_key: Mapped[str] = mapped_column(String(255))
     title: Mapped[str] = mapped_column(Text)
     issuer_entity_id: Mapped[uuid.UUID | None] = mapped_column(GUID, nullable=True)
-    document_type: Mapped[str] = mapped_column(String(32))  # REGULATION|INTERNAL_POLICY|ANNUAL_REPORT|...
+    document_type: Mapped[str] = mapped_column(
+        String(32)
+    )  # REGULATION|INTERNAL_POLICY|ANNUAL_REPORT|...
     jurisdiction: Mapped[str | None] = mapped_column(String(64), nullable=True)
     confidentiality: Mapped[str] = mapped_column(String(32), default="INTERNAL")
     canonical_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -248,7 +256,9 @@ class ParseRun(Base):
 class CaseDocument(Base):
     __tablename__ = "case_documents"
 
-    case_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("credit_cases.id"), primary_key=True)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        GUID, ForeignKey("credit_cases.id"), primary_key=True
+    )
     document_version_id: Mapped[uuid.UUID] = mapped_column(
         GUID, ForeignKey("document_versions.id"), primary_key=True
     )
@@ -308,7 +318,9 @@ class DocumentSection(Base):
     token_count: Mapped[int] = mapped_column(Integer, default=0)
     previous_section_id: Mapped[uuid.UUID | None] = mapped_column(GUID, nullable=True)
     next_section_id: Mapped[uuid.UUID | None] = mapped_column(GUID, nullable=True)
-    extraction_method: Mapped[str] = mapped_column(String(16), default="NATIVE")  # NATIVE|OCR|MANUAL
+    extraction_method: Mapped[str] = mapped_column(
+        String(16), default="NATIVE"
+    )  # NATIVE|OCR|MANUAL
     extraction_confidence: Mapped[Decimal] = mapped_column(Numeric(5, 4), default=Decimal("1"))
     quality_status: Mapped[str] = mapped_column(String(16), default="PASS")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
@@ -339,7 +351,9 @@ class SummaryNode(Base):
 
 class SummaryNodeSource(Base):
     __tablename__ = "summary_node_sources"
-    __table_args__ = (UniqueConstraint("summary_node_id", "ordinal", name="uq_summary_source_ordinal"),)
+    __table_args__ = (
+        UniqueConstraint("summary_node_id", "ordinal", name="uq_summary_source_ordinal"),
+    )
 
     summary_node_id: Mapped[uuid.UUID] = mapped_column(
         GUID, ForeignKey("summary_nodes.id"), primary_key=True
@@ -373,7 +387,9 @@ class FinancialMetricDefinition(Base):
 class FinancialFact(Base):
     __tablename__ = "financial_facts"
     __table_args__ = (
-        Index("ix_facts_entity_metric_period", "tenant_id", "entity_id", "metric_code", "period_end"),
+        Index(
+            "ix_facts_entity_metric_period", "tenant_id", "entity_id", "metric_code", "period_end"
+        ),
         Index("ix_facts_case_metric", "case_id", "metric_code", "period_end"),
     )
 
@@ -420,7 +436,9 @@ class ReviewRun(Base):
     status: Mapped[str] = mapped_column(String(32), default="RECEIVED")
     as_of_date: Mapped[date] = mapped_column(Date)
     decision_cutoff_at: Mapped[datetime] = mapped_column(UTCDateTime)
-    input_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(GUID, nullable=True)  # 创建后不可更新
+    input_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID, nullable=True
+    )  # 创建后不可更新
     plan_version: Mapped[int] = mapped_column(Integer, default=1)
     state_version: Mapped[int] = mapped_column(Integer, default=1)
     model_manifest: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -495,13 +513,18 @@ class EvidenceRecord(Base):
 
 class HumanDecision(Base):
     __tablename__ = "human_decisions"
+    # WP3：同一 Run 内幂等键唯一（数据库级防并发重复提交）
+    __table_args__ = (
+        UniqueConstraint("run_id", "idempotency_key", name="uq_human_decisions_run_idem"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_id)
     tenant_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("tenants.id"))
     case_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("credit_cases.id"))
     run_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("review_runs.id"))
     target_claim_ids: Mapped[list] = mapped_column(JSON, default=list)
-    target_version: Mapped[int] = mapped_column(Integer, default=1)
+    # WP3：乐观锁 expected_state_version；None 表示不校验（兼容旧调用）
+    target_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     action: Mapped[str] = mapped_column(String(32))
     # APPROVE_CLAIM|REJECT_CLAIM|REQUEST_CHANGES|REQUEST_MORE_INFORMATION|
     # RERUN_TASK|OVERRIDE_WITH_REASON|SUBMIT_REPORT|APPROVE_REPORT_DRAFT
@@ -530,7 +553,8 @@ class RunEvent(Base):
 class ReportVersion(Base):
     """预审报告版本（P0-3）：COMPLETED 前必须成功持久化（文档 §6.4）。
 
-    APPROVED_DRAFT 仅表示预审草稿经人工复核，不表示真实授信审批通过。"""
+    WP3：VERIFIED_DRAFT = 自动链路审计通过的草稿；
+    APPROVED_DRAFT = 人工批准后的草稿。两者都不表示真实授信审批通过。"""
 
     __tablename__ = "report_versions"
     __table_args__ = (UniqueConstraint("run_id", "version_no", name="uq_report_versions_run_no"),)
@@ -541,7 +565,7 @@ class ReportVersion(Base):
     run_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("review_runs.id"))
     version_no: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(32), default="DRAFT")
-    # DRAFT|HUMAN_REVIEW|APPROVED_DRAFT|SUPERSEDED
+    # DRAFT|VERIFIED_DRAFT|APPROVED_DRAFT|SUPERSEDED
     template_version: Mapped[str] = mapped_column(String(32), default="mvp-1")
     content_json: Mapped[dict] = mapped_column(JSON, default=dict)
     content_hash: Mapped[str] = mapped_column(String(64), default="")

@@ -49,8 +49,9 @@ class HashEmbedding:
 class OpenAICompatEmbedding:
     """OpenAI 兼容 Embedding API（硅基流动 bge-m3 / Qwen3-Embedding 等）。"""
 
-    def __init__(self, base_url: str, api_key: str, model: str, dim: int, version: str,
-                 batch_size: int = 16):
+    def __init__(
+        self, base_url: str, api_key: str, model: str, dim: int, version: str, batch_size: int = 16
+    ):
         import httpx
 
         self._client = httpx.AsyncClient(
@@ -119,7 +120,9 @@ def build_embedding_provider(settings) -> HashEmbedding | OpenAICompatEmbedding:
     if settings.embedding_provider == "hash_fallback":
         return HashEmbedding(dim=settings.embedding_dim, version=settings.embedding_version)
     if settings.embedding_provider == "openai_compatible":
-        if not (settings.embedding_api_base and settings.embedding_api_key and settings.embedding_model):
+        if not (
+            settings.embedding_api_base and settings.embedding_api_key and settings.embedding_model
+        ):
             raise ValueError("openai_compatible embedding 需要 EMBEDDING_API_BASE/KEY/MODEL")
         dim = KNOWN_EMBEDDING_DIMS.get(settings.embedding_model) or _probe_dim(
             settings.embedding_api_base, settings.embedding_api_key, settings.embedding_model

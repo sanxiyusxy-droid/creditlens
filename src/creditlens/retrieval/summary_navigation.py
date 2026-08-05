@@ -1,7 +1,10 @@
-"""Summary Navigation（任务 17 检索侧，文档 §8.7 Route C）。
+"""Summary Navigation（任务 17 检索侧，文档 §8.7 Route C；v1.1 修复 L0 递归下钻）。
 
 流程：检索摘要 Collection（L0/L1）-> 选 Top 分支 -> 下钻其来源 Leaf Section
 -> 用原始子问题对 Leaf 打分排序 -> 只返回 Leaf 作为候选。
+
+v1.1 修复：L0（DOCUMENT 级）命中时递归下钻其子 L1（CHAPTER 级）摘要的来源
+Leaf Section，而非直接取 L0 的来源（L0 来源为章标题，不含叶节点）。
 
 摘要本身永不进入最终 Evidence；下钻产生的 Leaf 是"新候选"，
 必须再次通过完整回表复核。
@@ -10,12 +13,14 @@
 from typing import TYPE_CHECKING
 
 from qdrant_client import QdrantClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from creditlens.infrastructure.postgres.models import (
     Document,
     DocumentSection,
     DocumentVersion,
+    SummaryNode,
 )
 from creditlens.ingestion.summaries import child_section_ids
 from creditlens.retrieval.contracts import (
@@ -34,6 +39,35 @@ class SummaryNavigator:
     def __init__(self, qdrant: QdrantClient, embedder):
         self._qdrant = qdrant
         self._embedder = embedder
+
+    async def _drill_leaf_ids(
+        self, session: AsyncSession, summary_node_id: str, limit: int
+    ) -> list:
+        """递归下钻：L0 -> 子 L1 -> Leaf Section；L1 -> 直接 Leaf Section。"""
+        node = await session.get(SummaryNode, summary_node_id)
+        if node is None:
+            return await child_section_ids(session, summary_node_id)
+
+        if node.summary_level == "DOCUMENT":
+            # L0：找其子 L1 摘要节点，递归取叶
+            children = (
+                await session.scalars(
+                    select(SummaryNode.id).where(SummaryNode.parent_summary_id == node.id)
+                )
+            ).all()
+            leaf_ids: list = []
+            seen: set = set()
+            for child_id in children:
+                for sid in await child_section_ids(session, child_id):
+                    if sid not in seen:
+                        seen.add(sid)
+                        leaf_ids.append(sid)
+                    if len(leaf_ids) >= limit:
+                        return leaf_ids
+            return leaf_ids
+        else:
+            # L1（CHAPTER）或更深：直接取来源 Section
+            return await child_section_ids(session, summary_node_id)
 
     async def retrieve(
         self,
@@ -56,19 +90,24 @@ class SummaryNavigator:
             with_payload=True,
         ).points
 
-        # 下钻：摘要 -> 来源 Leaf Section
+        # 下钻：摘要 -> 来源 Leaf Section（L0 递归到 L1 再到 Leaf）
         leaf_ids: list = []
         seen: set = set()
         for hit in hits:
             payload = hit.payload or {}
             if payload.get("point_type") != "summary_node":
                 continue
-            for section_id in await child_section_ids(session, payload["summary_node_id"]):
+            node_leaf_ids = await self._drill_leaf_ids(
+                session, payload["summary_node_id"], child_candidate_limit
+            )
+            for section_id in node_leaf_ids:
                 if section_id not in seen:
                     seen.add(section_id)
                     leaf_ids.append(section_id)
                 if len(leaf_ids) >= child_candidate_limit:
                     break
+            if len(leaf_ids) >= child_candidate_limit:
+                break
 
         # 用原始问题对 Leaf 重新打分（词面重叠，确定性）
         query_terms = set(tokenize(query))
@@ -80,7 +119,8 @@ class SummaryNavigator:
             terms = set(tokenize(section.text))
             score = len(query_terms & terms) / len(query_terms) if query_terms else 0.0
             scored.append((score, section))
-        scored.sort(key=lambda pair: pair[0], reverse=True)
+        # 平分确定性 tie-break（WP6）
+        scored.sort(key=lambda pair: (pair[0], pair[1].id), reverse=True)
 
         candidates: list[RetrievedCandidate] = []
         rejected: list[RetrievedCandidate] = []

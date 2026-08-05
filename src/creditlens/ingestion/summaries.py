@@ -99,7 +99,10 @@ async def build_summary_tree(
 
     # L0 文档卡片
     doc_title = root.heading if root else "文档"
-    card_lines = [f"文档主题：{doc_title}", "主要章节：" + "；".join(c.heading or "" for c in chapters)]
+    card_lines = [
+        f"文档主题：{doc_title}",
+        "主要章节：" + "；".join(c.heading or "" for c in chapters),
+    ]
     doc_node = add_summary(
         "DOCUMENT", "\n".join(card_lines), ([root] if root else []) + chapters, None
     )

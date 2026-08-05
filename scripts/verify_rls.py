@@ -53,10 +53,16 @@ def recreate_test_db() -> None:
 
 
 def migrate_and_apply_rls() -> None:
-    env = dict(os.environ, DATABASE_URL=f"postgresql+asyncpg://creditlens:creditlens@localhost:5432/{TEST_DB}")
+    env = dict(
+        os.environ,
+        DATABASE_URL=f"postgresql+asyncpg://creditlens:creditlens@localhost:5432/{TEST_DB}",
+    )
     subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=PROJECT_ROOT, env=env, check=True, capture_output=True,
+        cwd=PROJECT_ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
     )
     sql = (PROJECT_ROOT / "infra" / "postgres" / "rls_policies.sql").read_text(encoding="utf-8")
     conn = psycopg2.connect(TEST_DSN)
@@ -75,7 +81,9 @@ def migrate_and_apply_rls() -> None:
             """
         )
         cur.execute("GRANT USAGE ON SCHEMA public TO creditlens_app")
-        cur.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app")
+        cur.execute(
+            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app"
+        )
     conn.close()
 
 
@@ -189,8 +197,10 @@ def main() -> None:
 
     conn.close()
     failed = [r for r in results if not r[1]]
-    print(f"\n结论: {len(results) - len(failed)}/{len(results)} 通过"
-          + ("" if not failed else f"，失败: {[r[0] for r in failed]}"))
+    print(
+        f"\n结论: {len(results) - len(failed)}/{len(results)} 通过"
+        + ("" if not failed else f"，失败: {[r[0] for r in failed]}")
+    )
     sys.exit(1 if failed else 0)
 
 

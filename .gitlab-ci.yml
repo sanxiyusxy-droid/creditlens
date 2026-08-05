@@ -1,0 +1,85 @@
+# CreditLens GitLab CI
+# 三阶段：lint -> unit -> integration（真实 PG + Qdrant + RLS 业务角色 + Seed）
+#
+# Integration 说明（v1.1）：
+# - Qdrant 镜像固定版本（与 uv.lock 的 qdrant-client 1.18.0 对应）；
+# - 测试库 creditlens_test 由 postgres service 通过 POSTGRES_DB 创建；
+# - 以超级用户执行 Alembic 迁移与 RLS 基线（管理账号与业务账号分离）；
+# - 业务角色 creditlens_app 为 NOSUPERUSER NOBYPASSRLS（RLS 测试前提）；
+# - Seed 与测试均以业务角色连接，RLS 上下文由 session_scope 注入；
+# - 阶段末尾断言 0 skip（DATABASE_URL/QDRANT_URL 已在 variables 中提供）。
+
+stages:
+  - lint
+  - test
+  - integration
+
+variables:
+  UV_VERSION: "0.7.x"
+  PYTHON_VERSION: "3.12"
+
+# ---------- Lint ----------
+lint:
+  stage: lint
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - pip install uv
+  script:
+    - uv sync --frozen
+    - uv run ruff check src/ tests/ apps/ scripts/
+    - uv run ruff format --check src/ tests/ apps/ scripts/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ---------- Unit Tests ----------
+unit:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - pip install uv
+  script:
+    - uv sync --frozen
+    - uv run pytest tests/unit/ tests/security/ -x -q --timeout=120
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ---------- Integration Tests（真实 PG + Qdrant + RLS） ----------
+integration:
+  stage: integration
+  image: python:${PYTHON_VERSION}-slim
+  services:
+    - name: postgres:16
+      alias: pg
+    - name: qdrant/qdrant:v1.18.0
+      alias: qdrant
+  variables:
+    POSTGRES_DB: "creditlens_test"
+    POSTGRES_PASSWORD: "postgres"
+    PGPASSWORD: "postgres"
+    # 业务角色（NOSUPERUSER NOBYPASSRLS）：Seed 与测试均以此连接
+    DATABASE_URL: "postgresql+asyncpg://creditlens_app:creditlens_app@pg:5432/creditlens_test"
+    QDRANT_URL: "http://qdrant:6333"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends postgresql-client > /dev/null
+    - pip install uv
+    - uv sync --frozen
+    # 1) 管理身份（超级用户）：创建 NOSUPERUSER NOBYPASSRLS 业务角色
+    - psql -h pg -U postgres -d creditlens_test -f infra/postgres/ci_role.sql
+    # 2) 管理身份：Alembic 迁移（env.py 自动剥离 +asyncpg 走同步驱动）
+    - DATABASE_URL="postgresql://postgres:postgres@pg:5432/creditlens_test" uv run alembic upgrade head
+    # 3) 管理身份：应用 RLS 基线（ENABLE + FORCE + 租户/案件级策略）
+    - psql -h pg -U postgres -d creditlens_test -f infra/postgres/rls_policies.sql
+    # 4) 管理身份：向业务角色授权（表已由 Alembic 创建，owner 为 postgres）
+    - psql -h pg -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app;"
+    # 5) 业务身份：三案件 Seed（幂等；RLS 上下文由 session_scope 注入）
+    - uv run python scripts/seed_synthetic_data.py
+  script:
+    - uv run pytest tests/e2e/ -m integration -ra -q --timeout=300 | tee integration_result.txt
+    # Integration 必须 0 skip / 0 fail：出现 skipped 即失败
+    - "! grep -q 'skipped' integration_result.txt"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  allow_failure: false

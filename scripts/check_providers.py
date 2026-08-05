@@ -28,7 +28,9 @@ async def main() -> None:
     ok = True
 
     # 1. Embedding
-    print(f"[1/3] Embedding provider={settings.embedding_provider} model={settings.embedding_model or '-'}")
+    print(
+        f"[1/3] Embedding provider={settings.embedding_provider} model={settings.embedding_model or '-'}"
+    )
     try:
         embedder = build_embedding_provider(settings)
         vectors = await embedder.embed_documents(
@@ -72,7 +74,9 @@ async def main() -> None:
                 user="请回答：1+1 等于几？confidence 填 HIGH/MEDIUM/LOW。",
                 output_schema=_ProbeAnswer,
             )
-            print(f"      OK 结构化输出通过校验: answer={result.answer!r} confidence={result.confidence}")
+            print(
+                f"      OK 结构化输出通过校验: answer={result.answer!r} confidence={result.confidence}"
+            )
     except Exception as exc:
         ok = False
         print(f"      FAILED: {type(exc).__name__}: {exc}")

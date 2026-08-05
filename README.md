@@ -56,9 +56,10 @@ src/creditlens/
   application/      Port 定义
   infrastructure/   postgres / qdrant / minio / parsers / llm Adapter
   ingestion/        上传、解析、结构切分、Outbox、Index Worker
-  retrieval/        检索契约、硬过滤、Dense Retriever（后续：Sparse/RRF/Rerank）
+  retrieval/        统一 Orchestrator（Dense/Sparse/Summary/Exact → RRF → Rerank → Context Packing）
   evidence/         EvidenceRef -> 原始 PDF 页 Preview
-  evaluation/       GoldQuestion Schema 与 Recall@K
+  evaluation/       GoldQuestion Schema、Recall@K/NDCG/Precision/MRR、Retrieved Evidence P/R（Refusal/Agent 指标预留答案层，不计入报告）
+  agents/           Policy/Financial/Risk/Report Agent + Challenger + Auditor + Supervisor DAG
 migrations/         Alembic
 evaluation/datasets 冻结评测集（稳定 gold_evidence_key 锚点）
 scripts/            种子数据与评测脚本
@@ -77,23 +78,36 @@ data/synthetic/     合成政策等演示数据（不含真实数据）
 ## 评测
 
 ```powershell
-uv run python scripts/run_evaluation.py --dataset evaluation/datasets/frozen_v1.json
+uv run python scripts/run_evaluation.py --dataset evaluation/datasets/frozen_v2.json --split test
 ```
 
-输出 Recall@5/10/20、MRR@10、AllRequiredEvidence@K、独立回表 Leakage 审计
-（目标为 0）与 P50/P95 延迟，报告落盘 `evaluation/reports/`，含可复现 Manifest
-（dataset hash / alembic revision / collection point count / 模型版本）。
+`--split dev` 仅用于调参；简历指标只在冻结 `test` 上报。
+输出 Recall@5/10/20、NDCG@K、Precision@K、MRR@10、Retrieved Evidence Precision/Recall、
+per-case 指标与宏平均、独立回表 Leakage 审计（目标为 0）与 P50/P95 延迟，
+报告落盘 `evaluation/reports/`，含可复现 Manifest（dataset hash / split /
+alembic revision / collection point count / 模型版本）。
+口径说明：无答案生成层，不宣称 Faithfulness / Citation Accuracy / Refusal Accuracy。
 
-数据口径（如实声明）：1 个合成案件、3 个逻辑文档、4 个文档版本（政策新旧两版 +
-监管指引 + 年报节选）、80 题（74 可答 + 6 拒答，拒答题不计入 Recall）。
-拒答正确率 / Unsupported Answer 属答案生成层指标，当前系统无自由问答生成层，
-待该层实现后补充。
+数据口径（v1.1）：3 个合成案件（制造业流贷 / 科技型流贷 / 保理）、6 个逻辑文档、
+8 个文档版本、97 个证据锚点、200 题（182 可答 + 18 不可答），覆盖政策 QA /
+跨文档 / 财务事实 / 版本陷阱 / 口语缩写 / 拒答等意图；dev/test 按案件分层重划分，
+模板组不跨 split（Leakage 自检为 0）。
+
+### 集成测试
+
+```powershell
+docker compose -f docker-compose.test.yml up -d
+$env:DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5433/creditlens_test"
+$env:QDRANT_URL="http://localhost:6334"
+uv run pytest tests/e2e/ -m integration
+```
 
 ## 项目定位（诚实口径）
 
-授信预审 RAG / Multi-Agent **原型**：深度 RAG 实验链路与中心化 Multi-Agent
-主流程完整可运行，含文档版本化、混合召回消融、证据定位、财务公式重放、
-Snapshot 冻结（文档 + 财务事实）、RLS 行级隔离与 60 项自动化测试。
+授信预审 RAG / Multi-Agent **在线化原型**：统一 Retrieval Orchestrator（Dense +
+Sparse + Summary + Exact → RRF → Rerank → Context Packing）、5 Agent DAG
+（Policy / Financial / Risk / Challenger / Auditor + Report）、文档版本化、
+Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题）、GitLab CI 与集成测试。
 **不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做并发与容量验证。
 
 ## 演示（8–12 分钟）
@@ -111,20 +125,36 @@ powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
 ② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
 ④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
 
-## 冻结指标（v1.0，简历口径）
+## 冻结指标（v1.1，简历口径）
 
-frozen_v1 评测集（合成语料：1 案件 / 3 逻辑文档 / 4 文档版本 / 80 题 =
-74 可答 + 6 拒答），bge-m3 + bge-reranker-v2-m3 + DeepSeek，真实栈
-（PG16 + Qdrant + MinIO）+ RLS 业务角色下，**三次重复运行验证**：
+frozen_v2 冻结 test split（3 案件 / 121 题 / 110 可答；数据集 sha256 前缀
+`d3dc24c3527b23f6`），bge-m3 + bge-reranker-v2-m3（API）+ bm25-jieba-v1，
+Alembic `0006_hitl_wp3`，真实栈（PG16 + Qdrant v1.18.0）+ RLS 业务角色下，
+**三次连续评测**（报告 `evaluation/reports/ablation_frozen_v2_test_
+{20260804T165017Z, 20260804T165546Z, 20260804T170112Z}.json`）：
 
-| 指标 | 数值 | 备注 |
-|---|---|---|
-| 混合+精排（E7）Recall@20 | **1.000** | 三次一致；Dense 单通道为 0.953 |
-| Dense（E0）Recall@5 / MRR@10 | 0.953 / 0.943 | 三次一致 |
-| 独立回表 Leakage（时点/ACL/案件） | **0** | 全通道、独立于检索链路的回表审计 |
-| Policy Version Accuracy（12 道版本时点题） | 100% | 新旧政策版本命中正确 |
-| 检索延迟 P95 | Dense 248ms / E7 875ms | 单机单并发，含模型 API 往返 |
-| 自动化测试 | 60 passed | 含安全边界 8 + 故障注入 5 + P0 防回归 6 |
+| 通道 | Recall@10 | Recall@20 | MRR@10 | 延迟 P50/P95 |
+|---|---|---|---|---|
+| E0 Dense-only | 0.9545 | 0.9682 | 0.9485 | 230–237 / 266–289 ms |
+| E23 +Sparse+RRF | 0.9561 | 0.9606 | 0.8970 | 297–305 / 421–432 ms |
+| E4 Dense+Summary | 0.7697 | 0.9682 | 0.7562 | 417–446 / 493–502 ms |
+| E5 +QuerySpec Rewrite | 0.9515 | 0.9606 | 0.8666 | 288–313 / 420–461 ms |
+| **E7 全链路（默认）** | **0.9682** | **0.9909** | 0.8897–0.8912 | 874–889 / 1101–1116 ms |
 
-注：E23/E5 混合通道存在 ±1 题的运行间波动（RRF 平分排序），未纳入冻结口径。
+- E0/E23/E4/E5 全部指标三次**逐位一致**；独立回表 Leakage = **0**（全通道）、
+  unmapped = 0、时点/ACL 拒绝为 0；
+- E7 per-case Recall@10：case001 0.9490 / case002 0.9881 / case003 0.9737，
+  宏平均 0.9703；
+- 通道决策：E7 相比 E0 有真实召回增益（R@10 +1.4pp、R@20 +2.3pp），保留为
+  在线默认；E4 单独 Summary 显著弱于 Dense（R@10 0.7697 vs 0.9545），
+  Summary 只作为 RRF 参与通道、不单独成链——如实取舍；
+- 诚实口径：E7 MRR@10/NDCG@10 存在 ±1 题的运行间波动（q020/q063/q120，
+  远程 rerank API 侧分数抖动；融合/精排层已做确定性 tie-break，Recall 全稳），
+  简历只引用 Recall 与 Leakage。
+
+口径说明：无答案生成层，报告指标为检索层 Recall/NDCG/MRR 与
+Retrieved Evidence Precision/Recall，不宣称 Faithfulness / Citation Accuracy /
+Refusal Accuracy。自动化测试：92 passed（非集成）+ 6 项真实栈集成测试
+（0 skip / 0 fail）。
+
 

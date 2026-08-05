@@ -39,6 +39,7 @@ class GoldQuestion(BaseModel):
     tags: list[str] = Field(default_factory=list)
     difficulty: str = "normal"
     annotator_notes: str = ""
+    split: str = "test"  # dev（调参）/ test（冻结）
 
 
 class GoldDataset(BaseModel):

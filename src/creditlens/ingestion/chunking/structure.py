@@ -71,7 +71,9 @@ def _collect_lines(parsed: ParsedDocument) -> list[_Line]:
     return lines
 
 
-def build_sections(parsed: ParsedDocument, document_title: str, document_type: str) -> list[SectionDraft]:
+def build_sections(
+    parsed: ParsedDocument, document_title: str, document_type: str
+) -> list[SectionDraft]:
     if document_type in {"REGULATION", "INTERNAL_POLICY"}:
         return _build_policy_sections(parsed, document_title)
     return _build_paragraph_sections(parsed, document_title)
@@ -109,7 +111,9 @@ def _build_policy_sections(parsed: ParsedDocument, title: str) -> list[SectionDr
             return
         text = "\n".join(line.text for line in article_lines)
         parent = current_chapter or root
-        heading_path = [*parent.heading_path, article_heading] if article_heading else parent.heading_path
+        heading_path = (
+            [*parent.heading_path, article_heading] if article_heading else parent.heading_path
+        )
         leaf = SectionDraft(
             id=new_id(),
             section_type="ARTICLE",

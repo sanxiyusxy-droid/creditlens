@@ -3,9 +3,14 @@
 - Anchor 映射：gold_evidence_key -> 当前 Parse Run 的 Section ID（按 logical_key +
   article_anchor/heading 匹配），映射失败记为 unmapped，不静默丢弃；
 - Recall@K / MRR@K / AllRequiredEvidence@K；
+- NDCG@K / Precision@K；
+- Retrieved Evidence Precision / Recall（候选层证据命中率；无答案生成层，
+  不宣称 Faithfulness / Citation Accuracy / Refusal Accuracy）；
 - Temporal/ACL Leakage 在候选层单独计数，目标为 0。
+- RefusalMetrics 仅预留给答案层；无 QA 生成层时不计入报告。
 """
 
+import math
 import uuid
 from dataclasses import dataclass, field
 
@@ -58,6 +63,10 @@ class QuestionResult:
     recall_at: dict[int, float]
     all_required_at: dict[int, bool]
     unmapped_keys: list[str] = field(default_factory=list)
+    ndcg_at: dict[int, float] = field(default_factory=dict)
+    precision_at: dict[int, float] = field(default_factory=dict)
+    retrieved_evidence_precision: float = 0.0
+    retrieved_evidence_recall: float = 0.0
 
 
 @dataclass
@@ -77,12 +86,22 @@ class EvalReport:
             out[f"all_required@{k}"] = (
                 sum(1 for r in self.question_results if r.all_required_at.get(k)) / n
             )
+            out[f"ndcg@{k}"] = sum(r.ndcg_at.get(k, 0.0) for r in self.question_results) / n
+            out[f"precision@{k}"] = (
+                sum(r.precision_at.get(k, 0.0) for r in self.question_results) / n
+            )
         reciprocal = [
             1.0 / r.hit_rank if r.hit_rank and r.hit_rank <= 10 else 0.0
             for r in self.question_results
         ]
         out["mrr@10"] = sum(reciprocal) / n
         out["unmapped_questions"] = sum(1 for r in self.question_results if r.unmapped_keys)
+        out["retrieved_evidence_precision"] = (
+            sum(r.retrieved_evidence_precision for r in self.question_results) / n
+        )
+        out["retrieved_evidence_recall"] = (
+            sum(r.retrieved_evidence_recall for r in self.question_results) / n
+        )
         return out
 
 
@@ -137,10 +156,31 @@ async def evaluate_question(
 
     recall_at: dict[int, float] = {}
     all_required_at: dict[int, bool] = {}
+    ndcg_at: dict[int, float] = {}
+    precision_at: dict[int, float] = {}
     for k in ks:
         ratio, full = covered(k)
         recall_at[k] = ratio
         all_required_at[k] = full
+        # Precision@K：top-k 中有多少是 gold
+        top_k_ids = set(ranked_ids[:k])
+        gold_hits = len(top_k_ids & all_required_ids) if all_required_ids else 0
+        precision_at[k] = gold_hits / k if k > 0 else 0.0
+        # NDCG@K：graded relevance（必需证据=2，相关=1）
+        ndcg_at[k] = _compute_ndcg(ranked_ids[:k], all_required_ids, k)
+
+    # Retrieved Evidence Precision/Recall（候选层证据命中，基于全部候选）
+    all_candidate_ids = set(ranked_ids)
+    retrieved_evidence_precision = (
+        len(all_candidate_ids & all_required_ids) / len(all_candidate_ids)
+        if all_candidate_ids
+        else 0.0
+    )
+    retrieved_evidence_recall = (
+        len(all_candidate_ids & all_required_ids) / len(all_required_ids)
+        if all_required_ids
+        else 0.0
+    )
 
     return QuestionResult(
         question_id=question.question_id,
@@ -148,4 +188,55 @@ async def evaluate_question(
         recall_at=recall_at,
         all_required_at=all_required_at,
         unmapped_keys=unmapped,
+        ndcg_at=ndcg_at,
+        precision_at=precision_at,
+        retrieved_evidence_precision=retrieved_evidence_precision,
+        retrieved_evidence_recall=retrieved_evidence_recall,
     )
+
+
+def _compute_ndcg(ranked_ids: list[uuid.UUID], gold_ids: set[uuid.UUID], k: int) -> float:
+    """NDCG@K：gold 命中 = relevance 2，未命中 = 0。"""
+    if not gold_ids:
+        return 0.0
+    dcg = 0.0
+    for i, sid in enumerate(ranked_ids[:k]):
+        if sid in gold_ids:
+            dcg += 2.0 / math.log2(i + 2)  # i+2 因为位置从 1 开始
+    # 理想排序：所有 gold 排最前
+    ideal_count = min(len(gold_ids), k)
+    idcg = sum(2.0 / math.log2(i + 2) for i in range(ideal_count))
+    return dcg / idcg if idcg > 0 else 0.0
+
+
+# ====================== Refusal 指标 ======================
+
+
+@dataclass
+class RefusalMetrics:
+    """拒答相关指标。"""
+
+    total_unanswerable: int = 0
+    correct_refusals: int = 0
+    total_answerable: int = 0
+    false_refusals: int = 0
+
+    @property
+    def refusal_accuracy(self) -> float:
+        """拒答题正确拒答率。"""
+        return self.correct_refusals / self.total_unanswerable if self.total_unanswerable else 0.0
+
+    @property
+    def false_refusal_rate(self) -> float:
+        """可答题被误拒率。"""
+        return self.false_refusals / self.total_answerable if self.total_answerable else 0.0
+
+    def summary(self) -> dict:
+        return {
+            "total_unanswerable": self.total_unanswerable,
+            "correct_refusals": self.correct_refusals,
+            "refusal_accuracy": round(self.refusal_accuracy, 4),
+            "total_answerable": self.total_answerable,
+            "false_refusals": self.false_refusals,
+            "false_refusal_rate": round(self.false_refusal_rate, 4),
+        }

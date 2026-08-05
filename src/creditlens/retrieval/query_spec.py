@@ -203,8 +203,11 @@ def validate_query_spec(trusted: TrustedRequestContext, spec: QuerySpec) -> Vali
             violations.append(f"TOO_MANY_VARIANTS:{subquery_id}")
     for subquery_id in subquery_ids:
         routes = original_routes.get(subquery_id, set())
+        # 原始 Query 至少保留一条 Dense 和一条 Sparse 支路（文档 §8.4）
         if "dense" not in routes:
             violations.append(f"MISSING_ORIGINAL_DENSE:{subquery_id}")
+        if "sparse" not in routes:
+            violations.append(f"MISSING_ORIGINAL_SPARSE:{subquery_id}")
 
     # 版本比较必须恰有两个 ComparisonContext；其他意图为空
     if spec.intent == "POLICY_VERSION_COMPARE":

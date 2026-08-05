@@ -182,7 +182,9 @@ async def test_policy_validity_checked_on_verify(session, qdrant, seeded):
     )
     result = await retriever.retrieve(session, trusted, "准入条件", COLLECTION, top_k=10)
     assert result.candidates == []
-    assert all(r.rejection_reason == "OUT_OF_EFFECTIVE_DATE" for r in result.rejected if r.rejection_reason)
+    assert all(
+        r.rejection_reason == "OUT_OF_EFFECTIVE_DATE" for r in result.rejected if r.rejection_reason
+    )
 
 
 async def test_cross_tenant_is_isolated(session, qdrant, seeded):

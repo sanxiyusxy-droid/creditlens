@@ -21,8 +21,10 @@ from creditlens.agents.challenger import Challenger
 from creditlens.agents.contracts import AgentArtifact
 from creditlens.agents.financial_agent import FinancialAgent
 from creditlens.agents.policy_agent import PolicyAgent
+from creditlens.agents.report_agent import ReportAgent
+from creditlens.agents.risk_agent import RiskAgent
 from creditlens.common.clock import utc_now
-from creditlens.common.errors import InvalidStateTransitionError
+from creditlens.common.errors import ConcurrentReviewConflictError, InvalidStateTransitionError
 from creditlens.infrastructure.postgres.models import (
     ArtifactRecord,
     CaseDocument,
@@ -49,8 +51,13 @@ _TRANSITIONS: dict[str, set[str]] = {
     "AUDITING": {"HUMAN_REVIEW", "REPORTING", "NEED_MORE_INFO"},
     "HUMAN_REVIEW": {"REPORTING", "REWORK"},
     "REWORK": {"HUMAN_REVIEW", "PLANNING"},  # P0-3：REWORK 有恢复路径
-    "REPORTING": {"COMPLETED"},
+    # v1.1：Report Agent 生成失败时 Run 不得 COMPLETED（WP1 失败门禁）
+    "REPORTING": {"COMPLETED", "FAILED"},
 }
+
+# v1.1 失败门禁：关键 Agent 失败禁止生成报告；Risk 失败降级继续（WP1）
+_CRITICAL_AGENTS = {"policy", "financial"}
+_DEGRADABLE_AGENTS = {"risk"}
 
 
 @dataclass
@@ -68,11 +75,15 @@ class Supervisor:
         financial_agent: FinancialAgent,
         challenger: Challenger,
         auditor: EvidenceAuditor,
+        risk_agent: RiskAgent | None = None,
+        report_agent: ReportAgent | None = None,
     ):
         self._policy = policy_agent
         self._financial = financial_agent
         self._challenger = challenger
         self._auditor = auditor
+        self._risk = risk_agent
+        self._report = report_agent or ReportAgent()
 
     async def execute_full_review(
         self,
@@ -127,17 +138,53 @@ class Supervisor:
         # P0-4：专业 Agent 串行执行——多个 Agent 共享同一 AsyncSession，
         # asyncio.gather 并发使用同一 Session 不安全。真正并行需要 per-Agent
         # 独立 Session + 持久任务队列（Celery），列入偏差 D9。
+        # v1.1：Policy || Financial || Risk 三路（仍串行）
         professional: list[AgentArtifact] = []
-        for name, agent, task_key in (
-            ("policy", self._policy, "policy_review"),
-            ("financial", self._financial, "financial_analysis"),
-        ):
+        agent_tasks = [
+            ("policy", self._policy, "policy_review", "policy_analyst"),
+            ("financial", self._financial, "financial_analysis", "financial_analyst"),
+        ]
+        if self._risk is not None:
+            agent_tasks.append(("risk", self._risk, "risk_analysis", "risk_analyst"))
+        degraded_agents: list[str] = []
+        for name, agent, task_key, producer in agent_tasks:
             try:
                 result = await agent.run(run.id, task_key, trusted)
                 professional.append(result)
                 await seq.emit("TASK_COMPLETED", {"task": name, "claims": len(result.claims)})
+                if name == "risk":
+                    # WP3：Risk 阈值配置版本写入 Manifest，评测/审计口径可追溯
+                    threshold_version = getattr(agent, "threshold_version", None)
+                    if threshold_version:
+                        run.model_manifest = {
+                            **(run.model_manifest or {}),
+                            "risk_threshold_version": threshold_version,
+                        }
+                        await session.flush()
             except Exception as exc:
+                # WP1：Agent 异常必须生成 FAILED Artifact 并持久化，不能只写事件后继续
+                failed = AgentArtifact(
+                    run_id=run.id,
+                    task_id=task_key,
+                    producer=producer,
+                    execution_status="FAILED",
+                    unresolved_issues=[{"error": type(exc).__name__, "stage": name}],
+                )
+                await self._persist_artifacts(session, run, [failed])
                 await seq.emit("TASK_FAILED", {"task": name, "error": type(exc).__name__})
+                if name in _CRITICAL_AGENTS:
+                    # Policy/Financial 失败：禁止生成报告，Run 直接 FAILED
+                    await self._transition(session, run, seq, "FAILED", force=True)
+                    return RunOutcome(run.id, run.status, [failed])
+                if name in _DEGRADABLE_AGENTS:
+                    # Risk 失败：允许继续，但必须标记 DEGRADED 写入 Manifest
+                    degraded_agents.append(name)
+                    run.model_manifest = {
+                        **(run.model_manifest or {}),
+                        "degraded_agents": degraded_agents,
+                        "degraded": True,
+                    }
+                    await session.flush()
         if not professional:
             await self._transition(session, run, seq, "FAILED", force=True)
             return RunOutcome(run.id, run.status)
@@ -151,7 +198,8 @@ class Supervisor:
         all_artifacts = [*professional, challenge]
 
         await self._transition(session, run, seq, "AUDITING")
-        audit = await self._auditor.verify(session, trusted, all_artifacts)
+        # WP3：Auditor 同步复核 Case/Snapshot/cutoff
+        audit = await self._auditor.verify(session, trusted, all_artifacts, snapshot=snapshot)
         await seq.emit(
             "AUDIT_COMPLETED",
             {
@@ -169,8 +217,15 @@ class Supervisor:
             return RunOutcome(run.id, run.status, all_artifacts, audit)
 
         await self._transition(session, run, seq, "REPORTING")
-        # P0-3：报告版本成功持久化是 COMPLETED 的前置条件
-        await _persist_report_version(session, run)
+        # v1.1：Report Agent 生成结构化报告（替代内部 JSON 渲染）；
+        # WP1：Report 失败时 Run 不得 COMPLETED，转 FAILED
+        try:
+            report_content = await self._report.generate(session, run)
+            await self._report.persist(session, run, report_content)
+        except Exception as exc:
+            await seq.emit("REPORT_FAILED", {"error": type(exc).__name__})
+            await self._transition(session, run, seq, "FAILED", force=True)
+            return RunOutcome(run.id, run.status, all_artifacts, audit)
         await self._transition(session, run, seq, "COMPLETED")
         run.completed_at = utc_now()
         return RunOutcome(run.id, run.status, all_artifacts, audit)
@@ -242,6 +297,10 @@ class Supervisor:
                             ],
                             "opposing_evidence_ids": [str(e) for e in claim.opposing_evidence_ids],
                             "calculation_ids": [str(c) for c in claim.calculation_ids],
+                            # WP3：source_claim_id 持久化，API/报告可追踪反证来源
+                            "source_claim_id": str(claim.source_claim_id)
+                            if claim.source_claim_id
+                            else None,
                         },
                     )
                 )
@@ -309,53 +368,16 @@ async def _transition_run(
     await session.flush()
 
 
-async def _persist_report_version(session: AsyncSession, run: ReviewRun) -> None:
-    """P0-3：报告版本持久化（文档 §6.4 report_versions）。
-    只渲染已通过审计/人工批准的 Claim；APPROVED_DRAFT 不代表真实授信批准。"""
-    import json
+async def _persist_report_via_agent(
+    session: AsyncSession, run: ReviewRun, status: str = "APPROVED_DRAFT"
+) -> None:
+    """v1.1：通过 Report Agent 生成并持久化报告版本。
 
-    from creditlens.common.hashing import sha256_text
-    from creditlens.infrastructure.postgres.models import ReportVersion
-
-    claims = (
-        await session.scalars(select(ClaimRecord).where(ClaimRecord.run_id == run.id))
-    ).all()
-    accepted = [
-        {
-            "claim_id": str(c.id),
-            "category": c.category,
-            "statement": c.statement,
-            "verdict": c.verdict,
-            "review_status": c.review_status,
-            "evidence": c.payload,
-        }
-        for c in claims
-        if c.review_status in {"AUDITED", "HUMAN_APPROVED"}
-    ]
-    content = {
-        "run_id": str(run.id),
-        "as_of_date": run.as_of_date.isoformat(),
-        "claims": accepted,
-        "excluded_claims": len(claims) - len(accepted),
-        "disclaimer": "本报告为授信预审辅助草稿，不构成授信批准或拒绝决定。",
-    }
-    from sqlalchemy import func
-
-    last_no = await session.scalar(
-        select(func.max(ReportVersion.version_no)).where(ReportVersion.run_id == run.id)
-    )
-    session.add(
-        ReportVersion(
-            tenant_id=run.tenant_id,
-            case_id=run.case_id,
-            run_id=run.id,
-            version_no=(last_no or 0) + 1,
-            status="APPROVED_DRAFT",
-            content_json=content,
-            content_hash=sha256_text(json.dumps(content, ensure_ascii=False, sort_keys=True)),
-        )
-    )
-    await session.flush()
+    WP3：人工批准后的 resume 路径默认 APPROVED_DRAFT；
+    自动 REPORTING 路径（Supervisor 内）使用默认 VERIFIED_DRAFT。"""
+    agent = ReportAgent()
+    content = await agent.generate(session, run)
+    await agent.persist(session, run, content, status=status)
 
 
 async def _blocking_claims_remain(session: AsyncSession, run_id: uuid.UUID) -> int:
@@ -407,6 +429,13 @@ async def resume_after_human_review(
     if run.status not in {"HUMAN_REVIEW", "REWORK"}:
         raise InvalidStateTransitionError("Run 不在可人工处理状态")
 
+    # WP3 乐观锁：expected_state_version 不匹配 -> 并发审批冲突（API 映射 409）
+    if decision.target_version is not None and decision.target_version != run.state_version:
+        raise ConcurrentReviewConflictError(
+            "Run 状态版本已变更，请刷新后重试",
+            {"expected": decision.target_version, "actual": run.state_version},
+        )
+
     session.add(decision)
     seq = _EventWriter(session, run, resume=True)
     await seq.emit("HUMAN_DECISION", {"action": decision.action})
@@ -426,7 +455,7 @@ async def resume_after_human_review(
         if run.status == "REWORK":
             await _transition_run(session, run, seq, "HUMAN_REVIEW")
         await _transition_run(session, run, seq, "REPORTING")
-        await _persist_report_version(session, run)
+        await _persist_report_via_agent(session, run)
         await _transition_run(session, run, seq, "COMPLETED")
         run.completed_at = utc_now()
     elif decision.action in {"SUBMIT_REPORT", "APPROVE_REPORT_DRAFT"}:
@@ -438,7 +467,7 @@ async def resume_after_human_review(
         if run.status == "REWORK":
             await _transition_run(session, run, seq, "HUMAN_REVIEW")
         await _transition_run(session, run, seq, "REPORTING")
-        await _persist_report_version(session, run)
+        await _persist_report_via_agent(session, run)
         await _transition_run(session, run, seq, "COMPLETED")
         run.completed_at = utc_now()
     else:

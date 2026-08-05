@@ -189,9 +189,7 @@ class IngestionPipeline:
         return IngestResult(parse_run.id, len(drafts), outbox_count, reused=False)
 
 
-async def activate_parse_run_if_complete(
-    session: AsyncSession, parse_run_id: uuid.UUID
-) -> bool:
+async def activate_parse_run_if_complete(session: AsyncSession, parse_run_id: uuid.UUID) -> bool:
     """Activation Guard（文档 §14.2）：ParseRun 解析成功且所有 Outbox 完成后，
     原子更新 document_versions.active_parse_run_id；旧 ParseRun 转 SUPERSEDED。"""
     parse_run = await session.get(ParseRun, parse_run_id)

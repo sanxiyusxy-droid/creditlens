@@ -36,15 +36,26 @@ def upgrade() -> None:
         op.add_column("run_events", sa.Column("tenant_id", GUID, nullable=True))
     if "case_id" not in existing:
         op.add_column("run_events", sa.Column("case_id", GUID, nullable=True))
-    # 回填既有事件的租户/案件维度
-    op.execute(
-        """
-        UPDATE run_events e
-        SET tenant_id = r.tenant_id, case_id = r.case_id
-        FROM review_runs r
-        WHERE e.run_id = r.id AND e.tenant_id IS NULL
-        """
-    )
+    # 回填既有事件的租户/案件维度（UPDATE ... FROM 为 PG 语法；SQLite 用子查询写法）
+    if op.get_bind().dialect.name == "postgresql":
+        op.execute(
+            """
+            UPDATE run_events e
+            SET tenant_id = r.tenant_id, case_id = r.case_id
+            FROM review_runs r
+            WHERE e.run_id = r.id AND e.tenant_id IS NULL
+            """
+        )
+    else:
+        op.execute(
+            """
+            UPDATE run_events
+            SET tenant_id = (SELECT r.tenant_id FROM review_runs r WHERE r.id = run_events.run_id),
+                case_id = (SELECT r.case_id FROM review_runs r WHERE r.id = run_events.run_id)
+            WHERE tenant_id IS NULL
+              AND EXISTS (SELECT 1 FROM review_runs r WHERE r.id = run_events.run_id)
+            """
+        )
 
 
 def downgrade() -> None:

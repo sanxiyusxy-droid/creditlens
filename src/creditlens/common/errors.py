@@ -39,5 +39,18 @@ class IdempotencyConflictError(CreditLensError):
     error_code = "IDEMPOTENCY_CONFLICT"
 
 
+class ConcurrentReviewConflictError(CreditLensError):
+    """WP3：并发审批冲突（expected_state_version 不匹配），API 映射 409。"""
+
+    error_code = "REVIEW_CONFLICT"
+    retryable = True
+
+
+class ActionNotAuthorizedError(CreditLensError):
+    """WP3：复核动作未授权（仅 REVIEWER/OWNER 可审批）。"""
+
+    error_code = "ACTION_NOT_AUTHORIZED"
+
+
 class InsufficientEvidenceError(CreditLensError):
     error_code = "INSUFFICIENT_EVIDENCE"

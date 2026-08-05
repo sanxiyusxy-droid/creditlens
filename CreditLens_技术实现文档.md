@@ -459,10 +459,12 @@ class EmbeddingProvider(Protocol):
     async def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
     async def embed_query(self, text: str) -> list[float]: ...
 
+
 class RerankProvider(Protocol):
     async def rerank(
         self, query: str, candidates: list["Candidate"]
     ) -> list["RankedCandidate"]: ...
+
 
 class LLMProvider(Protocol):
     async def generate_structured(
@@ -2143,6 +2145,7 @@ class DocumentParser(Protocol):
     def supports(self, mime_type: str, document_type: str) -> bool: ...
     async def parse(self, source: "ObjectRef") -> "ParsedDocument": ...
 
+
 class ParsedDocument(BaseModel):
     pages: list["ParsedPage"]
     blocks: list["LayoutBlock"]
@@ -2532,6 +2535,7 @@ class ComparisonContext(BaseModel):
     as_of_date: date
     decision_cutoff_at: datetime
 
+
 class RetrievalQueryVariant(BaseModel):
     variant_id: str
     subquery_id: str
@@ -2545,16 +2549,16 @@ class RetrievalQueryVariant(BaseModel):
     ]
     route: Literal["dense", "sparse", "summary", "exact"]
 
+
 class RetrievalSubQuery(BaseModel):
     subquery_id: str
     question: str
     sparse_terms: list[str]
     exact_terms: list[str]
-    route_hints: list[
-        Literal["dense", "sparse", "summary", "exact", "sql"]
-    ]
+    route_hints: list[Literal["dense", "sparse", "summary", "exact", "sql"]]
     required_evidence_types: list[str]
     priority: int = Field(ge=1, le=5)
+
 
 class QuerySpec(BaseModel):
     schema_version: str
@@ -2568,7 +2572,7 @@ class QuerySpec(BaseModel):
         "FULL_CREDIT_REVIEW",
         "MATERIAL_COMPLETENESS",
         "CROSS_SOURCE_CONFLICT",
-        "UNANSWERABLE"
+        "UNANSWERABLE",
     ]
     entity_ids: list[UUID]
     product_code: str
@@ -3029,16 +3033,12 @@ context:
 ```python
 class AnswerClaim(BaseModel):
     statement: str
-    verdict: Literal[
-        "supported",
-        "partially_supported",
-        "contradicted",
-        "insufficient_evidence"
-    ]
+    verdict: Literal["supported", "partially_supported", "contradicted", "insufficient_evidence"]
     supporting_evidence_ids: list[UUID]
     opposing_evidence_ids: list[UUID]
     calculation_ids: list[UUID]
     limitations: list[str]
+
 
 class GroundedAnswer(BaseModel):
     direct_answer: str
@@ -3473,6 +3473,7 @@ class CalculationInput(BaseModel):
     period_end: date
     source_evidence_id: UUID
 
+
 class CalculationArtifact(BaseModel):
     calculation_id: UUID
     metric_code: str
@@ -3488,7 +3489,7 @@ class CalculationArtifact(BaseModel):
         "DIVISION_BY_ZERO",
         "UNIT_CONFLICT",
         "PERIOD_CONFLICT",
-        "SOURCE_CONFLICT"
+        "SOURCE_CONFLICT",
     ]
     trace_hash: str
 ```
@@ -3606,11 +3607,15 @@ Authorize
 
 ```python
 def choose_run_mode(query_spec: QuerySpec) -> RunMode:
-    if query_spec.intent in {
-        "POLICY_QA",
-        "FINANCIAL_FACT",
-        "MATERIAL_COMPLETENESS",
-    } and len(query_spec.subqueries) <= 2:
+    if (
+        query_spec.intent
+        in {
+            "POLICY_QA",
+            "FINANCIAL_FACT",
+            "MATERIAL_COMPLETENESS",
+        }
+        and len(query_spec.subqueries) <= 2
+    ):
         return RunMode.SIMPLE
     return RunMode.FULL_REVIEW
 ```
@@ -3679,6 +3684,7 @@ class TaskSpec(BaseModel):
     max_tool_calls: int
     token_budget: int
     human_gate: bool
+
 
 class PlanSpec(BaseModel):
     plan_version: int
@@ -3970,9 +3976,7 @@ async def execute_full_review(
         tasks=plan.professional_tasks,
         max_parallelism=plan.max_parallelism,
     )
-    provisional = await synthesis_service.build_provisional_claims(
-        professional_results
-    )
+    provisional = await synthesis_service.build_provisional_claims(professional_results)
 
     challenged = await challenger.run_once(
         trusted=trusted,
@@ -4007,7 +4011,7 @@ async def execute_full_review(
 | Financial | 数值 Exact Match、公式重放率、口径冲突发现率 |
 | Risk | 风险信号 Recall、误定性率、跨材料冲突 F1 |
 | Challenger | Counter-Evidence Recall、有效反证率、额外成本 |
-| Auditor | Unsupported Claim 拦截率、误杀率、Citation Precision |
+| Auditor | Unsupported Claim 拦截率、误杀率、证据一致性通过率（确定性证据一致性审计；Citation Precision 属答案层，随 QA 层实现） |
 | Report | 新增未验证 Claim 数量必须为 0、数字转录错误数必须为 0 |
 
 在宣称 Multi-Agent 带来质量增益前，P1 必须与“同数据、同模型预算下的单 Agent 基线”比较，不能只展示成功案例；Core 只可陈述其工程分工与可控性，不提前宣称效果提升。
@@ -4030,6 +4034,7 @@ class ToolCallContext(BaseModel):
     case_id: UUID
     purpose: str
     authz_context_hash: str
+
 
 class ToolResult(BaseModel):
     tool_call_id: UUID
@@ -4834,6 +4839,7 @@ class GoldEvidenceAnchor(BaseModel):
     table_locator: dict | None
     canonical_text_hash: str | None
 
+
 class GoldQuestion(BaseModel):
     question_id: str
     case_id: UUID
@@ -4956,6 +4962,10 @@ ACL Leakage Rate =
 
 #### Citation
 
+> v1.1 口径：当前无自由问答生成层，以下 Citation 指标为答案层目标定义，
+> 不计入现行评测报告；现行报告口径为候选层 Retrieved Evidence
+> Precision/Recall（见 §16 检索层指标与 `scripts/run_evaluation.py`）。
+
 - Citation Precision；
 - Citation Recall；
 - Citation Coverage；
@@ -5056,6 +5066,9 @@ ACL Leakage Rate =
 ### 16.12 初始质量门槛
 
 这些是目标，不是已经取得的成绩：
+
+> 其中 Citation 系列与正确拒答率以自由问答生成层为前提；v1.1 无答案层，
+> 现行冻结口径为检索层 Recall/NDCG/MRR 与 Retrieved Evidence Precision/Recall。
 
 | 指标 | 阶段目标 |
 |---|---:|
@@ -6001,11 +6014,13 @@ ADR-012 所有报告 Claim 先结构化再渲染
 
 - 构建结构感知切分、分层摘要导航、受约束 Query Rewrite、Dense/BM25/Exact
   多路召回、Weighted RRF 与 Cross-Encoder 精排链路；在 [N] 条冻结问题上，
-  Evidence Recall@10 从 [baseline] 提升至 [result]，P95 为 [latency]。
+  Evidence Recall@10 从 [baseline] 提升至 [result]，P95 为 [latency]
+  （v1.1 实测：frozen_v2 test 121 题，E0 Recall@10 0.9545 → E7 全链路
+  0.9682，E7 P95 ≈ 1.1s，三次连续评测 Recall 逐位一致、独立 Leakage=0）。
 
 - 采用 Supervisor 中心化编排 Policy/Financial/Risk/Challenger/Auditor，
   通过类型化 Tool Gateway、Claim-Evidence Contract、预算与 Checkpoint
-  控制执行边界；Citation Precision 达到 [result]，无证据确定性 Claim 为 [0/实测值]。
+  控制执行边界；确定性证据一致性审计通过率 [result]，无证据确定性 Claim 为 [0/实测值]。
 
 - 建立 as_of_date/source_available_at 双时间过滤、PostgreSQL RLS、
   Qdrant 召回前 ACL 与回表复核；在 [N] 个攻击用例上 Temporal/ACL Leakage

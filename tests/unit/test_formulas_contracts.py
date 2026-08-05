@@ -48,9 +48,7 @@ class TestFormulaEngine:
 
     def test_missing_input_never_estimated(self):
         definition = self.registry.get("debt_ratio", "1.0")
-        calc = compute_metric(
-            definition, {"total_assets": _input("total_assets", "10000")}
-        )
+        calc = compute_metric(definition, {"total_assets": _input("total_assets", "10000")})
         assert calc.status == "MISSING_INPUT"
         assert calc.result is None
 
@@ -115,7 +113,11 @@ def _evidence(evidence_type="DOCUMENT_SPAN") -> AgentEvidenceRef:
 class TestArtifactContract:
     def _artifact(self, claims, evidence=()):
         return AgentArtifact(
-            run_id=uuid.uuid4(), task_id="t", producer="test", claims=claims, evidence=list(evidence)
+            run_id=uuid.uuid4(),
+            task_id="t",
+            producer="test",
+            claims=claims,
+            evidence=list(evidence),
         )
 
     def test_supported_without_evidence_rejected(self):

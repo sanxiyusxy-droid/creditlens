@@ -68,8 +68,13 @@ def _policy_gateway(session, qdrant, embedder, snapshot) -> ToolGateway:
 
     async def search_policy(trusted, query):
         return await retriever.retrieve(
-            session, trusted, query, COLLECTION,
-            final_limit=8, enable_rerank=False, snapshot=snapshot,
+            session,
+            trusted,
+            query,
+            COLLECTION,
+            final_limit=8,
+            enable_rerank=False,
+            snapshot=snapshot,
         )
 
     gateway.register("search_policy", search_policy)
@@ -115,8 +120,13 @@ async def test_reranker_down_degrades_to_rrf_and_records(session, qdrant, seeded
     trusted, snapshot = await _prepare(session, seeded)
     retriever = HybridRetriever(qdrant, seeded["embedder"], reranker=_BrokenReranker())
     result = await retriever.retrieve(
-        session, trusted, "资产负债率要求", COLLECTION,
-        final_limit=8, enable_rerank=True, snapshot=snapshot,
+        session,
+        trusted,
+        "资产负债率要求",
+        COLLECTION,
+        final_limit=8,
+        enable_rerank=True,
+        snapshot=snapshot,
     )
     assert result.candidates, "降级后仍应返回 RRF 结果"
     assert result.channel_config["rerank"] is False

@@ -48,8 +48,13 @@ def _get(path: str, **params) -> dict:
 
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["① 政策时点切换", "② 完整预审 (Multi-Agent)", "③ 证据回原文页",
-     "④ 人工复核 HITL", "⑤ Trace 审计"]
+    [
+        "① 政策时点切换",
+        "② 完整预审 (Multi-Agent)",
+        "③ 证据回原文页",
+        "④ 人工复核 HITL",
+        "⑤ Trace 审计",
+    ]
 )
 
 # ---------------------------------------------------------------- ① 时点切换
@@ -189,7 +194,9 @@ with tab4:
         st.info("请先在 ② 启动一次预审")
     else:
         run = _get(f"/api/v1/runs/{run_id}")
-        pending = [c for c in run.get("claims", []) if c["review_status"] in ("PENDING", "NEEDS_REWORK")]
+        pending = [
+            c for c in run.get("claims", []) if c["review_status"] in ("PENDING", "NEEDS_REWORK")
+        ]
         st.write(f"Run 状态：**{run['status']}**，blocking Claims：**{len(pending)}**")
         if pending:
             approved = st.multiselect(
@@ -219,7 +226,9 @@ with tab4:
             st.warning(report["content"]["disclaimer"])
             for claim in report["content"]["claims"]:
                 with st.container(border=True):
-                    st.markdown(f"**[{claim['category']}] {claim['verdict']}**（{claim['review_status']}）")
+                    st.markdown(
+                        f"**[{claim['category']}] {claim['verdict']}**（{claim['review_status']}）"
+                    )
                     st.write(claim["statement"])
 
 # ---------------------------------------------------------------- ⑤ Trace

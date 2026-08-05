@@ -1,13 +1,22 @@
-"""Recall@K 评测脚本（任务 12 + 消融对比）。
+"""Recall@K 评测脚本（统一 Orchestrator 消融对比）。
 
 用法：
-    uv run python scripts/run_evaluation.py [--dataset evaluation/datasets/smoke_v1.json]
+    uv run python scripts/run_evaluation.py [--dataset evaluation/datasets/frozen_v2.json] [--split test]
 
-一次运行三个配置（文档 §16.10 累积实验的关键点）：
-- E0  Dense-only
+WP4 口径：
+- 按题目 case_key 建立案件映射（case001/002/003），逐案件冻结 TrustedContext/Snapshot；
+- `--split dev|test`：dev 仅用于调参，简历指标只在冻结 test 上报；
+- 输出整体 + per-case + 宏平均指标；
+- Leakage/unmapped 违规时评测失败，不落盘成看似成功的报告。
+
+消融配置（通过 OrchestratorConfig 控制）：
+- E0  Dense-only（关闭 Sparse/Summary/Exact/Rerank）
 - E23 Dense + Sparse/BM25 + RRF
-- E7  E23 + Rerank（本地确定性兼容实现）
-输出 Recall@5/10/20、MRR@10、AllRequiredEvidence@K，报告落盘 evaluation/reports/。
+- E4  Dense + Summary Navigation
+- E5  Dense + Sparse + QuerySpec Rewrite
+- E7  全链路（Dense + Sparse + Summary + Exact + Rerank）
+输出 Recall@5/10/20、NDCG@K、Precision@K、MRR@10、Retrieved Evidence P/R，报告落盘 evaluation/reports/。
+口径说明：无答案生成层，不宣称 Faithfulness / Citation Accuracy / Refusal Accuracy。
 """
 
 import argparse
@@ -36,16 +45,28 @@ from creditlens.infrastructure.postgres.session import (
     session_scope,
 )
 from creditlens.infrastructure.qdrant.collections import build_qdrant_client
-from creditlens.retrieval.contracts import RetrievalResult
-from creditlens.retrieval.dense import DenseRetriever
-from creditlens.retrieval.fusion import rrf_fuse
-from creditlens.retrieval.hybrid import HybridRetriever
-from creditlens.retrieval.query_spec import build_query_spec, safe_fallback, validate_query_spec
+from creditlens.retrieval.orchestrator import (
+    OrchestratorConfig,
+    RetrievalOrchestrator,
+)
 from creditlens.retrieval.rerank import LexicalOverlapReranker, build_reranker
-from creditlens.retrieval.summary_navigation import SummaryNavigator
-from seed_synthetic_data import CASE_ID, DEMO_USER_ID, TENANT_ID, seed_environment
+from seed_synthetic_data import (
+    CASE_ID,
+    CASE_ID_002,
+    CASE_ID_003,
+    DEMO_USER_ID,
+    TENANT_ID,
+    seed_environment,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+# WP4：case_key → case_id 映射（评测资产用稳定键，运行时映射到 Seed UUID）
+CASE_KEY_MAP = {
+    "golden_case_001": CASE_ID,
+    "golden_case_002": CASE_ID_002,
+    "golden_case_003": CASE_ID_003,
+}
 
 
 async def audit_final_candidates(session, trusted, candidates) -> int:
@@ -106,7 +127,7 @@ async def evaluate_channel(
     dataset: GoldDataset,
     factory,
     settings,
-    trusted,
+    case_contexts: dict,
     reranker_version: str = "-",
 ) -> tuple[EvalReport, int]:
     import time
@@ -118,8 +139,12 @@ async def evaluate_channel(
     latencies_ms: list[float] = []
     async with session_scope(factory, tenant_id=TENANT_ID, user_id=DEMO_USER_ID) as session:
         for question in dataset.questions:
+            # WP4：按题目 case_key 取对应案件的 TrustedContext/Snapshot
+            if question.case_key not in case_contexts:
+                raise KeyError(f"案件 {question.case_key} 未在 Seed 映射中定义")
+            base_trusted, case_snapshot = case_contexts[question.case_key]
             # 评测问题的时点必须与案件上下文一致；request_id 每题独立
-            question_trusted = trusted.model_copy(
+            question_trusted = base_trusted.model_copy(
                 update={
                     "request_id": uuid.uuid4(),
                     "as_of_date": question.as_of_date,
@@ -127,7 +152,9 @@ async def evaluate_channel(
                 }
             )
             started = time.perf_counter()
-            retrieval = await retrieve_fn(session, question_trusted, question.question)
+            retrieval = await retrieve_fn(
+                session, question_trusted, question.question, case_snapshot
+            )
             latencies_ms.append((time.perf_counter() - started) * 1000)
             leakage += sum(
                 1
@@ -170,9 +197,50 @@ async def evaluate_channel(
     return report, leakage
 
 
-async def main(dataset_path: Path) -> None:
+def summarize_per_case(dataset: GoldDataset, report: EvalReport) -> tuple[dict, dict]:
+    """WP4：按 case_key 分组计算 per-case 指标与案件级宏平均。"""
+    question_case = {q.question_id: q.case_key for q in dataset.questions}
+    by_case: dict[str, list] = {}
+    for result in report.question_results:
+        by_case.setdefault(question_case.get(result.question_id, "unknown"), []).append(result)
+    per_case: dict[str, dict] = {}
+    for case_key in sorted(by_case):
+        sub = EvalReport(
+            dataset_id=report.dataset_id,
+            dataset_version=report.dataset_version,
+            config=report.config,
+            question_results=by_case[case_key],
+        )
+        per_case[case_key] = sub.summary()
+    # 宏平均：案件级指标再取均值（案件间样本量差异不传递到整体指标）
+    macro: dict = {}
+    if per_case:
+        numeric_keys = {
+            key
+            for case_summary in per_case.values()
+            for key, value in case_summary.items()
+            if isinstance(value, float)
+        }
+        for key in sorted(numeric_keys):
+            values = [s[key] for s in per_case.values() if key in s]
+            macro[key] = sum(values) / len(values)
+    return per_case, macro
+
+
+async def main(dataset_path: Path, split: str) -> None:
     settings = get_settings()
     dataset = GoldDataset.model_validate_json(dataset_path.read_text(encoding="utf-8"))
+
+    # WP4：--split dev|test，dev 仅用于调参，冻结 test 才报简历指标
+    all_questions = dataset.questions
+    dataset.questions = [q for q in all_questions if q.split == split]
+    if not dataset.questions:
+        raise SystemExit(f"数据集 {dataset.dataset_id} 中没有 split={split} 的题目")
+    print(
+        f"数据集 {dataset.dataset_id} split={split}: "
+        f"{len(dataset.questions)}/{len(all_questions)} 题，"
+        f"案件={sorted({q.case_key for q in dataset.questions})}"
+    )
 
     engine = create_engine()
     async with engine.begin() as conn:
@@ -183,108 +251,137 @@ async def main(dataset_path: Path) -> None:
 
     await seed_environment(factory, store, qdrant, settings)
 
-    # 服务端派生可信上下文并冻结 Snapshot（v0.2：检索只读冻结的输入世界）
+    # 服务端派生可信上下文并冻结 Snapshot（WP4：逐案件独立冻结）
+    case_contexts: dict[str, tuple] = {}
     async with session_scope(factory, tenant_id=TENANT_ID, user_id=DEMO_USER_ID) as session:
-        trusted = await build_trusted_context(session, TENANT_ID, CASE_ID)
-        snapshot = await freeze_snapshot(
-            session,
-            trusted,
-            chunks_collection=settings.chunks_collection_name,
-            summaries_collection=settings.summaries_collection_name,
-            acl_hash=acl_scope_hash(trusted),
-        )
+        for case_key in sorted({q.case_key for q in dataset.questions}):
+            case_id = CASE_KEY_MAP.get(case_key)
+            if case_id is None:
+                raise SystemExit(f"题目引用了未知案件 {case_key}")
+            trusted = await build_trusted_context(session, TENANT_ID, case_id)
+            snapshot = await freeze_snapshot(
+                session,
+                trusted,
+                chunks_collection=settings.chunks_collection_name,
+                summaries_collection=settings.summaries_collection_name,
+                acl_hash=acl_scope_hash(trusted),
+            )
+            case_contexts[case_key] = (trusted, snapshot)
 
     embedder = build_embedding_provider(settings)
-    # E7 精排：优先使用配置的真实 Reranker；未配置时退回词面兜底并如实标注
     reranker = build_reranker(settings) or LexicalOverlapReranker()
-    dense = DenseRetriever(qdrant, embedder)
-    hybrid = HybridRetriever(qdrant, embedder, rrf_k=settings.rrf_k)
-    hybrid_rerank = HybridRetriever(qdrant, embedder, reranker=reranker, rrf_k=settings.rrf_k)
 
-    async def run_dense(session, trusted, query):
-        return await dense.retrieve(
-            session, trusted, query, snapshot.chunks_collection,
-            top_k=settings.dense_top_k, snapshot=snapshot,
-        )
+    # 统一使用 RetrievalOrchestrator，通过不同 OrchestratorConfig 实现消融
+    orchestrator = RetrievalOrchestrator(
+        qdrant=qdrant, embedder=embedder, reranker=reranker, rrf_k=settings.rrf_k
+    )
 
-    async def run_hybrid(session, trusted, query):
-        return await hybrid.retrieve(
-            session, trusted, query, snapshot.chunks_collection,
-            top_k_per_route=settings.dense_top_k, final_limit=30,
-            enable_rerank=False, snapshot=snapshot,
-        )
-
-    async def run_hybrid_rerank(session, trusted, query):
-        return await hybrid_rerank.retrieve(
-            session, trusted, query, snapshot.chunks_collection,
-            top_k_per_route=settings.dense_top_k, final_limit=30,
-            enable_rerank=True, snapshot=snapshot,
-        )
-
-    # E4：Dense + Summary 导航（下钻 Leaf 后 RRF 融合；摘要不作为证据）
-    summary_nav = SummaryNavigator(qdrant, embedder)
-
-    async def run_dense_summary(session, trusted, query):
-        dense_result = await dense.retrieve(
-            session, trusted, query, snapshot.chunks_collection,
-            top_k=settings.dense_top_k, snapshot=snapshot,
-        )
-        summary_result = await summary_nav.retrieve(
-            session, trusted, query, snapshot.summaries_collection,
-            leaf_top_k=10, snapshot=snapshot,
-        )
-        fused = rrf_fuse(
-            {"DENSE": dense_result.candidates, "SUMMARY": summary_result.candidates},
-            rrf_k=settings.rrf_k, limit=80, max_candidates_per_document=80,
-        )
-        final = []
-        for rank, item in enumerate(fused[:30], start=1):
-            candidate = item.candidate.model_copy()
-            candidate.rank = rank
-            final.append(candidate)
-        return RetrievalResult(
-            query=query,
-            candidates=final,
-            rejected=dense_result.rejected + summary_result.rejected,
-            channel_config={"channel": "E4_DENSE_SUMMARY"},
-        )
-
-    # E5：QuerySpec 规则化 Rewrite（术语归一 + 词法扩展进 Sparse/exact_terms），
-    # 输出必须过 Rewrite Validator，失败退回 safe_fallback（文档 §8.4）
-    async def run_hybrid_rewrite(session, trusted, query):
-        spec = build_query_spec(trusted, query)
-        if not validate_query_spec(trusted, spec).ok:
-            spec = safe_fallback(trusted, query)
-        return await hybrid.retrieve(
-            session, trusted, spec.standalone_query, snapshot.chunks_collection,
-            top_k_per_route=settings.dense_top_k, final_limit=30,
-            enable_rerank=False, exact_terms=spec.exact_terms, snapshot=snapshot,
-        )
-
-    channels = [
-        ("E0_dense_only", run_dense, "-"),
-        ("E23_hybrid_rrf", run_hybrid, "-"),
-        ("E4_dense_summary", run_dense_summary, "-"),
-        ("E5_hybrid_rewrite", run_hybrid_rewrite, "-"),
-        ("E7_hybrid_rerank", run_hybrid_rerank, reranker.version),
+    # 消融配置定义
+    channels: list[tuple[str, OrchestratorConfig, str]] = [
+        (
+            "E0_dense_only",
+            OrchestratorConfig(
+                final_limit=30,
+                enable_sparse=False,
+                enable_summary=False,
+                enable_exact=False,
+                enable_rerank=False,
+                enable_packing=False,
+            ),
+            "-",
+        ),
+        (
+            "E23_hybrid_rrf",
+            OrchestratorConfig(
+                final_limit=30,
+                enable_sparse=True,
+                enable_summary=False,
+                enable_exact=False,
+                enable_rerank=False,
+                enable_packing=False,
+            ),
+            "-",
+        ),
+        (
+            "E4_dense_summary",
+            OrchestratorConfig(
+                final_limit=30,
+                enable_sparse=False,
+                enable_summary=True,
+                enable_exact=False,
+                enable_rerank=False,
+                enable_packing=False,
+            ),
+            "-",
+        ),
+        (
+            "E5_hybrid_rewrite",
+            OrchestratorConfig(
+                final_limit=30,
+                enable_sparse=True,
+                enable_summary=False,
+                enable_exact=True,
+                enable_rerank=False,
+                enable_packing=False,
+            ),
+            "-",
+        ),
+        (
+            "E7_full_orchestrator",
+            OrchestratorConfig(
+                final_limit=30,
+                enable_sparse=True,
+                enable_summary=True,
+                enable_exact=True,
+                enable_rerank=True,
+                enable_packing=False,
+            ),
+            reranker.version,
+        ),
     ]
+
+    async def make_retrieve_fn(config: OrchestratorConfig):
+        async def retrieve_fn(session, trusted_ctx, query, snapshot):
+            # WP4：传入正确的 chunks/summaries Collection（来自案件 Snapshot）
+            return await orchestrator.retrieve(
+                session,
+                trusted_ctx,
+                query,
+                snapshot.chunks_collection,
+                config=config,
+                snapshot=snapshot,
+                summaries_collection=snapshot.summaries_collection,
+            )
+
+        return retrieve_fn
 
     all_summaries = {}
     per_channel = {}
-    for name, fn, reranker_version in channels:
+    hard_failures: list[str] = []
+    for name, config, reranker_version in channels:
+        retrieve_fn = await make_retrieve_fn(config)
         report, leakage = await evaluate_channel(
-            name, fn, dataset, factory, settings, trusted, reranker_version
+            name, retrieve_fn, dataset, factory, settings, case_contexts, reranker_version
         )
         summary = report.summary()
-        summary["temporal_or_acl_leakage_into_candidates"] = leakage
+        # 拒绝计数属预期防护行为（正确拦截），不是泄漏；真正泄漏看独立回表审计
+        summary["temporal_or_acl_rejections"] = leakage
+        # WP6：检索延迟 P50/P95（evaluate_channel 采集，提升到 summary 供对比）
+        summary["latency_p50_ms"] = report.config.get("latency_p50_ms", 0.0)
+        summary["latency_p95_ms"] = report.config.get("latency_p95_ms", 0.0)
         all_summaries[name] = summary
+        per_case, macro = summarize_per_case(dataset, report)
         per_channel[name] = {
             "config": report.config,
+            "per_case": per_case,
+            "macro_average": macro,
             "per_question": [
                 {
                     "question_id": r.question_id,
                     "hit_rank": r.hit_rank,
                     "recall_at": r.recall_at,
+                    "ndcg_at": r.ndcg_at,
+                    "precision_at": r.precision_at,
                     "all_required_at": {str(k): v for k, v in r.all_required_at.items()},
                     "unmapped_keys": r.unmapped_keys,
                 }
@@ -294,17 +391,41 @@ async def main(dataset_path: Path) -> None:
         print(f"\n===== {name} =====")
         for key, value in summary.items():
             print(f"  {key}: {value}")
+        for case_key, case_summary in per_case.items():
+            print(
+                f"  [{case_key}] recall@10={case_summary.get('recall@10'):.4f} "
+                f"ndcg@10={case_summary.get('ndcg@10'):.4f}"
+            )
+
+        # WP4：评测失败不能落盘成看似成功的报告（Leakage/unmapped 必须为 0）
+        if report.config.get("independent_leakage_violations"):
+            hard_failures.append(
+                f"{name}: 独立回表审计违规={report.config['independent_leakage_violations']}"
+            )
+        if summary.get("unmapped_questions"):
+            hard_failures.append(f"{name}: 存在 unmapped 证据键={summary['unmapped_questions']}")
+
+    if hard_failures:
+        await engine.dispose()
+        raise SystemExit(
+            "评测失败，未写入报告:\n" + "\n".join(f"  - {msg}" for msg in hard_failures)
+        )
 
     out_dir = PROJECT_ROOT / "evaluation" / "reports"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"ablation_{dataset.dataset_id}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.json"
+    out_path = out_dir / (
+        f"ablation_{dataset.dataset_id}_{split}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.json"
+    )
 
-    # P0-5：可复现 Manifest——dataset hash、迁移版本、Collection 点数、模型版本
+    # 可复现 Manifest
     from creditlens.common.hashing import sha256_bytes
 
     manifest = {
         "dataset_file": str(dataset_path.name),
         "dataset_sha256": sha256_bytes(dataset_path.read_bytes()),
+        "split": split,
+        "question_count": len(dataset.questions),
+        "case_keys": sorted({q.case_key for q in dataset.questions}),
         "embedding_version": settings.effective_embedding_version,
         "sparse_encoder_version": settings.sparse_encoder_version,
         "reranker_version": reranker.version,
@@ -340,7 +461,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=PROJECT_ROOT / "evaluation" / "datasets" / "smoke_v1.json",
+        default=PROJECT_ROOT / "evaluation" / "datasets" / "frozen_v2.json",
+    )
+    parser.add_argument(
+        "--split",
+        choices=["dev", "test"],
+        default="test",
+        help="dev 仅用于调参；冻结 test 才上报简历指标",
     )
     args = parser.parse_args()
-    asyncio.run(main(args.dataset))
+    asyncio.run(main(args.dataset, args.split))
