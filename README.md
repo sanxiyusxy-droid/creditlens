@@ -7,6 +7,18 @@
 > 本项目为技术演示，使用合成数据；系统只做"授信审查辅助与证据整理"，
 > 不自动作出授信、拒贷、定价或额度决定。
 
+## 当前版本口径
+
+- **已发布基线**：标签 `v1.1.1` / commit `a41483d`。该版本已有公开 GitHub
+  Actions 的 lint、全量非集成与真实栈 integration 三阶段绿色记录；冻结指标来自
+  同一已提交版本的三份 `git_dirty=false` 报告，见本文末尾。
+- **`v1.2.0` release candidate（已提交、未发布）**：实现提交 `58f5487` + `41742cf`，
+  继续收紧 Auditor fail-closed、正反证据回原文、
+  Evidence 跨 Run 建模、Packing `parse_run_id`、历史 Snapshot Gold 映射、Manifest
+  语料 Hash、HITL 严格幂等、SSE、Outbox 并发领取、CI `pipefail`、RLS 默认业务角色
+  与审计表追加写权限。本地结果只能作为候选验收证据；在新代码完成在线 CI、
+  三轮干净重冻并打标签前，不能称为 `v1.2.0` 已发布能力。
+
 ## 架构概览
 
 - **PostgreSQL**：业务事实源（案件、文档版本、Parse Run、Section、审计）
@@ -44,11 +56,20 @@ uv run pytest -m "not integration"             # 单元 + 安全 + 非集成 E2E
 
 ```powershell
 docker compose up -d
-Copy-Item .env.example .env   # 按需填写 MinIO 凭据等
+# 默认配置离线运行，应用连接使用 NOBYPASSRLS 业务角色
+Copy-Item .env.example .env.local
+# 迁移账号只用于建表/策略/授权，不作为 API 运行账号
 $env:DATABASE_URL="postgresql+asyncpg://creditlens:creditlens@localhost:5432/creditlens"
 uv run alembic upgrade head
+$env:APP_DB_PASSWORD="creditlens_app"   # 仅本地演示；部署时必须替换
+uv run python scripts/apply_rls.py
+$env:DATABASE_URL="postgresql+asyncpg://creditlens_app:creditlens_app@localhost:5432/creditlens"
+uv run python scripts/seed_synthetic_data.py
 uv run uvicorn apps.api.main:app --reload
 ```
+
+已有 `pg_data` 卷也可执行上述 `apply_rls.py` 补齐角色与授权；应用若连接
+`creditlens` 超级用户会绕过 RLS，因此不得用该连接启动 API/Worker。
 
 ## 目录结构
 
@@ -129,7 +150,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
 ② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
 ④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
 
-## 冻结指标（v1.1.1，简历口径）
+## 已发布冻结指标（v1.1.1@a41483d，简历口径）
 
 frozen_v2 冻结 test split（3 案件 / 121 题 / 110 可答；数据集 sha256 前缀
 `d3dc24c3527b23f6`），bge-m3 + bge-reranker-v2-m3（API）+ bm25-jieba-v1，
@@ -161,9 +182,18 @@ Manifest `git_dirty=false`、三轮的 4 个冻结世界 snapshot_hash 逐位一
   远程 rerank API 侧分数抖动；融合/精排层已做确定性 tie-break，
   Recall@10/@20 全稳），简历只引用 Recall@10/@20 与 Leakage。
 
+Manifest 字段说明：上述三份已发布报告由旧 Runner 生成，其中
+`seed_corpus_sha256` 实际记录的是 `scripts/seed_synthetic_data.py` 的 Hash，字段名比
+实际语义更宽，**不应解释为已覆盖全部语料文件**。本轮未提交 Runner 已拆分为
+`seed_script_sha256` 与聚合 `data/synthetic/*.txt` 的 `seed_corpus_sha256`；新语义要等
+候选提交后重新冻结报告才能用于对外复现。
+
 口径说明：无答案生成层，报告指标为检索层 Recall/NDCG/MRR 与
 Retrieved Evidence Precision/Recall，不宣称 Faithfulness / Citation Accuracy /
-Refusal Accuracy。自动化测试：103 passed（非集成，0 skip）+ 9 项真实栈
-集成测试（含 3 项 HITL 并发，0 skip / 0 fail）。
+Refusal Accuracy。`v1.1.1@a41483d` 发布验收为 103 passed（非集成，0 skip）+
+9 项真实栈集成测试（含 3 项 HITL 并发，0 skip / 0 fail）。本轮未提交候选已本地
+实跑 **134 passed / 10 deselected**（非集成）以及 **10 passed / 22 deselected**
+（PG16 + Qdrant + Alembic 0007 + RLS 业务角色真实栈）；其线上 CI 以候选提交后的
+新流水线为准。
 
 
