@@ -11,13 +11,16 @@
 
 - **已发布基线**：标签 `v1.1.1` / commit `a41483d`。该版本已有公开 GitHub
   Actions 的 lint、全量非集成与真实栈 integration 三阶段绿色记录；冻结指标来自
-  同一已提交版本的三份 `git_dirty=false` 报告，见本文末尾。
-- **`v1.2.0` release candidate（已提交、未发布）**：实现提交 `58f5487` + `41742cf`，
-  继续收紧 Auditor fail-closed、正反证据回原文、
+  三份 `git_dirty=false` 报告。
+- **`v1.2.0` release-ready（正式标签待创建）**：实现提交 `58f5487` + `41742cf`，
+  评测源码提交 `9e64dbb`；GitHub CI #5 的 lint/unit/integration 三 Job 已成功
+  （总耗时 3m14s），本地 134 项非集成与 10 项真实栈测试全绿。该版本收紧
+  Auditor fail-closed、正反证据回原文、
   Evidence 跨 Run 建模、Packing `parse_run_id`、历史 Snapshot Gold 映射、Manifest
   语料 Hash、HITL 严格幂等、SSE、Outbox 并发领取、CI `pipefail`、RLS 默认业务角色
-  与审计表追加写权限。本地结果只能作为候选验收证据；在新代码完成在线 CI、
-  三轮干净重冻并打标签前，不能称为 `v1.2.0` 已发布能力。
+  与审计表追加写权限，并升级至 Alembic `0007_evidence_run_key`。三轮正式评测已完成；
+  当前只差把报告和文档纳入最终 release commit 并创建 `v1.2.0` 标签。
+  **报告记录的源码 commit 与最终 release commit 必然分离，最终 tag commit 尚不预填。**
 
 ## 架构概览
 
@@ -150,50 +153,53 @@ powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
 ② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
 ④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
 
-## 已发布冻结指标（v1.1.1@a41483d，简历口径）
+## v1.2.0 release-ready 冻结指标（简历口径）
 
-frozen_v2 冻结 test split（3 案件 / 121 题 / 110 可答；数据集 sha256 前缀
-`d3dc24c3527b23f6`），bge-m3 + bge-reranker-v2-m3（API）+ bm25-jieba-v1，
-Alembic `0006_hitl_wp3`，真实栈（PG16 + Qdrant v1.18.0）+ RLS 业务角色、
-一次性干净环境（全新数据库与 Collection，幂等 Seed）下，
-**三次连续评测**（报告 `evaluation/reports/ablation_frozen_v2_test_
-{20260806T131128Z, 20260806T131616Z, 20260806T132057Z}.json`，
-Manifest `git_dirty=false`、三轮的 4 个冻结世界 snapshot_hash 逐位一致）：
+评测源码 commit `9e64dbb`，frozen_v2 test split（3 案件 / 121 题 / 110 可答；
+dataset SHA256 前缀 `d3dc24c3527b23f6`），bge-m3 + bge-reranker-v2-m3（API）+
+bm25-jieba-v1，Alembic `0007_evidence_run_key`，真实 PG16 + Qdrant v1.18.0 +
+RLS 业务角色环境下连续运行三次：
+
+- `ablation_frozen_v2_test_20260806T150057Z.json`
+- `ablation_frozen_v2_test_20260806T150712Z.json`
+- `ablation_frozen_v2_test_20260806T151322Z.json`
+
+三份 Manifest 均为 `git_dirty=false`、`git_commit=9e64dbb...`；三轮的 4 个
+Snapshot Hash、`seed_script_sha256` 与真实语料 `seed_corpus_sha256` 逐位一致，
+Leakage=0、unmapped=0。报告源码 commit 用于证明被测输入；包含报告与文档的最终
+release commit 会是另一个 commit，待创建正式标签后再记录，不能预填。
 
 | 通道 | Recall@10 | Recall@20 | MRR@10 | 延迟 P50/P95 |
 |---|---|---|---|---|
-| E0 Dense-only | 0.9545 | 0.9682 | 0.9485 | 207–229 / 237–302 ms |
-| E23 +Sparse+RRF | 0.9561 | 0.9606 | 0.8970 | 248–258 / 336–345 ms |
-| E4 Dense+Summary | 0.7788 | 0.9682 | 0.7572 | 383–403 / 437–489 ms |
-| E5 +QuerySpec Rewrite | 0.9515 | 0.9606 | 0.8666 | 247–260 / 329–395 ms |
-| **E7 全链路（默认）** | **0.9682** | **0.9909** | 0.8912 | 822–828 / 965–1026 ms |
+| E0 Dense-only | 0.9545455 | 0.9681818 | 0.9484848 | 210.6–251.5 / 248.6–303.2 ms |
+| E23 +Sparse+RRF | 0.9560606 | 0.9606061 | 0.9015512 | 264.3–324.1 / 392.9–472.0 ms |
+| E4 Dense+Summary | 0.7833333 | 0.9681818 | 0.7622583 | 387.7–474.4 / 434.2–611.0 ms |
+| E5 +QuerySpec Rewrite | 0.9515152 | 0.9606061 | 0.8711580 | 258.3–324.8 / 367.8–492.3 ms |
+| **E7 全链路（默认）** | **0.9681818** | **0.9909091** | **0.8912482** | 875.8–963.6 / 1091.7–1231.6 ms |
 
-- E0/E23/E4/E5 全部指标与 E7 Recall@10/@20/MRR@10 三次**逐位一致**；
-  独立回表 Leakage = **0**（全通道）、unmapped = 0、时点/ACL 拒绝为 0；
-- E7 per-case Recall@10：case001 0.9490 / case002 0.9881 / case003 0.9737，
-  宏平均 0.9703；
-- 与 v1.1 数字的关系：主链（E0/E23/E5/E7）聚合指标逐位不变；E4 由 0.7697
-  变为 0.7788（±1 题）——v1.1 环境集合含早期实验残留点（chunks 125 vs
-  干净环境 250），v1.1.1 按规约在一次性干净环境重冻，以本节数字为准；
+- E0/E23/E4/E5/E7 的 Recall@10、Recall@20 与 MRR@10 三轮均逐位一致；
+- E7 相比 E0：Recall@10 +1.36pp、Recall@20 +2.27pp；MRR@10 低于 Dense，说明
+  全链路换取更完整的深位证据覆盖，并付出更高延迟；
 - 通道决策：E7 相比 E0 有真实召回增益（R@10 +1.4pp、R@20 +2.3pp），保留为
-  在线默认；E4 单独 Summary 显著弱于 Dense（R@10 0.7788 vs 0.9545），
+  在线默认；E4 单独 Summary 显著弱于 Dense（R@10 0.7833 vs 0.9545），
   Summary 只作为 RRF 参与通道、不单独成链——如实取舍；
-- 诚实口径：E7 的 @5 系列与 NDCG 存在 ±1 题的运行间波动（case003，
-  远程 rerank API 侧分数抖动；融合/精排层已做确定性 tie-break，
-  Recall@10/@20 全稳），简历只引用 Recall@10/@20 与 Leakage。
-
-Manifest 字段说明：上述三份已发布报告由旧 Runner 生成，其中
-`seed_corpus_sha256` 实际记录的是 `scripts/seed_synthetic_data.py` 的 Hash，字段名比
-实际语义更宽，**不应解释为已覆盖全部语料文件**。本轮未提交 Runner 已拆分为
-`seed_script_sha256` 与聚合 `data/synthetic/*.txt` 的 `seed_corpus_sha256`；新语义要等
-候选提交后重新冻结报告才能用于对外复现。
+- 正式三轮以远程 bge 模型为简历主指标。离线 Hash Embedding + 词面精排基线报告
+  `ablation_frozen_v2_test_20260806T145238Z.json` 的 E7 Recall@10/20 为
+  **0.9469697/0.9606061**（MRR@10=0.8562374，Leakage=0、unmapped=0），用于证明
+  无外部模型时的可运行性，**不作为简历主指标，也不与正式模型结果混算**。
 
 口径说明：无答案生成层，报告指标为检索层 Recall/NDCG/MRR 与
 Retrieved Evidence Precision/Recall，不宣称 Faithfulness / Citation Accuracy /
-Refusal Accuracy。`v1.1.1@a41483d` 发布验收为 103 passed（非集成，0 skip）+
-9 项真实栈集成测试（含 3 项 HITL 并发，0 skip / 0 fail）。本轮未提交候选已本地
-实跑 **134 passed / 10 deselected**（非集成）以及 **10 passed / 22 deselected**
-（PG16 + Qdrant + Alembic 0007 + RLS 业务角色真实栈）；其线上 CI 以候选提交后的
-新流水线为准。
+Refusal Accuracy。v1.2.0 release-ready 本地验收为 **134 passed / 10 deselected**
+（非集成）以及 **10 passed / 22 deselected**（PG16 + Qdrant + Alembic 0007 +
+RLS 业务角色真实栈）；GitHub CI #5 的 lint/unit/integration 三 Job 全绿（3m14s）。
+
+## 下一版本：v1.3.0「可审计证据问答闭环」
+
+v1.3.0 不再继续堆检索 Route，而是补齐当前缺失的答案层：Grounded QA 只消费已验证
+Evidence；逐句引用审计与拒答门禁；持久化最小 Model/Tool 调用 Trace；冻结
+`answer_eval_v1`（Correctness/Faithfulness/Citation/Refusal）；在 Streamlit 演示中完成
+“提问 → 答案 → 引用原文 → 审计结果”的端到端展示。完成前不宣称当前版本已有
+答案 Faithfulness、Citation Accuracy 或 Refusal Accuracy。
 
 
