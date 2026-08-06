@@ -9,18 +9,15 @@
 
 ## 当前版本口径
 
-- **已发布基线**：标签 `v1.1.1` / commit `a41483d`。该版本已有公开 GitHub
-  Actions 的 lint、全量非集成与真实栈 integration 三阶段绿色记录；冻结指标来自
-  三份 `git_dirty=false` 报告。
-- **`v1.2.0` release-ready（正式标签待创建）**：实现提交 `58f5487` + `41742cf`，
-  评测源码提交 `9e64dbb`；GitHub CI #5 的 lint/unit/integration 三 Job 已成功
-  （总耗时 3m14s），本地 134 项非集成与 10 项真实栈测试全绿。该版本收紧
+- **当前已发布版本**：标签 `v1.2.0`。实现提交 `58f5487` + `41742cf`，评测源码提交
+  `9e64dbb`；最终发布候选 GitHub CI #6 的 lint/unit/integration 三 Job 已成功
+  （总耗时 4m05s），本地 134 项非集成与 10 项真实栈测试全绿。该版本收紧
   Auditor fail-closed、正反证据回原文、
   Evidence 跨 Run 建模、Packing `parse_run_id`、历史 Snapshot Gold 映射、Manifest
   语料 Hash、HITL 严格幂等、SSE、Outbox 并发领取、CI `pipefail`、RLS 默认业务角色
-  与审计表追加写权限，并升级至 Alembic `0007_evidence_run_key`。三轮正式评测已完成；
-  当前只差把报告和文档纳入最终 release commit 并创建 `v1.2.0` 标签。
-  **报告记录的源码 commit 与最终 release commit 必然分离，最终 tag commit 尚不预填。**
+  与审计表追加写权限，并升级至 Alembic `0007_evidence_run_key`。三轮正式评测报告与
+  离线基线均随标签发布。**报告 Manifest 记录的评测源码 commit 与承载报告/文档的
+  release tag 职责不同，不能混写。**
 
 ## 架构概览
 
@@ -153,7 +150,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
 ② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
 ④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
 
-## v1.2.0 release-ready 冻结指标（简历口径）
+## v1.2.0 已发布冻结指标（简历口径）
 
 评测源码 commit `9e64dbb`，frozen_v2 test split（3 案件 / 121 题 / 110 可答；
 dataset SHA256 前缀 `d3dc24c3527b23f6`），bge-m3 + bge-reranker-v2-m3（API）+
@@ -166,8 +163,8 @@ RLS 业务角色环境下连续运行三次：
 
 三份 Manifest 均为 `git_dirty=false`、`git_commit=9e64dbb...`；三轮的 4 个
 Snapshot Hash、`seed_script_sha256` 与真实语料 `seed_corpus_sha256` 逐位一致，
-Leakage=0、unmapped=0。报告源码 commit 用于证明被测输入；包含报告与文档的最终
-release commit 会是另一个 commit，待创建正式标签后再记录，不能预填。
+Leakage=0、unmapped=0。报告源码 commit 用于证明被测输入；标签 `v1.2.0` 承载报告、
+文档与发布口径，因此它与报告 Manifest 中的评测源码 commit 分离。
 
 | 通道 | Recall@10 | Recall@20 | MRR@10 | 延迟 P50/P95 |
 |---|---|---|---|---|
@@ -190,11 +187,12 @@ release commit 会是另一个 commit，待创建正式标签后再记录，不�
 
 口径说明：无答案生成层，报告指标为检索层 Recall/NDCG/MRR 与
 Retrieved Evidence Precision/Recall，不宣称 Faithfulness / Citation Accuracy /
-Refusal Accuracy。v1.2.0 release-ready 本地验收为 **134 passed / 10 deselected**
+Refusal Accuracy。v1.2.0 本地发布验收为 **134 passed / 10 deselected**
 （非集成）以及 **10 passed / 22 deselected**（PG16 + Qdrant + Alembic 0007 +
-RLS 业务角色真实栈）；GitHub CI #5 的 lint/unit/integration 三 Job 全绿（3m14s）。
+RLS 业务角色真实栈）；最终候选 GitHub CI #6 的 lint/unit/integration 三 Job 全绿
+（4m05s）。
 
-## 下一版本：v1.3.0「可审计证据问答闭环」
+## 开发中：v1.3.0「可审计证据问答闭环」
 
 v1.3.0 不再继续堆检索 Route，而是补齐当前缺失的答案层：Grounded QA 只消费已验证
 Evidence；逐句引用审计与拒答门禁；持久化最小 Model/Tool 调用 Trace；冻结
