@@ -73,13 +73,16 @@ def consume_evidence_sections(result, limit: int = 4) -> list[RetrievedCandidate
 
 
 def _dict_to_candidate(s: dict) -> RetrievedCandidate:
+    parse_run_id = uuid.UUID(str(s["parse_run_id"]))
+    if parse_run_id.int == 0:
+        raise ValueError("Packed Section 的 parse_run_id 不得为零 UUID")
     return RetrievedCandidate(
         section_id=uuid.UUID(str(s["section_id"])),
         document_id=uuid.UUID(str(s["document_id"])),
         document_version_id=uuid.UUID(str(s["document_version_id"])),
-        parse_run_id=uuid.UUID(int=0),
+        parse_run_id=parse_run_id,
         page_start=int(s.get("page_start", 0)),
-        page_end=int(s.get("page_start", 0)),
+        page_end=int(s.get("page_end", s.get("page_start", 0))),
         heading_path=list(s.get("heading_path") or []),
         text=s.get("text", ""),
         text_hash=s.get("text_hash", ""),

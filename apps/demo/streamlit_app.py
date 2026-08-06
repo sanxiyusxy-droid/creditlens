@@ -49,6 +49,44 @@ def _get(path: str, **params) -> dict:
     return resp.json()
 
 
+def _show_evidence_locators(title: str, locators: list[dict], claim_id: str, polarity: str) -> None:
+    """在 HITL 复核区展示可回原文的结构化证据定位。"""
+    st.markdown(f"**{title}（{len(locators)} 条）**")
+    if not locators:
+        st.caption("无可回原文的文档证据定位")
+        return
+    for index, locator in enumerate(locators):
+        page = locator.get("page_number")
+        st.caption(
+            f"{locator.get('evidence_type', 'EVIDENCE')} · "
+            f"第 {page if page is not None else '?'} 页 · "
+            f"hash {str(locator.get('content_hash') or '')[:12]}…"
+        )
+        required = (
+            "section_id",
+            "document_version_id",
+            "parse_run_id",
+            "page_number",
+            "content_hash",
+        )
+        if not all(locator.get(field) is not None for field in required):
+            st.caption("定位字段不完整，不能安全打开原文页")
+            continue
+        if st.button(
+            "打开原文页",
+            key=f"preview-{claim_id}-{polarity}-{index}",
+        ):
+            response = requests.get(
+                f"{api_base}/api/v1/evidence/preview",
+                params={"case_id": case_id, **{field: locator[field] for field in required}},
+                timeout=60,
+            )
+            if response.status_code == 200:
+                st.image(response.content, caption=f"{title} · 原始 PDF 页")
+            else:
+                st.error(f"{response.status_code}: {response.text}")
+
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
         "① 政策时点切换",
@@ -125,6 +163,12 @@ with tab2:
         (st.success if status in terminal else st.info)(
             f"状态：{status}（HUMAN_REVIEW = 等待人工复核，转 ④）"
         )
+        execution = run.get("execution") or {}
+        if execution.get("degraded"):
+            st.warning(
+                "本次运行存在降级覆盖："
+                + "、".join(execution.get("degraded_agents") or ["未知 Agent"])
+            )
         claims = run.get("claims", [])
         if claims:
             st.markdown(f"**Claims（{len(claims)} 条）**")
@@ -201,6 +245,25 @@ with tab4:
         ]
         st.write(f"Run 状态：**{run['status']}**，blocking Claims：**{len(pending)}**")
         if pending:
+            st.caption("请先在同屏核对支持证据与反证；下方按钮会回到经案件授权校验的原始 PDF 页。")
+            for claim in pending:
+                evidence = claim.get("evidence") or {}
+                with st.expander(f"[{claim['category']}] {claim['statement'][:80]}"):
+                    left, right = st.columns(2)
+                    with left:
+                        _show_evidence_locators(
+                            "支持证据",
+                            evidence.get("supporting_locators", []),
+                            claim["claim_id"],
+                            "supporting",
+                        )
+                    with right:
+                        _show_evidence_locators(
+                            "反证",
+                            evidence.get("opposing_locators", []),
+                            claim["claim_id"],
+                            "opposing",
+                        )
             approved = st.multiselect(
                 "选择要批准的 Claim",
                 [c["claim_id"] for c in pending],
@@ -242,7 +305,11 @@ with tab4:
 
 # ---------------------------------------------------------------- ⑤ Trace
 with tab5:
-    st.subheader("Run Trace：run_events 是唯一事实源，追加写不可篡改")
+    st.subheader("Run Trace：已持久化的状态审计事件")
+    st.caption(
+        "当前 MVP 持久化 run_events 的阶段状态与脱敏载荷；完整 Tool/Model Trace "
+        "尚未作为独立审计表落库，事件记录也不等同于不可篡改存证。"
+    )
     run_id = st.session_state.get("run_id", "")
     if run_id and st.button("加载 Trace"):
         trace = _get(f"/api/v1/runs/{run_id}/trace")

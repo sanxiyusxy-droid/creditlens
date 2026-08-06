@@ -30,6 +30,7 @@ from creditlens.infrastructure.postgres.models import (
     Base,
     FinancialFact,
     HumanDecision,
+    ReviewRun,
     RunEvent,
 )
 from creditlens.infrastructure.postgres.session import (
@@ -123,6 +124,9 @@ async def main() -> None:
 
         if outcome.status == "HUMAN_REVIEW":
             print("\n[demo] 模拟人工复核批准冲突 Claim…")
+            run = await session.get(ReviewRun, outcome.run_id)
+            if run is None:
+                raise RuntimeError("演示 Run 不存在")
             decision = HumanDecision(
                 tenant_id=TENANT_ID,
                 case_id=CASE_ID,
@@ -131,6 +135,10 @@ async def main() -> None:
                 action="APPROVE_CLAIM",
                 reason_code="DEMO_REVIEWED",
                 reason="演示：正反证据已人工核对",
+                # 与 API 一样显式满足 HITL 幂等/乐观锁契约，避免演示脚本走旧兼容分支。
+                reviewer_id=DEMO_USER_ID,
+                idempotency_key=f"demo-approve-{outcome.run_id}",
+                target_version=run.state_version,
             )
             status = await supervisor.resume_after_human_review(session, outcome.run_id, decision)
             print(f"[demo] 人工复核后状态: {status}")

@@ -492,8 +492,12 @@ class ClaimRecord(Base):
 
 class EvidenceRecord(Base):
     __tablename__ = "evidence"
+    __table_args__ = (UniqueConstraint("run_id", "evidence_key", name="uq_evidence_run_key"),)
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_id)
+    # AgentEvidenceRef.evidence_id is a stable logical key.  The database row id
+    # remains independent so the same evidence can be recorded in multiple runs.
+    evidence_key: Mapped[uuid.UUID] = mapped_column(GUID)
     tenant_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("tenants.id"))
     run_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("review_runs.id"))
     evidence_type: Mapped[str] = mapped_column(String(32))

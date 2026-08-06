@@ -14,10 +14,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from fastapi import FastAPI, HTTPException, Response  # noqa: E402
+from fastapi import FastAPI, Header, HTTPException, Query, Response  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
+from creditlens import __version__  # noqa: E402
 from creditlens.common.config import get_settings  # noqa: E402
 from creditlens.common.errors import CreditLensError  # noqa: E402
 from creditlens.evidence.preview import EvidencePreviewService  # noqa: E402
@@ -27,6 +28,7 @@ from creditlens.infrastructure.postgres.models import (  # noqa: E402
     Base,
     ClaimRecord,
     CreditCase,
+    EvidenceRecord,
     ReviewRun,
     RunEvent,
 )
@@ -59,6 +61,52 @@ preview_service = EvidencePreviewService(object_store)
 DEFAULT_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 # MVP 无登录层：以固定演示用户模拟已验证 Token（RLS Membership 需要）
 DEMO_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000301")
+
+# SSE 在这些状态下不再有后台阶段可等待。REWORK/数据质量阻断等状态虽然可能
+# 由后续人工操作创建新的阶段，但当前连接必须结束，避免客户端无限轮询。
+SSE_STOP_STATUSES = frozenset(
+    {
+        "COMPLETED",
+        "FAILED",
+        "DENIED",
+        "HUMAN_REVIEW",
+        "REWORK",
+        "NEED_MORE_INFO",
+        "DATA_QUALITY_BLOCKED",
+        "SUPERSEDED",
+    }
+)
+
+
+async def _mark_run_failed_with_trace(
+    session, run_id: uuid.UUID, event_type: str, error_type: str
+) -> bool:
+    """原子地把仍在执行的 Run 标为失败，并补一条最小审计事件。
+
+    调用方先锁定 Run 行，避免与同一 Run 的状态迁移并发覆盖；序号在该锁内以
+    ``max(sequence_no) + 1`` 生成。事件载荷仅保存异常类别，避免将底层详情
+    写入可被 API 读取的 Trace。
+    """
+    run = await session.scalar(select(ReviewRun).where(ReviewRun.id == run_id).with_for_update())
+    if run is None or run.status in SSE_STOP_STATUSES:
+        return False
+    run.status = "FAILED"
+    run.state_version += 1
+    last_sequence = await session.scalar(
+        select(func.max(RunEvent.sequence_no)).where(RunEvent.run_id == run.id)
+    )
+    session.add(
+        RunEvent(
+            run_id=run.id,
+            tenant_id=run.tenant_id,
+            case_id=run.case_id,
+            sequence_no=(last_sequence or 0) + 1,
+            event_type=event_type,
+            payload_redacted={"error_type": error_type},
+        )
+    )
+    await session.flush()
+    return True
 
 
 @asynccontextmanager
@@ -93,20 +141,19 @@ async def lifespan(app: FastAPI):
             )
         ).all()
         for run in orphans:
-            run.status = "FAILED"
-            run.model_manifest = {**(run.model_manifest or {}), "failure_reason": "ORPHANED"}
+            await _mark_run_failed_with_trace(session, run.id, "ORPHANED_RUN_FAILED", "ORPHANED")
     yield
     await engine.dispose()
 
 
-app = FastAPI(title="CreditLens API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="CreditLens API", version=__version__, lifespan=lifespan)
 
 
 @app.exception_handler(CreditLensError)
 async def creditlens_error_handler(request, exc: CreditLensError):
     from fastapi.responses import JSONResponse
 
-    if exc.error_code == "REVIEW_CONFLICT":
+    if exc.error_code in {"REVIEW_CONFLICT", "IDEMPOTENCY_CONFLICT"}:
         status = 409  # WP3：并发审批冲突
     elif exc.error_code in {"ACL_DENIED", "TOOL_CALL_DENIED", "ACTION_NOT_AUTHORIZED"}:
         status = 403
@@ -311,13 +358,9 @@ async def _execute_review_background(run_id: uuid.UUID, case_id: uuid.UUID) -> N
         async with session_scope(
             session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
         ) as session:
-            run = await session.get(ReviewRun, run_id)
-            if run is not None and run.status not in {"COMPLETED", "HUMAN_REVIEW"}:
-                run.status = "FAILED"
-                run.model_manifest = {
-                    **(run.model_manifest or {}),
-                    "failure_reason": f"{type(exc).__name__}: {str(exc)[:200]}",
-                }
+            await _mark_run_failed_with_trace(
+                session, run_id, "BACKGROUND_FAILED", type(exc).__name__
+            )
 
 
 @app.post("/api/v1/cases/{case_id}/runs", status_code=202)
@@ -364,7 +407,11 @@ async def start_full_review(case_id: uuid.UUID, body: RunRequest):
 
 
 @app.get("/api/v1/runs/{run_id}/events")
-async def run_events_sse(run_id: uuid.UUID, last_event_id: int = 0):
+async def run_events_sse(
+    run_id: uuid.UUID,
+    last_event_id: int = Query(default=0, ge=0),
+    last_event_id_header: int | None = Header(default=None, alias="Last-Event-ID", ge=0),
+):
     """SSE 进度：事实源为 run_events，支持 Last-Event-ID 续传（文档 §14.7）。
 
     P0-2：先对 Run 所属案件做 Membership 授权，再放事件流。"""
@@ -389,10 +436,11 @@ async def run_events_sse(run_id: uuid.UUID, last_event_id: int = 0):
         except CreditLensError as exc:
             raise HTTPException(404, "RUN_NOT_FOUND") from exc
 
-    terminal = {"COMPLETED", "FAILED", "DENIED", "HUMAN_REVIEW", "NEED_MORE_INFO"}
+    # EventSource 的标准续传头优先；保留 query 参数，兼容既有客户端和调试链接。
+    initial_cursor = last_event_id_header if last_event_id_header is not None else last_event_id
 
     async def stream():
-        cursor = last_event_id
+        cursor = initial_cursor
         while True:
             async with session_scope(
                 session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
@@ -411,7 +459,7 @@ async def run_events_sse(run_id: uuid.UUID, last_event_id: int = 0):
                     {"type": event.event_type, **event.payload_redacted}, ensure_ascii=False
                 )
                 yield f"id: {event.sequence_no}\nevent: {event.event_type}\ndata: {payload}\n\n"
-            if run is None or run.status in terminal:
+            if run is None or run.status in SSE_STOP_STATUSES:
                 yield f'event: DONE\ndata: {{"status": "{run.status if run else "UNKNOWN"}"}}\n\n'
                 return
             await asyncio.sleep(1.0)
@@ -509,10 +557,40 @@ async def get_run(run_id: uuid.UUID):
         claims = (
             await session.scalars(select(ClaimRecord).where(ClaimRecord.run_id == run_id))
         ).all()
+        evidence_rows = (
+            await session.scalars(select(EvidenceRecord).where(EvidenceRecord.run_id == run_id))
+        ).all()
+        # evidence_id 是跨 Run 可复用的逻辑键；EvidenceRecord.id 则是本次 Run 的
+        # 数据库行主键。因此必须按 evidence_key 映射，不能误用行 id。
+        locators_by_key = {
+            str(evidence.evidence_key): {
+                "evidence_type": evidence.evidence_type,
+                "section_id": str(evidence.section_id) if evidence.section_id else None,
+                "document_version_id": str(evidence.document_version_id)
+                if evidence.document_version_id
+                else None,
+                "parse_run_id": (evidence.locator or {}).get("parse_run_id"),
+                "page_number": evidence.page_number,
+                "content_hash": evidence.content_hash,
+            }
+            for evidence in evidence_rows
+        }
+
+        def evidence_locators(evidence_ids: list) -> list[dict]:
+            return [
+                locators_by_key[str(evidence_id)]
+                for evidence_id in evidence_ids
+                if str(evidence_id) in locators_by_key
+            ]
+
         return {
             "run_id": str(run.id),
             "status": run.status,
             "state_version": run.state_version,
+            "execution": {
+                "degraded": bool((run.model_manifest or {}).get("degraded", False)),
+                "degraded_agents": list((run.model_manifest or {}).get("degraded_agents", [])),
+            },
             "claims": [
                 {
                     "claim_id": str(c.id),
@@ -520,7 +598,15 @@ async def get_run(run_id: uuid.UUID):
                     "statement": c.statement,
                     "verdict": c.verdict,
                     "review_status": c.review_status,
-                    "evidence": c.payload,
+                    "evidence": {
+                        **(c.payload or {}),
+                        "supporting_locators": evidence_locators(
+                            (c.payload or {}).get("supporting_evidence_ids", [])
+                        ),
+                        "opposing_locators": evidence_locators(
+                            (c.payload or {}).get("opposing_evidence_ids", [])
+                        ),
+                    },
                 }
                 for c in claims
             ],

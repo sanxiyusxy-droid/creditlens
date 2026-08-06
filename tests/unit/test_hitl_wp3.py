@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from creditlens.agents.supervisor import resume_after_human_review
 from creditlens.common.errors import (
     ConcurrentReviewConflictError,
+    IdempotencyConflictError,
     InvalidReviewRequestError,
     InvalidStateTransitionError,
 )
@@ -170,13 +171,18 @@ async def test_hitl_idempotency_key_prevents_reapply(hitl_session):
     """同一 idempotency_key 重复提交：幂等返回，不重复应用。"""
     session = hitl_session
     run, claim = await _make_run(session)
+    original_version = run.state_version
     first = await resume_after_human_review(
-        session, run.id, _decision(run, claim_ids=[claim.id], idem="dup-key")
+        session,
+        run.id,
+        _decision(run, claim_ids=[claim.id], idem="dup-key", version=original_version),
     )
     assert first == "COMPLETED"
-    # 重复提交（即使 Run 已完成也应幂等返回而非报错）
+    # 原请求原样重放（包括 expected version）；即使 Run 已完成也应幂等返回。
     second = await resume_after_human_review(
-        session, run.id, _decision(run, claim_ids=[claim.id], idem="dup-key")
+        session,
+        run.id,
+        _decision(run, claim_ids=[claim.id], idem="dup-key", version=original_version),
     )
     assert second == "COMPLETED"
     count = await session.scalar(
@@ -185,6 +191,73 @@ async def test_hitl_idempotency_key_prevents_reapply(hitl_session):
         .where(HumanDecision.run_id == run.id, HumanDecision.idempotency_key == "dup-key")
     )
     assert count == 1, "幂等键重复提交不得产生第二条决定"
+
+
+async def test_hitl_same_key_with_different_payload_conflicts(hitl_session):
+    """同一 key 只有请求体完全一致才是重试；复用 key 提交其他动作必须 409。"""
+    session = hitl_session
+    run, claim = await _make_run(session)
+    original_version = run.state_version
+    await resume_after_human_review(
+        session,
+        run.id,
+        _decision(run, action="REQUEST_CHANGES", idem="reused", version=original_version),
+    )
+
+    with pytest.raises(IdempotencyConflictError):
+        await resume_after_human_review(
+            session,
+            run.id,
+            _decision(
+                run,
+                action="APPROVE_CLAIM",
+                claim_ids=[claim.id],
+                idem="reused",
+                version=original_version,
+            ),
+        )
+
+
+async def test_hitl_resolved_claim_cannot_be_silently_overwritten(hitl_session):
+    """普通审批动作不得把已经批准的 Claim 再改为拒绝。"""
+    session = hitl_session
+    run, first_claim = await _make_run(session)
+    second_claim = ClaimRecord(
+        tenant_id=TENANT,
+        run_id=run.id,
+        artifact_id=first_claim.artifact_id,
+        category="DATA_CONFLICT",
+        statement="另一条仍待人工处理的冲突。",
+        verdict="PARTIALLY_SUPPORTED",
+        as_of_date=AS_OF,
+        review_status="PENDING",
+        payload={},
+    )
+    session.add(second_claim)
+    await session.flush()
+
+    await resume_after_human_review(
+        session,
+        run.id,
+        _decision(run, claim_ids=[first_claim.id], idem="approve-first"),
+    )
+    await session.refresh(run)
+    assert run.status == "HUMAN_REVIEW"
+    assert second_claim.review_status == "PENDING"
+
+    with pytest.raises(InvalidReviewRequestError):
+        await resume_after_human_review(
+            session,
+            run.id,
+            _decision(
+                run,
+                action="REJECT_CLAIM",
+                claim_ids=[first_claim.id],
+                idem="overwrite-first",
+            ),
+        )
+    await session.refresh(first_claim)
+    assert first_claim.review_status == "HUMAN_APPROVED"
 
 
 async def test_hitl_optimistic_lock_conflict(hitl_session):
@@ -283,6 +356,27 @@ async def test_hitl_empty_claim_ids_rejected(hitl_session):
     run, _ = await _make_run(session)
     with pytest.raises(InvalidReviewRequestError):
         await resume_after_human_review(session, run.id, _decision(run, claim_ids=[], idem="empty"))
+
+
+async def test_blocked_report_submission_has_no_persisted_side_effects(hitl_session):
+    """仍有 blocking Claim 时，失败的提交不能先写决定或推进版本。"""
+    session = hitl_session
+    run, _ = await _make_run(session)
+    original_version = run.state_version
+
+    with pytest.raises(InvalidStateTransitionError):
+        await resume_after_human_review(
+            session,
+            run.id,
+            _decision(run, action="SUBMIT_REPORT", idem="blocked-report"),
+        )
+
+    await session.refresh(run)
+    decisions = await session.scalar(
+        select(func.count()).select_from(HumanDecision).where(HumanDecision.run_id == run.id)
+    )
+    assert decisions == 0
+    assert run.state_version == original_version
 
 
 async def test_hitl_second_decision_sees_bumped_version(hitl_session):

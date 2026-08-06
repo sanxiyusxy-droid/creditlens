@@ -38,9 +38,11 @@ class ReportClaimEntry(BaseModel):
     verdict: str
     review_status: str
     evidence_refs: list[str] = Field(default_factory=list)
+    opposing_evidence_refs: list[str] = Field(default_factory=list)
     calculation_ids: list[str] = Field(default_factory=list)
     # WP3：真实 Evidence locator（支持回原文）与反证来源追踪
     evidence_locators: list[dict] = Field(default_factory=list)
+    opposing_evidence_locators: list[dict] = Field(default_factory=list)
     source_claim_id: str | None = None
 
 
@@ -53,6 +55,8 @@ class ReportContent(BaseModel):
     excluded_claims: int = 0
     missing_materials: list[str] = Field(default_factory=list)
     references: list[dict] = Field(default_factory=list)
+    degraded: bool = False
+    degraded_agents: list[str] = Field(default_factory=list)
     disclaimer: str = DISCLAIMER
 
 
@@ -95,7 +99,7 @@ class ReportAgent:
             await session.scalars(select(EvidenceRecord).where(EvidenceRecord.run_id == run.id))
         ).all()
         for row in evidence_rows:
-            locator_by_evidence[str(row.id)] = {
+            locator_by_evidence[str(row.evidence_key)] = {
                 "evidence_type": row.evidence_type,
                 "document_version_id": str(row.document_version_id)
                 if row.document_version_id
@@ -108,17 +112,33 @@ class ReportAgent:
 
         accepted = [c for c in claims if c.review_status in {"AUDITED", "HUMAN_APPROVED"}]
         insufficient = [c for c in claims if c.verdict == "INSUFFICIENT_EVIDENCE"]
+        manifest = run.model_manifest or {}
+        degraded_agents = list(
+            dict.fromkeys(str(item) for item in manifest.get("degraded_agents", []))
+        )
+        degraded = bool(manifest.get("degraded") or degraded_agents)
 
         entries: list[ReportClaimEntry] = []
         references: list[dict] = []
         for c in accepted:
             payload = c.payload or {}
             evidence_ids = payload.get("supporting_evidence_ids", [])
+            opposing_evidence_ids = payload.get("opposing_evidence_ids", [])
             calc_ids = payload.get("calculation_ids", [])
             locators = [
                 locator_by_evidence[eid] for eid in evidence_ids if eid in locator_by_evidence
             ]
-            references.extend({"claim_id": str(c.id), **loc} for loc in locators)
+            opposing_locators = [
+                locator_by_evidence[eid]
+                for eid in opposing_evidence_ids
+                if eid in locator_by_evidence
+            ]
+            references.extend(
+                {"claim_id": str(c.id), "polarity": "SUPPORTING", **loc} for loc in locators
+            )
+            references.extend(
+                {"claim_id": str(c.id), "polarity": "OPPOSING", **loc} for loc in opposing_locators
+            )
             entries.append(
                 ReportClaimEntry(
                     claim_id=str(c.id),
@@ -127,8 +147,10 @@ class ReportAgent:
                     verdict=c.verdict,
                     review_status=c.review_status,
                     evidence_refs=evidence_ids,
+                    opposing_evidence_refs=opposing_evidence_ids,
                     calculation_ids=calc_ids,
                     evidence_locators=locators,
+                    opposing_evidence_locators=opposing_locators,
                     source_claim_id=payload.get("source_claim_id"),
                 )
             )
@@ -142,6 +164,8 @@ class ReportAgent:
             excluded_claims=len(claims) - len(accepted),
             missing_materials=missing,
             references=references,
+            degraded=degraded,
+            degraded_agents=degraded_agents,
             disclaimer=DISCLAIMER,
         )
 
@@ -152,7 +176,7 @@ class ReportAgent:
         content: ReportContent,
         status: str = "VERIFIED_DRAFT",
     ) -> ReportVersion:
-        """持久化报告版本（content_hash 确保不可篡改）。
+        """持久化报告版本（content_hash 用于完整性校验，不等同于 WORM 存证）。
 
         WP3：状态区分——自动链路生成 VERIFIED_DRAFT；人工批准后
         由调用方显式传 APPROVED_DRAFT。两者都不代表真实授信批准。"""
@@ -184,10 +208,13 @@ class ReportAgent:
             f"- 审查时点: {content.as_of_date}",
             f"- 通过 Claim 数: {len(content.claims)}",
             f"- 排除 Claim 数: {content.excluded_claims}",
+            f"- 覆盖状态: {'DEGRADED（部分审查覆盖缺失）' if content.degraded else 'COMPLETE'}",
             "",
             "## 审查结论",
             "",
         ]
+        if content.degraded_agents:
+            lines.insert(7, f"- 缺失/降级 Agent: {', '.join(content.degraded_agents)}")
         for entry in content.claims:
             lines.append(f"### [{entry.category}] {entry.verdict}")
             lines.append("")
@@ -195,7 +222,9 @@ class ReportAgent:
             lines.append("")
             lines.append(f"- 复核状态: {entry.review_status}")
             if entry.evidence_refs:
-                lines.append(f"- 证据数: {len(entry.evidence_refs)}")
+                lines.append(f"- 支持证据数: {len(entry.evidence_refs)}")
+            if entry.opposing_evidence_refs:
+                lines.append(f"- 反证数: {len(entry.opposing_evidence_refs)}")
             if entry.calculation_ids:
                 lines.append(f"- 计算痕迹: {len(entry.calculation_ids)}")
             lines.append("")

@@ -36,10 +36,12 @@ class PackedSection(BaseModel):
     section_id: uuid.UUID
     document_id: uuid.UUID
     document_version_id: uuid.UUID
+    parse_run_id: uuid.UUID
     heading_path: list[str]
     text: str
     text_hash: str
     page_start: int
+    page_end: int
     tokens_est: int
     rank: int  # 融合/精排后的原始排名
     expanded: bool = False  # 是否为相邻段落扩展
@@ -122,10 +124,12 @@ async def pack_context(
                 section_id=candidate.section_id,
                 document_id=candidate.document_id,
                 document_version_id=candidate.document_version_id,
+                parse_run_id=candidate.parse_run_id,
                 heading_path=candidate.heading_path,
                 text=candidate.text,
                 text_hash=candidate.text_hash,
                 page_start=candidate.page_start,
+                page_end=candidate.page_end,
                 tokens_est=tokens,
                 rank=candidate.rank,
                 expanded=False,
@@ -208,10 +212,12 @@ async def pack_context(
                     section_id=sibling.id,
                     document_id=doc_id,
                     document_version_id=version.id,
+                    parse_run_id=sibling.parse_run_id,
                     heading_path=sibling.heading_path or [],
                     text=sibling.text,
                     text_hash=sibling.text_hash,
                     page_start=sibling.page_start,
+                    page_end=sibling.page_end,
                     tokens_est=tokens,
                     rank=rank,
                     expanded=True,

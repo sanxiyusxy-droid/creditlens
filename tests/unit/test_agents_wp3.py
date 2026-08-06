@@ -26,12 +26,14 @@ from creditlens.application.snapshot_service import SnapshotContext
 from creditlens.formulas.engine import CalculationArtifact, FormulaRegistry
 from creditlens.infrastructure.postgres.models import (
     ArtifactRecord,
+    CaseDocument,
     ClaimRecord,
     CreditCase,
     Document,
     DocumentSection,
     DocumentVersion,
     Entity,
+    FinancialFact,
     ParseRun,
     ReviewRun,
     Tenant,
@@ -171,9 +173,12 @@ async def test_risk_consumes_packed_sections():
                 "section_id": str(uuid.uuid4()),
                 "document_id": str(uuid.uuid4()),
                 "document_version_id": str(uuid.uuid4()),
+                "parse_run_id": str(uuid.uuid4()),
                 "heading_path": ["第四章", "客户集中度"],
                 "text": "第一大客户收入占比超过 40%，存在集中度风险。",
                 "text_hash": "hash-packed",
+                "page_start": 4,
+                "page_end": 5,
                 "rank": 1,
             }
         ]
@@ -288,9 +293,12 @@ async def test_challenger_consumes_packed_sections():
                 "section_id": str(uuid.uuid4()),
                 "document_id": str(uuid.uuid4()),
                 "document_version_id": str(uuid.uuid4()),
+                "parse_run_id": str(uuid.uuid4()),
                 "heading_path": ["附注"],
                 "text": "复核口径下2025年资产负债率为 70%。",
                 "text_hash": "hash-packed",
+                "page_start": 8,
+                "page_end": 9,
                 "rank": 1,
             }
         ]
@@ -374,17 +382,34 @@ async def _make_world(session, *, available_at=datetime(2026, 4, 30, tzinfo=UTC)
             text_hash="hash-sec",
         )
     )
+    session.add(
+        CaseDocument(
+            case_id=CASE,
+            document_version_id=version_id,
+            document_role="BORROWER_PROVIDED",
+        )
+    )
     await session.flush()
     return section_id, parse_run_id, version_id
 
 
-def _span_artifact(run_id, section_id, text_hash="hash-sec") -> AgentArtifact:
+def _span_artifact(
+    run_id,
+    section_id,
+    version_id,
+    parse_run_id,
+    text_hash="hash-sec",
+    page_number=1,
+) -> AgentArtifact:
     evidence = AgentEvidenceRef(
         evidence_id=uuid.uuid4(),
         evidence_type="DOCUMENT_SPAN",
         source_id=section_id,
         content_hash=text_hash,
+        document_version_id=version_id,
         section_id=section_id,
+        parse_run_id=parse_run_id,
+        page_number=page_number,
         source_available_at=datetime.now(UTC),
     )
     claim = AgentClaim(
@@ -407,7 +432,7 @@ async def test_auditor_rejects_when_case_missing(session):
     """WP3：Case 不存在/租户不一致 -> 全部 Claim 拒绝。"""
     await _make_world(session)
     auditor = EvidenceAuditor(FormulaRegistry())
-    artifact = _span_artifact(uuid.uuid4(), uuid.uuid4())
+    artifact = _span_artifact(uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4())
     result = await auditor.verify(session, _trusted(case_id=uuid.uuid4()), [artifact])
     assert result.rejected_claim_ids == [artifact.claims[0].claim_id]
     assert "CASE_VALIDATION_FAILED" in result.violations[str(artifact.claims[0].claim_id)]
@@ -415,10 +440,13 @@ async def test_auditor_rejects_when_case_missing(session):
 
 async def test_auditor_rejects_material_after_cutoff(session):
     """WP3：cutoff 之后才可获得的材料必须拒绝（NOT_AVAILABLE_AT_CUTOFF）。"""
-    section_id, _, _ = await _make_world(session, available_at=datetime(2026, 6, 1, tzinfo=UTC))
+    section_id, parse_run_id, version_id = await _make_world(
+        session, available_at=datetime(2026, 6, 1, tzinfo=UTC)
+    )
     auditor = EvidenceAuditor(FormulaRegistry())
-    artifact = _span_artifact(uuid.uuid4(), section_id)
-    result = await auditor.verify(session, _trusted(), [artifact])
+    artifact = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+    result = await auditor.verify(session, _trusted(), [artifact], snapshot=snapshot)
     assert result.rejected_claim_ids, "cutoff 后材料不得进入报告"
     violations = [v for vs in result.violations.values() for v in vs]
     assert "NOT_AVAILABLE_AT_CUTOFF" in violations
@@ -426,9 +454,9 @@ async def test_auditor_rejects_material_after_cutoff(session):
 
 async def test_auditor_rejects_parse_run_outside_snapshot(session):
     """WP3：证据 Parse Run 不在冻结 Snapshot 集合内必须拒绝。"""
-    section_id, _, _ = await _make_world(session)
+    section_id, parse_run_id, version_id = await _make_world(session)
     auditor = EvidenceAuditor(FormulaRegistry())
-    artifact = _span_artifact(uuid.uuid4(), section_id)
+    artifact = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
     snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[uuid.uuid4()])
     result = await auditor.verify(session, _trusted(), [artifact], snapshot=snapshot)
     assert result.rejected_claim_ids
@@ -438,21 +466,259 @@ async def test_auditor_rejects_parse_run_outside_snapshot(session):
 
 async def test_auditor_passes_valid_evidence_within_snapshot(session):
     """合法证据 + Snapshot 覆盖 -> 接受。"""
-    section_id, parse_run_id, _ = await _make_world(session)
+    section_id, parse_run_id, version_id = await _make_world(session)
     auditor = EvidenceAuditor(FormulaRegistry())
-    artifact = _span_artifact(uuid.uuid4(), section_id)
+    artifact = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
     snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
     result = await auditor.verify(session, _trusted(), [artifact], snapshot=snapshot)
     assert result.accepted_claim_ids == [artifact.claims[0].claim_id]
     assert not result.needs_human_review_claim_ids
 
 
-def _conflict_and_supplement_artifacts(run_id) -> list[AgentArtifact]:
+async def test_auditor_rejects_missing_document_locator(session):
+    """DOCUMENT_SPAN 缺少版本、解析批次或页码时必须 fail-closed。"""
+    section_id, parse_run_id, _ = await _make_world(session)
+    artifact = _span_artifact(
+        uuid.uuid4(),
+        section_id,
+        None,
+        None,
+        page_number=None,
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session, _trusted(), [artifact], snapshot=snapshot
+    )
+
+    assert result.rejected_claim_ids == [artifact.claims[0].claim_id]
+    evidence_violations = result.violations[str(artifact.evidence[0].evidence_id)]
+    assert "MISSING_DOCUMENT_LOCATOR:document_version_id" in evidence_violations
+    assert "MISSING_DOCUMENT_LOCATOR:parse_run_id" in evidence_violations
+    assert "MISSING_DOCUMENT_LOCATOR:page_number" in evidence_violations
+
+
+@pytest.mark.parametrize(
+    ("wrong_version", "wrong_parse", "expected_violation"),
+    [
+        (True, False, "DOCUMENT_VERSION_MISMATCH"),
+        (False, True, "PARSE_RUN_MISMATCH"),
+    ],
+)
+async def test_auditor_rejects_inconsistent_version_or_parse_locator(
+    session, wrong_version, wrong_parse, expected_violation
+):
+    """Locator 声明必须与 Section 的版本和 ParseRun 精确一致。"""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    artifact = _span_artifact(
+        uuid.uuid4(),
+        section_id,
+        uuid.uuid4() if wrong_version else version_id,
+        uuid.uuid4() if wrong_parse else parse_run_id,
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session, _trusted(), [artifact], snapshot=snapshot
+    )
+
+    assert result.rejected_claim_ids == [artifact.claims[0].claim_id]
+    assert expected_violation in result.violations[str(artifact.evidence[0].evidence_id)]
+
+
+async def test_auditor_requires_snapshot_for_document_span(session):
+    """即使 locator 合法，没有冻结 Snapshot 也不得接受文档证据。"""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    artifact = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session, _trusted(), [artifact], snapshot=None
+    )
+
+    assert result.rejected_claim_ids == [artifact.claims[0].claim_id]
+    assert "SNAPSHOT_REQUIRED" in result.violations[str(artifact.evidence[0].evidence_id)]
+
+
+async def test_auditor_requires_document_bound_to_case(session):
+    """存在的文档版本若未绑定当前案件，同样必须 fail-closed。"""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    binding = await session.get(
+        CaseDocument,
+        {"case_id": CASE, "document_version_id": version_id},
+    )
+    await session.delete(binding)
+    await session.flush()
+    artifact = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session, _trusted(), [artifact], snapshot=snapshot
+    )
+
+    assert result.rejected_claim_ids == [artifact.claims[0].claim_id]
+    assert "DOCUMENT_NOT_BOUND_TO_CASE" in result.violations[str(artifact.evidence[0].evidence_id)]
+
+
+async def test_auditor_calculation_evidence_requires_closed_reference(session):
+    """计算证据必须完整绑定 Artifact 内计算，并与 trace_hash 一致。"""
+    await _make_world(session)
+    calculation = _calc(Decimal("50.0"))
+    absent_calculation_id = uuid.uuid4()
+    cases = [
+        (None, calculation.calculation_id, calculation.trace_hash, "MISSING_CALCULATION_ID"),
+        (
+            calculation.calculation_id,
+            uuid.uuid4(),
+            calculation.trace_hash,
+            "CALCULATION_SOURCE_MISMATCH",
+        ),
+        (
+            absent_calculation_id,
+            absent_calculation_id,
+            calculation.trace_hash,
+            "CALCULATION_NOT_FOUND",
+        ),
+        (
+            calculation.calculation_id,
+            calculation.calculation_id,
+            "tampered-trace",
+            "CALCULATION_CONTENT_HASH_MISMATCH",
+        ),
+    ]
+
+    for calculation_id, source_id, content_hash, expected in cases:
+        evidence = AgentEvidenceRef(
+            evidence_id=uuid.uuid4(),
+            evidence_type="CALCULATION",
+            source_id=source_id,
+            content_hash=content_hash,
+            calculation_id=calculation_id,
+            source_available_at=CUTOFF,
+        )
+        claim = AgentClaim(
+            category="FINANCIAL",
+            statement="财务指标已完成计算。",
+            verdict="SUPPORTED",
+            supporting_evidence_ids=[evidence.evidence_id],
+            as_of_date=AS_OF,
+        )
+        artifact = AgentArtifact(
+            run_id=uuid.uuid4(),
+            task_id="financial_review",
+            producer="financial_analyst",
+            evidence=[evidence],
+            claims=[claim],
+            calculations=[calculation],
+        )
+
+        result = await EvidenceAuditor(FormulaRegistry()).verify(session, _trusted(), [artifact])
+
+        assert claim.claim_id in result.rejected_claim_ids
+        assert expected in result.violations[str(evidence.evidence_id)]
+
+
+async def test_auditor_sql_fact_checks_identity_case_and_cutoff(session):
+    """SQL_FACT 必须回表验证身份、案件归属与截止时点。"""
+    await _make_world(session)
+    fact = FinancialFact(
+        tenant_id=TENANT,
+        case_id=CASE,
+        entity_id=ENTITY,
+        metric_code="revenue",
+        period_end=AS_OF,
+        value=Decimal("100"),
+        canonical_value=Decimal("100"),
+        source_available_at=datetime(2026, 6, 1, tzinfo=UTC),
+    )
+    session.add(fact)
+    await session.flush()
+    evidence = AgentEvidenceRef(
+        evidence_id=uuid.uuid4(),
+        evidence_type="SQL_FACT",
+        source_id=uuid.uuid4(),
+        fact_id=fact.id,
+        content_hash="fact-row",
+        source_available_at=fact.source_available_at,
+    )
+    claim = AgentClaim(
+        category="FINANCIAL",
+        statement="财务事实可用于分析。",
+        verdict="SUPPORTED",
+        supporting_evidence_ids=[evidence.evidence_id],
+        as_of_date=AS_OF,
+    )
+    artifact = AgentArtifact(
+        run_id=uuid.uuid4(),
+        task_id="financial_review",
+        producer="financial_analyst",
+        evidence=[evidence],
+        claims=[claim],
+    )
+    snapshot = SnapshotContext(
+        snapshot_id=uuid.uuid4(),
+        allowed_fact_ids=[fact.id],
+    )
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session, _trusted(), [artifact], snapshot=snapshot
+    )
+
+    assert result.rejected_claim_ids == [claim.claim_id]
+    violations = result.violations[str(evidence.evidence_id)]
+    assert "FACT_SOURCE_MISMATCH" in violations
+    assert "FACT_NOT_AVAILABLE_AT_CUTOFF" in violations
+
+
+async def test_auditor_table_cell_document_locator_is_fail_closed(session):
+    """带 Section 的 TABLE_CELL 采用与 DOCUMENT_SPAN 相同的强定位校验。"""
+    section_id, parse_run_id, _ = await _make_world(session)
+    evidence = AgentEvidenceRef(
+        evidence_id=uuid.uuid4(),
+        evidence_type="TABLE_CELL",
+        source_id=section_id,
+        section_id=section_id,
+        content_hash="hash-sec",
+        source_available_at=CUTOFF,
+    )
+    claim = AgentClaim(
+        category="FINANCIAL",
+        statement="表格单元格提供财务依据。",
+        verdict="SUPPORTED",
+        supporting_evidence_ids=[evidence.evidence_id],
+        as_of_date=AS_OF,
+    )
+    artifact = AgentArtifact(
+        run_id=uuid.uuid4(),
+        task_id="financial_review",
+        producer="financial_analyst",
+        evidence=[evidence],
+        claims=[claim],
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session, _trusted(), [artifact], snapshot=snapshot
+    )
+
+    assert result.rejected_claim_ids == [claim.claim_id]
+    violations = result.violations[str(evidence.evidence_id)]
+    assert "MISSING_DOCUMENT_LOCATOR:document_version_id" in violations
+    assert "MISSING_DOCUMENT_LOCATOR:parse_run_id" in violations
+    assert "MISSING_DOCUMENT_LOCATOR:page_number" in violations
+
+
+def _conflict_and_supplement_artifacts(
+    run_id, section_id, version_id, parse_run_id
+) -> list[AgentArtifact]:
     dummy = AgentEvidenceRef(
         evidence_id=uuid.uuid4(),
         evidence_type="DOCUMENT_SPAN",
-        source_id=uuid.uuid4(),
-        content_hash="hash-none",
+        source_id=section_id,
+        content_hash="hash-sec",
+        document_version_id=version_id,
+        section_id=section_id,
+        parse_run_id=parse_run_id,
+        page_number=1,
         source_available_at=datetime.now(UTC),
     )
     conflict_claim = AgentClaim(
@@ -484,13 +750,38 @@ def _conflict_and_supplement_artifacts(run_id) -> list[AgentArtifact]:
 
 async def test_auditor_conflict_to_hitl_supplement_not(session):
     """WP3：真冲突送人工复核；补充材料不阻断流程、不送 HITL。"""
-    await _make_world(session)
+    section_id, parse_run_id, version_id = await _make_world(session)
     auditor = EvidenceAuditor(FormulaRegistry())
-    artifacts = _conflict_and_supplement_artifacts(uuid.uuid4())
-    result = await auditor.verify(session, _trusted(), artifacts)
+    artifacts = _conflict_and_supplement_artifacts(
+        uuid.uuid4(), section_id, version_id, parse_run_id
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+    result = await auditor.verify(session, _trusted(), artifacts, snapshot=snapshot)
     conflict_claim, supplement_claim = artifacts[0].claims
     assert result.needs_human_review_claim_ids == [conflict_claim.claim_id]
     assert supplement_claim.claim_id in result.accepted_claim_ids
+
+
+async def test_auditor_rejects_bad_opposing_evidence_before_hitl(session):
+    """坏反证不能绕过审计进入 HITL；引用该反证的 Claim 全部拒绝。"""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    artifact = _conflict_and_supplement_artifacts(
+        uuid.uuid4(), section_id, version_id, parse_run_id
+    )[0]
+    bad_evidence = artifact.evidence[0].model_copy(update={"parse_run_id": uuid.uuid4()})
+    artifact = artifact.model_copy(update={"evidence": [bad_evidence]})
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session, _trusted(), [artifact], snapshot=snapshot
+    )
+
+    assert set(result.rejected_claim_ids) == {claim.claim_id for claim in artifact.claims}
+    assert not result.needs_human_review_claim_ids
+    assert all(
+        "INVALID_OPPOSING_EVIDENCE" in result.violations[str(claim.claim_id)]
+        for claim in artifact.claims
+    )
 
 
 async def test_auditor_core_failed_blocks_noncore_degrades(session):
@@ -544,12 +835,15 @@ async def _make_report_world(session):
         case_id=CASE,
         as_of_date=AS_OF,
         decision_cutoff_at=CUTOFF,
+        model_manifest={"degraded": True, "degraded_agents": ["risk", "challenger"]},
     )
     session.add(run)
     await session.flush()
 
     evidence_id = uuid.uuid4()
+    opposing_evidence_id = uuid.uuid4()
     section_id = uuid.uuid4()
+    opposing_section_id = uuid.uuid4()
     artifact = ArtifactRecord(
         tenant_id=TENANT,
         run_id=run.id,
@@ -565,7 +859,15 @@ async def _make_report_world(session):
                     "section_id": str(section_id),
                     "page_number": 3,
                     "content_hash": "hash-loc",
-                }
+                },
+                {
+                    "evidence_id": str(opposing_evidence_id),
+                    "evidence_type": "DOCUMENT_SPAN",
+                    "document_version_id": "ver-2",
+                    "section_id": str(opposing_section_id),
+                    "page_number": 4,
+                    "content_hash": "hash-opposing",
+                },
             ]
         },
     )
@@ -584,6 +886,7 @@ async def _make_report_world(session):
         review_status="AUDITED",
         payload={
             "supporting_evidence_ids": [str(evidence_id)],
+            "opposing_evidence_ids": [str(opposing_evidence_id)],
             "source_claim_id": str(source_claim_id),
         },
     )
@@ -618,8 +921,18 @@ async def test_report_agent_real_locators_and_source_claim(session):
     assert entry.evidence_locators, "必须携带真实 locator"
     assert entry.evidence_locators[0]["section_id"] == str(section_id)
     assert entry.evidence_locators[0]["page_number"] == 3
+    assert entry.opposing_evidence_refs
+    assert entry.opposing_evidence_locators[0]["page_number"] == 4
     assert entry.source_claim_id == str(source_claim_id)
-    assert content.references and content.references[0]["claim_id"] == str(claim.id)
+    assert content.references and all(
+        ref["claim_id"] == str(claim.id) for ref in content.references
+    )
+    assert {ref["polarity"] for ref in content.references} == {"SUPPORTING", "OPPOSING"}
+    assert content.degraded is True
+    assert content.degraded_agents == ["risk", "challenger"]
+    markdown = agent.render_markdown(content)
+    assert "DEGRADED（部分审查覆盖缺失）" in markdown
+    assert "risk, challenger" in markdown
 
 
 async def test_report_agent_status_verified_then_approved(session):
@@ -699,11 +1012,70 @@ async def test_evidence_record_persisted_with_parse_run_locator(session):
     ).all()
     assert len(rows) == 1, "同一 evidence_id 在同 Run 内不得重复落库"
     record = rows[0]
+    assert record.evidence_key == ref.evidence_id
     assert record.section_id == section_id
     assert record.page_number == 7
     assert record.locator["parse_run_id"] == str(parse_run_id), "locator 必须含 parse_run_id"
     assert record.locator["section_id"] == str(section_id)
     assert record.content_hash == "hash-x"
+
+
+async def test_evidence_key_is_idempotent_per_run_not_global(session):
+    """稳定 evidence_key 可跨 Run 复用，但每个 Run 内只落一行。"""
+    from creditlens.agents.supervisor import Supervisor
+    from creditlens.infrastructure.postgres.models import EvidenceRecord
+
+    await _make_world(session)
+    first_run = ReviewRun(
+        tenant_id=TENANT,
+        case_id=CASE,
+        as_of_date=AS_OF,
+        decision_cutoff_at=CUTOFF,
+    )
+    second_run = ReviewRun(
+        tenant_id=TENANT,
+        case_id=CASE,
+        as_of_date=AS_OF,
+        decision_cutoff_at=CUTOFF,
+    )
+    session.add_all([first_run, second_run])
+    await session.flush()
+
+    section_id = uuid.uuid4()
+    stable_key = uuid.uuid5(uuid.NAMESPACE_URL, f"evidence:{section_id}:hash-shared")
+    ref = AgentEvidenceRef(
+        evidence_id=stable_key,
+        evidence_type="DOCUMENT_SPAN",
+        source_id=section_id,
+        content_hash="hash-shared",
+        document_version_id=uuid.uuid4(),
+        section_id=section_id,
+        parse_run_id=uuid.uuid4(),
+        page_number=1,
+        source_available_at=CUTOFF,
+    )
+
+    def artifact_for(run_id):
+        return AgentArtifact(
+            run_id=run_id,
+            task_id="policy_review",
+            producer="policy_analyst",
+            evidence=[ref],
+        )
+
+    await Supervisor._persist_evidence(session, first_run, artifact_for(first_run.id))
+    await Supervisor._persist_evidence(session, first_run, artifact_for(first_run.id))
+    await Supervisor._persist_evidence(session, second_run, artifact_for(second_run.id))
+
+    rows = (
+        await session.scalars(
+            select(EvidenceRecord).where(EvidenceRecord.evidence_key == stable_key)
+        )
+    ).all()
+    assert len(rows) == 2
+    assert {row.run_id for row in rows} == {first_run.id, second_run.id}
+    assert len({row.id for row in rows}) == 2
+    assert {row.evidence_key for row in rows} == {stable_key}
 
 
 async def test_report_locator_carries_parse_run_id_from_evidence_table(session):
@@ -715,7 +1087,7 @@ async def test_report_locator_carries_parse_run_id_from_evidence_table(session):
     parse_run_id = uuid.uuid4()
     session.add(
         EvidenceRecord(
-            id=evidence_id,
+            evidence_key=evidence_id,
             tenant_id=TENANT,
             run_id=run.id,
             evidence_type="DOCUMENT_SPAN",

@@ -241,6 +241,7 @@ class TestP03StateMachine:
 
         case = (await session.scalars(select(CreditCase))).first()
         run, claim_ids = await self._setup_run(session, case, ["PENDING", "NEEDS_REWORK"])
+        request_version = run.state_version
         decision = HumanDecision(
             tenant_id=TENANT_ID,
             case_id=case.id,
@@ -248,7 +249,7 @@ class TestP03StateMachine:
             target_claim_ids=[str(c) for c in claim_ids],
             action="APPROVE_CLAIM",
             idempotency_key="idem-1",
-            target_version=run.state_version,
+            target_version=request_version,
         )
         status = await resume_after_human_review(session, run.id, decision)
         assert status == "COMPLETED"
@@ -262,10 +263,10 @@ class TestP03StateMachine:
             tenant_id=TENANT_ID,
             case_id=case.id,
             run_id=run.id,
-            target_claim_ids=[],
+            target_claim_ids=[str(c) for c in claim_ids],
             action="APPROVE_CLAIM",
             idempotency_key="idem-1",
-            target_version=run.state_version,
+            target_version=request_version,
         )
         assert await resume_after_human_review(session, run.id, dup) == "COMPLETED"
         reports = (

@@ -26,6 +26,7 @@ from creditlens.agents.risk_agent import RiskAgent
 from creditlens.common.clock import utc_now
 from creditlens.common.errors import (
     ConcurrentReviewConflictError,
+    IdempotencyConflictError,
     InvalidReviewRequestError,
     InvalidStateTransitionError,
 )
@@ -63,6 +64,42 @@ _TRANSITIONS: dict[str, set[str]] = {
 # v1.1 失败门禁：关键 Agent 失败禁止生成报告；Risk 失败降级继续（WP1）
 _CRITICAL_AGENTS = {"policy", "financial"}
 _DEGRADABLE_AGENTS = {"risk"}
+
+_ALLOWED_HUMAN_ACTIONS = {
+    "APPROVE_CLAIM",
+    "REJECT_CLAIM",
+    "REQUEST_CHANGES",
+    "REQUEST_MORE_INFORMATION",
+    "SUBMIT_REPORT",
+    "APPROVE_REPORT_DRAFT",
+}
+
+
+def _same_human_decision(existing: HumanDecision, incoming: HumanDecision) -> bool:
+    """判断同一幂等键是否真的是同一个请求，而非 key 被误复用。"""
+
+    def claim_ids(value: list | None) -> tuple[str, ...]:
+        return tuple(sorted(str(item) for item in (value or [])))
+
+    return (
+        existing.tenant_id == incoming.tenant_id
+        and existing.case_id == incoming.case_id
+        and existing.run_id == incoming.run_id
+        and existing.action == incoming.action
+        and claim_ids(existing.target_claim_ids) == claim_ids(incoming.target_claim_ids)
+        and existing.target_version == incoming.target_version
+        and (existing.reason_code or "") == (incoming.reason_code or "")
+        and (existing.reason or "") == (incoming.reason or "")
+        and existing.reviewer_id == incoming.reviewer_id
+    )
+
+
+def _ensure_same_idempotent_request(existing: HumanDecision, incoming: HumanDecision) -> None:
+    if not _same_human_decision(existing, incoming):
+        raise IdempotencyConflictError(
+            "同一 idempotency_key 已用于不同的人工复核请求",
+            {"idempotency_key": incoming.idempotency_key, "run_id": str(incoming.run_id)},
+        )
 
 
 @dataclass
@@ -156,6 +193,25 @@ class Supervisor:
             try:
                 result = await agent.run(run.id, task_key, trusted)
                 professional.append(result)
+                # 每个 Agent 一完成就落库。这样后续核心 Agent 异常时，已经成功的
+                # 阶段不会出现“有 TASK_COMPLETED 事件但没有 Artifact”的断链。
+                await self._persist_artifacts(session, run, [result])
+                if result.execution_status == "FAILED":
+                    await seq.emit(
+                        "TASK_FAILED",
+                        {"task": name, "reason": "FAILED_ARTIFACT"},
+                    )
+                    if name in _CRITICAL_AGENTS:
+                        await self._transition(session, run, seq, "FAILED", force=True)
+                        return RunOutcome(run.id, run.status, professional)
+                    degraded_agents.append(name)
+                    run.model_manifest = {
+                        **(run.model_manifest or {}),
+                        "degraded_agents": degraded_agents,
+                        "degraded": True,
+                    }
+                    await session.flush()
+                    continue
                 await seq.emit("TASK_COMPLETED", {"task": name, "claims": len(result.claims)})
                 # P1：Agent 产出但工具部分失败（execution_status=DEGRADED）时，
                 # Run Manifest 必须同样标记降级——报告读者需要知道结论是降级产出
@@ -200,7 +256,7 @@ class Supervisor:
                 if name in _CRITICAL_AGENTS:
                     # Policy/Financial 失败：禁止生成报告，Run 直接 FAILED
                     await self._transition(session, run, seq, "FAILED", force=True)
-                    return RunOutcome(run.id, run.status, [failed])
+                    return RunOutcome(run.id, run.status, [*professional, failed])
                 if name in _DEGRADABLE_AGENTS:
                     # Risk 失败：允许继续，但必须标记 DEGRADED 写入 Manifest
                     degraded_agents.append(name)
@@ -215,7 +271,6 @@ class Supervisor:
             return RunOutcome(run.id, run.status)
 
         await self._transition(session, run, seq, "SYNTHESIZING")
-        await self._persist_artifacts(session, run, professional)
 
         await self._transition(session, run, seq, "CHALLENGING")
         # P1：Challenger 异常同样必须落 FAILED Artifact + RunEvent，不允许整个 Run
@@ -378,12 +433,17 @@ class Supervisor:
         引用的是 Snapshot 冻结的那个解析批次。
         """
         for ref in artifact.evidence:
-            existing = await session.get(EvidenceRecord, ref.evidence_id)
+            existing = await session.scalar(
+                select(EvidenceRecord.id).where(
+                    EvidenceRecord.run_id == run.id,
+                    EvidenceRecord.evidence_key == ref.evidence_id,
+                )
+            )
             if existing is not None:
                 continue
             session.add(
                 EvidenceRecord(
-                    id=ref.evidence_id,
+                    evidence_key=ref.evidence_id,
                     tenant_id=run.tenant_id,
                     run_id=run.id,
                     evidence_type=ref.evidence_type,
@@ -535,6 +595,8 @@ async def resume_after_human_review(
         raise InvalidReviewRequestError("必须提供 idempotency_key（并发/重试安全前提）")
     if decision.target_version is None:
         raise InvalidReviewRequestError("必须提供 expected_state_version（乐观锁前提）")
+    if decision.action not in _ALLOWED_HUMAN_ACTIONS:
+        raise InvalidReviewRequestError("不支持的人工复核动作", {"action": decision.action})
 
     # 行锁：并发请求在此串行化（SQLite 无 FOR UPDATE，由 SQLAlchemy 自动忽略，
     # 单测仍走同一代码路径；真实并发保护在 PostgreSQL 生效）
@@ -544,12 +606,13 @@ async def resume_after_human_review(
 
     # 幂等键先于状态检查：已完成 Run 的重复提交应幂等返回，而非报错
     duplicate = await session.scalar(
-        select(HumanDecision.id).where(
+        select(HumanDecision).where(
             HumanDecision.run_id == run_id,
             HumanDecision.idempotency_key == decision.idempotency_key,
         )
     )
     if duplicate is not None:
+        _ensure_same_idempotent_request(duplicate, decision)
         return run.status  # 幂等：不重复应用
 
     if run.status not in {"HUMAN_REVIEW", "REWORK"}:
@@ -577,6 +640,22 @@ async def resume_after_human_review(
                     "目标 Claim 不存在或不属于该 Run",
                     {"claim_id": str(raw_id), "run_id": str(run.id)},
                 )
+            if claim.review_status not in {"PENDING", "NEEDS_REWORK"}:
+                raise InvalidReviewRequestError(
+                    "目标 Claim 已完成裁决；如需改判必须走显式 supersede 流程",
+                    {
+                        "claim_id": str(raw_id),
+                        "review_status": claim.review_status,
+                    },
+                )
+    elif decision.action in {"SUBMIT_REPORT", "APPROVE_REPORT_DRAFT"}:
+        # 在写 HumanDecision / bump version 前完成前置校验。否则直接调用服务层且
+        # 捕获异常的调用方若未回滚，可能把本应失败的决定误提交。
+        remaining = await _blocking_claims_remain(session, run_id)
+        if remaining > 0:
+            raise InvalidStateTransitionError(
+                f"仍有 {remaining} 条 blocking Claim，未解决前不得提交报告"
+            )
 
     session.add(decision)
     try:
@@ -585,6 +664,16 @@ async def resume_after_human_review(
         await session.flush()
     except IntegrityError:
         await session.rollback()
+        existing = await session.scalar(
+            select(HumanDecision).where(
+                HumanDecision.run_id == run_id,
+                HumanDecision.idempotency_key == decision.idempotency_key,
+            )
+        )
+        if existing is None:
+            # 不是 run + idempotency_key 唯一约束导致的冲突，不能伪装成成功。
+            raise
+        _ensure_same_idempotent_request(existing, decision)
         refreshed = await session.get(ReviewRun, run_id)
         return refreshed.status if refreshed else "UNKNOWN"
 
@@ -615,11 +704,6 @@ async def resume_after_human_review(
         await _transition_run(session, run, seq, "COMPLETED")
         run.completed_at = utc_now()
     elif decision.action in {"SUBMIT_REPORT", "APPROVE_REPORT_DRAFT"}:
-        remaining = await _blocking_claims_remain(session, run_id)
-        if remaining > 0:
-            raise InvalidStateTransitionError(
-                f"仍有 {remaining} 条 blocking Claim，未解决前不得提交报告"
-            )
         if run.status == "REWORK":
             await _transition_run(session, run, seq, "HUMAN_REVIEW")
         await _transition_run(session, run, seq, "REPORTING")
@@ -627,7 +711,7 @@ async def resume_after_human_review(
         await _transition_run(session, run, seq, "COMPLETED")
         run.completed_at = utc_now()
     else:
-        # REQUEST_CHANGES / REQUEST_MORE_INFORMATION / RERUN_TASK / OVERRIDE_WITH_REASON
+        # REQUEST_CHANGES / REQUEST_MORE_INFORMATION
         if run.status != "REWORK":
             await _transition_run(session, run, seq, "REWORK")
     await session.flush()

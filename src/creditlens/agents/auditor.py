@@ -26,9 +26,11 @@ from creditlens.agents.contracts import (
 )
 from creditlens.formulas.engine import FormulaRegistry, replay_calculation
 from creditlens.infrastructure.postgres.models import (
+    CaseDocument,
     CreditCase,
     DocumentSection,
     DocumentVersion,
+    FinancialFact,
     ParseRun,
 )
 from creditlens.retrieval.contracts import TrustedRequestContext
@@ -65,6 +67,19 @@ class AuditResult:
     @property
     def ok(self) -> bool:
         return not self.rejected_claim_ids and not self.replay_failures
+
+
+def _reject_evidence(
+    result: AuditResult,
+    bad_evidence: set[uuid.UUID],
+    evidence_id: uuid.UUID,
+    code: str,
+) -> None:
+    """Record one deterministic violation without duplicating error codes."""
+    bad_evidence.add(evidence_id)
+    violations = result.violations.setdefault(str(evidence_id), [])
+    if code not in violations:
+        violations.append(code)
 
 
 class EvidenceAuditor:
@@ -116,64 +131,293 @@ class EvidenceAuditor:
 
             # 2/3. 证据级确定性校验
             bad_evidence: set[uuid.UUID] = set()
-            for evidence in artifact.evidence:
-                if evidence.evidence_type == "DOCUMENT_SPAN" and evidence.section_id:
-                    section = await session.get(DocumentSection, evidence.section_id)
-                    if section is None or section.text_hash != evidence.content_hash:
-                        bad_evidence.add(evidence.evidence_id)
-                        result.violations.setdefault(str(evidence.evidence_id), []).append(
-                            "INVALID_REFERENCE"
-                        )
-                    elif str(section.tenant_id) != str(trusted.tenant_id):
-                        bad_evidence.add(evidence.evidence_id)
-                        result.violations.setdefault(str(evidence.evidence_id), []).append(
-                            "ACL_DENIED"
-                        )
-                    else:
-                        # v1.1：强制验证 DocumentVersion 时点
-                        version = await session.get(DocumentVersion, section.document_version_id)
-                        if version is not None:
-                            if (version.valid_from and trusted.as_of_date < version.valid_from) or (
-                                version.valid_to and trusted.as_of_date >= version.valid_to
-                            ):
-                                bad_evidence.add(evidence.evidence_id)
-                                result.violations.setdefault(str(evidence.evidence_id), []).append(
-                                    "OUT_OF_EFFECTIVE_DATE"
-                                )
-                            # WP3：cutoff 复核——不得使用审查截止后才可获得的材料
-                            available_at = version.source_available_at
-                            if available_at is not None:
-                                if available_at.tzinfo is None:
-                                    available_at = available_at.replace(tzinfo=UTC)
-                                if available_at > trusted.decision_cutoff_at.astimezone(UTC):
-                                    bad_evidence.add(evidence.evidence_id)
-                                    result.violations.setdefault(
-                                        str(evidence.evidence_id), []
-                                    ).append("NOT_AVAILABLE_AT_CUTOFF")
-                        # v1.1：验证 ParseRun 激活状态
-                        parse_run = await session.get(ParseRun, section.parse_run_id)
-                        if parse_run and parse_run.activation_status in {"REVOKED", "TOMBSTONED"}:
-                            bad_evidence.add(evidence.evidence_id)
-                            result.violations.setdefault(str(evidence.evidence_id), []).append(
-                                "PARSE_RUN_REVOKED"
-                            )
-                        # WP3：Snapshot 复核——证据必须属于冻结的 Parse Run 集合
-                        if (
-                            snapshot is not None
-                            and parse_run is not None
-                            and parse_run.id not in set(snapshot.allowed_parse_run_ids)
-                        ):
-                            bad_evidence.add(evidence.evidence_id)
-                            result.violations.setdefault(str(evidence.evidence_id), []).append(
-                                "PARSE_RUN_NOT_IN_SNAPSHOT"
-                            )
-
+            calculations_by_id = {
+                calculation.calculation_id: calculation for calculation in artifact.calculations
+            }
+            replay_failed: set[str] = set()
             for calc in artifact.calculations:
                 consistent, _ = replay_calculation(self._registry, calc)
                 if not consistent:
-                    result.replay_failures.append(str(calc.calculation_id))
+                    calc_id = str(calc.calculation_id)
+                    replay_failed.add(calc_id)
+                    result.replay_failures.append(calc_id)
 
-            replay_failed = set(result.replay_failures)
+            for evidence in artifact.evidence:
+                if evidence.evidence_type == "CALCULATION":
+                    if evidence.calculation_id is None:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "MISSING_CALCULATION_ID",
+                        )
+                        continue
+                    if evidence.source_id != evidence.calculation_id:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "CALCULATION_SOURCE_MISMATCH",
+                        )
+                    calculation = calculations_by_id.get(evidence.calculation_id)
+                    if calculation is None:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "CALCULATION_NOT_FOUND",
+                        )
+                    else:
+                        if evidence.content_hash != calculation.trace_hash:
+                            _reject_evidence(
+                                result,
+                                bad_evidence,
+                                evidence.evidence_id,
+                                "CALCULATION_CONTENT_HASH_MISMATCH",
+                            )
+                        if str(calculation.calculation_id) in replay_failed:
+                            _reject_evidence(
+                                result,
+                                bad_evidence,
+                                evidence.evidence_id,
+                                "CALCULATION_REPLAY_FAILED",
+                            )
+                    continue
+
+                if evidence.evidence_type == "SQL_FACT":
+                    if evidence.fact_id is None:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "MISSING_FACT_ID",
+                        )
+                        continue
+                    if evidence.source_id != evidence.fact_id:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "FACT_SOURCE_MISMATCH",
+                        )
+                    fact = await session.get(FinancialFact, evidence.fact_id)
+                    if fact is None:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "FACT_NOT_FOUND",
+                        )
+                    else:
+                        if str(fact.tenant_id) != str(trusted.tenant_id):
+                            _reject_evidence(
+                                result, bad_evidence, evidence.evidence_id, "ACL_DENIED"
+                            )
+                        if fact.case_id is not None and fact.case_id != trusted.case_id:
+                            _reject_evidence(
+                                result,
+                                bad_evidence,
+                                evidence.evidence_id,
+                                "FACT_CASE_MISMATCH",
+                            )
+                        if fact.entity_id != case.borrower_entity_id:
+                            _reject_evidence(
+                                result,
+                                bad_evidence,
+                                evidence.evidence_id,
+                                "FACT_ENTITY_MISMATCH",
+                            )
+                        available_at = fact.source_available_at
+                        if available_at.tzinfo is None:
+                            available_at = available_at.replace(tzinfo=UTC)
+                        if available_at > trusted.decision_cutoff_at.astimezone(UTC):
+                            _reject_evidence(
+                                result,
+                                bad_evidence,
+                                evidence.evidence_id,
+                                "FACT_NOT_AVAILABLE_AT_CUTOFF",
+                            )
+                        if fact.verification_status == "REJECTED":
+                            _reject_evidence(
+                                result,
+                                bad_evidence,
+                                evidence.evidence_id,
+                                "FACT_REJECTED",
+                            )
+                    if snapshot is None:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "SNAPSHOT_REQUIRED",
+                        )
+                    elif evidence.fact_id not in set(snapshot.allowed_fact_ids):
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "FACT_NOT_IN_SNAPSHOT",
+                        )
+                    continue
+
+                has_document_locator = any(
+                    value is not None
+                    for value in (
+                        evidence.section_id,
+                        evidence.document_version_id,
+                        evidence.parse_run_id,
+                        evidence.page_number,
+                    )
+                )
+                is_document_evidence = evidence.evidence_type == "DOCUMENT_SPAN" or (
+                    evidence.evidence_type == "TABLE_CELL" and has_document_locator
+                )
+                if evidence.evidence_type == "TABLE_CELL" and not has_document_locator:
+                    _reject_evidence(
+                        result,
+                        bad_evidence,
+                        evidence.evidence_id,
+                        "MISSING_TABLE_CELL_LOCATOR",
+                    )
+                    continue
+                if not is_document_evidence:
+                    continue
+
+                # DOCUMENT_SPAN has a mandatory, typed locator. Missing fields
+                # must never cause the deterministic checks to be skipped.
+                required_locator = {
+                    "section_id": evidence.section_id,
+                    "document_version_id": evidence.document_version_id,
+                    "parse_run_id": evidence.parse_run_id,
+                    "page_number": evidence.page_number,
+                }
+                missing = [name for name, value in required_locator.items() if value is None]
+                if not evidence.content_hash:
+                    missing.append("content_hash")
+                if missing:
+                    for field_name in missing:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            f"MISSING_DOCUMENT_LOCATOR:{field_name}",
+                        )
+                    continue
+
+                section = await session.get(DocumentSection, evidence.section_id)
+                if section is None:
+                    _reject_evidence(
+                        result, bad_evidence, evidence.evidence_id, "SECTION_NOT_FOUND"
+                    )
+                    continue
+                if section.text_hash != evidence.content_hash:
+                    _reject_evidence(
+                        result, bad_evidence, evidence.evidence_id, "CONTENT_HASH_MISMATCH"
+                    )
+                if str(section.tenant_id) != str(trusted.tenant_id):
+                    _reject_evidence(result, bad_evidence, evidence.evidence_id, "ACL_DENIED")
+                if evidence.source_id != section.id:
+                    _reject_evidence(
+                        result, bad_evidence, evidence.evidence_id, "SOURCE_SECTION_MISMATCH"
+                    )
+                if evidence.document_version_id != section.document_version_id:
+                    _reject_evidence(
+                        result,
+                        bad_evidence,
+                        evidence.evidence_id,
+                        "DOCUMENT_VERSION_MISMATCH",
+                    )
+                if evidence.parse_run_id != section.parse_run_id:
+                    _reject_evidence(
+                        result, bad_evidence, evidence.evidence_id, "PARSE_RUN_MISMATCH"
+                    )
+                if not section.page_start <= evidence.page_number <= section.page_end:
+                    _reject_evidence(
+                        result, bad_evidence, evidence.evidence_id, "PAGE_OUTSIDE_SECTION"
+                    )
+
+                # Resolve the ids declared by the citation itself, then prove
+                # their ownership and cross-object consistency with the section.
+                version = await session.get(DocumentVersion, evidence.document_version_id)
+                if version is None:
+                    _reject_evidence(
+                        result,
+                        bad_evidence,
+                        evidence.evidence_id,
+                        "DOCUMENT_VERSION_NOT_FOUND",
+                    )
+                else:
+                    if str(version.tenant_id) != str(trusted.tenant_id):
+                        _reject_evidence(result, bad_evidence, evidence.evidence_id, "ACL_DENIED")
+                    if (version.valid_from and trusted.as_of_date < version.valid_from) or (
+                        version.valid_to and trusted.as_of_date >= version.valid_to
+                    ):
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "OUT_OF_EFFECTIVE_DATE",
+                        )
+                    available_at = version.source_available_at
+                    if available_at is not None:
+                        if available_at.tzinfo is None:
+                            available_at = available_at.replace(tzinfo=UTC)
+                        if available_at > trusted.decision_cutoff_at.astimezone(UTC):
+                            _reject_evidence(
+                                result,
+                                bad_evidence,
+                                evidence.evidence_id,
+                                "NOT_AVAILABLE_AT_CUTOFF",
+                            )
+
+                    case_document = await session.get(
+                        CaseDocument,
+                        {
+                            "case_id": trusted.case_id,
+                            "document_version_id": version.id,
+                        },
+                    )
+                    if case_document is None:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "DOCUMENT_NOT_BOUND_TO_CASE",
+                        )
+
+                parse_run = await session.get(ParseRun, evidence.parse_run_id)
+                if parse_run is None:
+                    _reject_evidence(
+                        result, bad_evidence, evidence.evidence_id, "PARSE_RUN_NOT_FOUND"
+                    )
+                else:
+                    if str(parse_run.tenant_id) != str(trusted.tenant_id):
+                        _reject_evidence(result, bad_evidence, evidence.evidence_id, "ACL_DENIED")
+                    if parse_run.document_version_id != evidence.document_version_id:
+                        _reject_evidence(
+                            result,
+                            bad_evidence,
+                            evidence.evidence_id,
+                            "PARSE_RUN_VERSION_MISMATCH",
+                        )
+                    if parse_run.activation_status in {"REVOKED", "TOMBSTONED"}:
+                        _reject_evidence(
+                            result, bad_evidence, evidence.evidence_id, "PARSE_RUN_REVOKED"
+                        )
+
+                # A citation without an immutable input snapshot is not
+                # reproducible; missing and out-of-snapshot runs both fail closed.
+                if snapshot is None:
+                    _reject_evidence(
+                        result, bad_evidence, evidence.evidence_id, "SNAPSHOT_REQUIRED"
+                    )
+                elif evidence.parse_run_id not in set(snapshot.allowed_parse_run_ids):
+                    _reject_evidence(
+                        result,
+                        bad_evidence,
+                        evidence.evidence_id,
+                        "PARSE_RUN_NOT_IN_SNAPSHOT",
+                    )
 
             # 4. 按 Claim 汇总
             for claim in artifact.claims:
@@ -186,7 +430,13 @@ class EvidenceAuditor:
                     continue
                 if any(eid in bad_evidence for eid in claim.supporting_evidence_ids):
                     result.rejected_claim_ids.append(claim.claim_id)
-                    result.violations.setdefault(claim_key, []).append("INVALID_REFERENCE")
+                    result.violations.setdefault(claim_key, []).append(
+                        "INVALID_SUPPORTING_EVIDENCE"
+                    )
+                    continue
+                if any(eid in bad_evidence for eid in claim.opposing_evidence_ids):
+                    result.rejected_claim_ids.append(claim.claim_id)
+                    result.violations.setdefault(claim_key, []).append("INVALID_OPPOSING_EVIDENCE")
                     continue
                 if any(str(cid) in replay_failed for cid in claim.calculation_ids):
                     result.rejected_claim_ids.append(claim.claim_id)
