@@ -95,6 +95,13 @@ def _orchestrator(qdrant, embedder):
     return RetrievalOrchestrator(qdrant=qdrant, embedder=embedder, reranker=None)
 
 
+class _BrokenReranker:
+    version = "broken-reranker"
+
+    async def score(self, query, passages):
+        raise ConnectionError("injected reranker outage")
+
+
 # ==================== WP1：Exact Route 安全收口 ====================
 
 
@@ -206,6 +213,36 @@ async def test_exact_route_snapshot_enforced(session, qdrant, seeded_with_summar
     assert all(r.text == "" for r in rejected)
 
 
+async def test_orchestrator_keeps_exact_all_rejected_trace(session, qdrant, seeded_with_summaries):
+    """Exact 全部被时点拒绝时，统一 retrieve 仍保留 rejected 与路由 Trace。"""
+    orch = _orchestrator(qdrant, seeded_with_summaries["embedder"])
+    trusted = await _trusted_from_db(
+        session,
+        seeded_with_summaries["case_id"],
+        as_of_date=date(2025, 12, 31),
+        decision_cutoff_at=datetime(2026, 6, 30, tzinfo=UTC),
+    )
+    result = await orch.retrieve(
+        session,
+        trusted,
+        "第六条资产负债率要求",
+        COLLECTION,
+        config=OrchestratorConfig(
+            enable_sparse=False,
+            enable_summary=False,
+            enable_exact=True,
+            enable_rerank=False,
+            enable_packing=False,
+        ),
+    )
+
+    exact_traces = [trace for trace in result.trace["routes"] if trace["route"] == "EXACT"]
+    assert exact_traces
+    assert exact_traces[0]["candidates_count"] == 0
+    assert exact_traces[0]["rejected_count"] > 0
+    assert any(item.channel == "EXACT" for item in result.rejected)
+
+
 # ==================== WP2：Summary L0 -> L1 -> Leaf ====================
 
 
@@ -260,3 +297,27 @@ async def test_orchestrator_rerank_degraded_recorded(session, qdrant, seeded_wit
     result = await orch.retrieve(session, trusted, "资产负债率上限", COLLECTION, config=config)
     assert result.trace["rerank_degraded"] is True
     assert result.channel_config["rerank_degraded"] is True
+    assert result.trace["rerank_degraded_reason"] == "RERANKER_NOT_CONFIGURED"
+    assert result.channel_config["rerank_degraded_reason"] == "RERANKER_NOT_CONFIGURED"
+
+
+async def test_orchestrator_rerank_failure_reason_recorded(session, qdrant, seeded_with_summaries):
+    """精排调用失败时保留异常类型 reason code，并按融合顺序降级返回。"""
+    orch = RetrievalOrchestrator(
+        qdrant=qdrant,
+        embedder=seeded_with_summaries["embedder"],
+        reranker=_BrokenReranker(),
+    )
+    trusted = await _trusted_from_db(session, seeded_with_summaries["case_id"])
+    result = await orch.retrieve(
+        session,
+        trusted,
+        "资产负债率上限",
+        COLLECTION,
+        config=OrchestratorConfig(enable_rerank=True, enable_packing=False),
+    )
+
+    assert result.candidates
+    assert result.rerank_degraded is True
+    assert result.rerank_degraded_reason == "RERANK_CALL_FAILED:ConnectionError"
+    assert result.trace["rerank_degraded_reason"] == "RERANK_CALL_FAILED:ConnectionError"

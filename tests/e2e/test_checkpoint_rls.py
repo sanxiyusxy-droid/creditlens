@@ -15,7 +15,7 @@
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from tests.conftest import requires_integration
 
@@ -30,6 +30,32 @@ pytestmark = [
 TENANT_A = uuid.UUID("00000000-0000-0000-0000-000000000091")
 TENANT_B = uuid.UUID("00000000-0000-0000-0000-000000000092")
 USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000399")
+
+
+async def test_business_role_cannot_mutate_append_only_audit_tables(pg_engine):
+    """业务角色对审计/证据链表只有 SELECT+INSERT，没有 UPDATE/DELETE。"""
+    protected = ["run_events", "human_decisions", "report_versions", "evidence", "artifacts"]
+    async with pg_engine.connect() as connection:
+        current_user = await connection.scalar(text("SELECT current_user"))
+        assert current_user == "creditlens_app"
+        for table in protected:
+            qualified = f"public.{table}"
+            assert await connection.scalar(
+                text("SELECT has_table_privilege(current_user, :table, 'SELECT')"),
+                {"table": qualified},
+            )
+            assert await connection.scalar(
+                text("SELECT has_table_privilege(current_user, :table, 'INSERT')"),
+                {"table": qualified},
+            )
+            assert not await connection.scalar(
+                text("SELECT has_table_privilege(current_user, :table, 'UPDATE')"),
+                {"table": qualified},
+            )
+            assert not await connection.scalar(
+                text("SELECT has_table_privilege(current_user, :table, 'DELETE')"),
+                {"table": qualified},
+            )
 
 
 async def _ensure_tenant(factory, tenant_id, name):

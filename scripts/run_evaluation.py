@@ -83,7 +83,11 @@ def question_context_key(question: GoldQuestion) -> tuple[str, str, str]:
 
 
 def git_provenance() -> dict:
-    """P0-3：Git 溯源（commit + dirty 标记）。dirty=true 的报告不得用于对外引用。"""
+    """P0-3：Git 溯源（commit + dirty 标记）。dirty=true 的报告不得用于对外引用。
+
+    评测脚本产生的 ``evaluation/reports/*.json`` 不改变被测输入，可以忽略；
+    其他未跟踪文件可能影响导入、配置或语料，必须计入 dirty，不能一概排除。
+    """
     import subprocess
 
     def run(*args: str) -> str | None:
@@ -101,28 +105,57 @@ def git_provenance() -> dict:
             return None
 
     commit = run("rev-parse", "HEAD")
-    status = run("status", "--porcelain")
+    status = run("status", "--porcelain", "--untracked-files=all")
     if status is None:
         dirty: bool | None = None
         dirty_files: int | None = None
         untracked_files = 0
+        generated_report_files = 0
     else:
-        lines = status.splitlines()
-        # dirty 只计已跟踪文件的改动；评测报告等新增输出文件（untracked）
-        # 不改变被测代码，若计入会把第 2 轮起的运行误判为脏工作区
+        lines = [line for line in status.splitlines() if line]
         tracked = [ln for ln in lines if not ln.startswith("?? ")]
-        dirty = bool(tracked)
-        dirty_files = len(tracked)
-        untracked_files = len(lines) - len(tracked)
+        untracked = [ln[3:] for ln in lines if ln.startswith("?? ")]
+        generated_reports = [
+            path
+            for path in untracked
+            if path.replace("\\", "/").startswith("evaluation/reports/")
+            and path.lower().endswith(".json")
+        ]
+        material_untracked = [path for path in untracked if path not in generated_reports]
+        dirty_files = len(tracked) + len(material_untracked)
+        dirty = bool(dirty_files)
+        untracked_files = len(untracked)
+        generated_report_files = len(generated_reports)
     return {
         "git_commit": commit or "unknown",
         "git_branch": run("rev-parse", "--abbrev-ref", "HEAD") or "unknown",
         "git_describe": run("describe", "--tags", "--always", "--dirty") or "unknown",
-        # dirty：已跟踪文件存在未提交改动，指标不可作为冻结证据引用
+        # dirty：已跟踪改动或非报告类未跟踪文件存在，指标不可作为冻结证据引用
         "git_dirty": dirty,
         "git_dirty_files": dirty_files,
         "git_untracked_files": untracked_files,
+        "git_generated_report_files": generated_report_files,
     }
+
+
+def _aggregate_seed_corpus_hash(corpus_dir: Path) -> str:
+    """聚合 ``data/synthetic/*.txt`` 的相对路径与内容 Hash。
+
+    PDF 是 Seed 根据这些文本生成的派生产物；冻结语义输入应锁定源文本，避免 PDF
+    容器元数据的非语义差异造成 Hash 抖动。相对路径也进入摘要，文件改名同样可见。
+    """
+    from creditlens.common.hashing import sha256_bytes
+
+    files = sorted(path for path in corpus_dir.rglob("*.txt") if path.is_file())
+    if not files:
+        return "missing"
+    entries = [
+        path.relative_to(corpus_dir).as_posix().encode("utf-8")
+        + b"\0"
+        + sha256_bytes(path.read_bytes()).encode("ascii")
+        for path in files
+    ]
+    return sha256_bytes(b"\n".join(entries))
 
 
 def file_hashes() -> dict:
@@ -132,11 +165,12 @@ def file_hashes() -> dict:
     targets = {
         "uv_lock_sha256": PROJECT_ROOT / "uv.lock",
         "formula_registry_sha256": PROJECT_ROOT / "config" / "formulas" / "registry_v1.yaml",
-        "seed_corpus_sha256": PROJECT_ROOT / "scripts" / "seed_synthetic_data.py",
+        "seed_script_sha256": PROJECT_ROOT / "scripts" / "seed_synthetic_data.py",
     }
     out: dict = {}
     for key, path in targets.items():
         out[key] = sha256_bytes(path.read_bytes()) if path.exists() else "missing"
+    out["seed_corpus_sha256"] = _aggregate_seed_corpus_hash(PROJECT_ROOT / "data" / "synthetic")
     # 检索阈值/阈值版本等运行期配置（影响指标可复现性）
     return out
 

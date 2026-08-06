@@ -3,6 +3,10 @@
 import uuid
 from datetime import UTC, date, datetime
 
+import pytest
+
+from creditlens.agents.policy_agent import _dict_to_candidate
+from creditlens.retrieval.context_packing import pack_context
 from creditlens.retrieval.contracts import RetrievedCandidate, TrustedRequestContext
 from creditlens.retrieval.fusion import rrf_fuse
 from creditlens.retrieval.query_spec import (
@@ -135,3 +139,41 @@ class TestReranker:
             ["借款人资产负债率不得高于百分之七十", "贷款利率按照定价管理办法执行"],
         )
         assert scores[0] > scores[1]
+
+
+class TestContextPackingLocator:
+    async def test_packing_preserves_parse_run_and_page_range(self, session):
+        candidate = _candidate().model_copy(
+            update={"text": "跨页条款", "page_start": 7, "page_end": 9}
+        )
+        packed = await pack_context(
+            session,
+            [candidate],
+            token_budget=100,
+            max_per_document_ratio=1.0,
+            expand_adjacent=False,
+        )
+
+        section = packed.sections[0]
+        assert section.parse_run_id == candidate.parse_run_id
+        assert (section.page_start, section.page_end) == (7, 9)
+
+        restored = _dict_to_candidate(section.model_dump(mode="json"))
+        assert restored.parse_run_id == candidate.parse_run_id
+        assert (restored.page_start, restored.page_end) == (7, 9)
+
+    def test_zero_parse_run_is_rejected(self):
+        packed = {
+            "section_id": str(uuid.uuid4()),
+            "document_id": str(uuid.uuid4()),
+            "document_version_id": str(uuid.uuid4()),
+            "parse_run_id": str(uuid.UUID(int=0)),
+            "page_start": 1,
+            "page_end": 1,
+            "heading_path": [],
+            "text": "条款",
+            "text_hash": "hash",
+            "rank": 1,
+        }
+        with pytest.raises(ValueError, match="parse_run_id"):
+            _dict_to_candidate(packed)

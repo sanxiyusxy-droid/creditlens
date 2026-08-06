@@ -49,13 +49,9 @@ class IndexWorker:
     async def process_batch(self, session: AsyncSession, batch_size: int = 32) -> WorkerStats:
         stats = WorkerStats()
         now = utc_now()
+        dialect_name = session.bind.dialect.name if session.bind is not None else ""
         entries = (
-            await session.scalars(
-                select(IndexOutbox)
-                .where(IndexOutbox.status == "PENDING", IndexOutbox.available_at <= now)
-                .order_by(IndexOutbox.created_at)
-                .limit(batch_size)
-            )
+            await session.scalars(self._claim_pending_entries_stmt(now, batch_size, dialect_name))
         ).all()
         for entry in entries:
             entry.status = "PROCESSING"
@@ -86,6 +82,23 @@ class IndexWorker:
                 stats.failed += 1
         await session.flush()
         return stats
+
+    @staticmethod
+    def _claim_pending_entries_stmt(now, batch_size: int, dialect_name: str):
+        """构造待领取任务查询。
+
+        PostgreSQL 下用行锁加 ``SKIP LOCKED`` 让多个 Worker 不会阻塞在同一批
+        Outbox 记录上；SQLite 不支持该语法，测试/本地模式保留普通查询。
+        """
+        statement = (
+            select(IndexOutbox)
+            .where(IndexOutbox.status == "PENDING", IndexOutbox.available_at <= now)
+            .order_by(IndexOutbox.created_at)
+            .limit(batch_size)
+        )
+        if dialect_name == "postgresql":
+            return statement.with_for_update(skip_locked=True)
+        return statement
 
     async def _upsert(self, session: AsyncSession, entry: IndexOutbox) -> None:
         section = await session.get(DocumentSection, entry.aggregate_id)

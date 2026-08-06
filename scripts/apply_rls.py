@@ -70,9 +70,19 @@ def main() -> None:
         cur.execute(
             "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app"
         )
+        # 审计/证据链表对业务角色只允许查询与追加；Claim/Run 仍需更新状态。
+        cur.execute(
+            "REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, "
+            "evidence, artifacts FROM creditlens_app"
+        )
         cur.execute(
             "ALTER DEFAULT PRIVILEGES IN SCHEMA public"
             " GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO creditlens_app"
+        )
+        cur.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO creditlens_app")
+        cur.execute(
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA public"
+            " GRANT USAGE, SELECT ON SEQUENCES TO creditlens_app"
         )
         print("[3/3] 授权完成。请把 API 的 DATABASE_URL 切换到 creditlens_app。")
     conn.close()

@@ -91,6 +91,12 @@ jobs:
       DATABASE_URL: "postgresql+asyncpg://creditlens_app:creditlens_app@localhost:5432/creditlens_test"
       QDRANT_URL: "http://localhost:6333"
       PGPASSWORD: postgres
+      # CI 集成测试必须完全离线、确定性；不得继承真实模型 API 配置。
+      EMBEDDING_PROVIDER: "hash_fallback"
+      EMBEDDING_VERSION: "hash-embed-v1"
+      EMBEDDING_DIM: "256"
+      RERANK_PROVIDER: "disabled"
+      LLM_PROVIDER: "disabled"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -109,11 +115,13 @@ jobs:
           # 3) 管理身份：应用 RLS 基线（ENABLE + FORCE + 租户/案件级策略）
           psql -h localhost -U postgres -d creditlens_test -f infra/postgres/rls_policies.sql
           # 4) 管理身份：向业务角色授权（表已由 Alembic 创建，owner 为 postgres）
-          psql -h localhost -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app;"
+          psql -h localhost -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app; REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts FROM creditlens_app;"
       - name: Seed（业务身份：三案件幂等 Seed）
         run: uv run python scripts/seed_synthetic_data.py
       - name: Integration tests（0 skip / 0 fail 门禁）
         run: |
+          # GitHub 默认 bash 只有 -e、没有 pipefail；否则 pytest 失败会被 tee 的 0 覆盖。
+          set -o pipefail
           uv run pytest tests/e2e/ -m integration -ra -q --timeout=300 | tee integration_result.txt
           # Integration 必须 0 skip / 0 fail：出现 skipped 即失败
           ! grep -q 'skipped' integration_result.txt

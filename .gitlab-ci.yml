@@ -63,6 +63,12 @@ integration:
     # 业务角色（NOSUPERUSER NOBYPASSRLS）：Seed 与测试均以此连接
     DATABASE_URL: "postgresql+asyncpg://creditlens_app:creditlens_app@pg:5432/creditlens_test"
     QDRANT_URL: "http://qdrant:6333"
+    # 与 GitHub CI 一致：集成门禁不依赖外部模型服务或开发机 .env。
+    EMBEDDING_PROVIDER: "hash_fallback"
+    EMBEDDING_VERSION: "hash-embed-v1"
+    EMBEDDING_DIM: "256"
+    RERANK_PROVIDER: "disabled"
+    LLM_PROVIDER: "disabled"
   before_script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends postgresql-client > /dev/null
     - pip install uv
@@ -74,11 +80,16 @@ integration:
     # 3) 管理身份：应用 RLS 基线（ENABLE + FORCE + 租户/案件级策略）
     - psql -h pg -U postgres -d creditlens_test -f infra/postgres/rls_policies.sql
     # 4) 管理身份：向业务角色授权（表已由 Alembic 创建，owner 为 postgres）
-    - psql -h pg -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app;"
+    - psql -h pg -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app; REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts FROM creditlens_app;"
     # 5) 业务身份：三案件 Seed（幂等；RLS 上下文由 session_scope 注入）
     - uv run python scripts/seed_synthetic_data.py
   script:
-    - uv run pytest tests/e2e/ -m integration -ra -q --timeout=300 | tee integration_result.txt
+    # POSIX sh 可移植地保留 pytest 失败码（python:slim 不假设 bash/pipefail）。
+    - |
+      pytest_exit=0
+      uv run pytest tests/e2e/ -m integration -ra -q --timeout=300 > integration_result.txt 2>&1 || pytest_exit=$?
+      cat integration_result.txt
+      test "$pytest_exit" -eq 0
     # Integration 必须 0 skip / 0 fail：出现 skipped 即失败
     - "! grep -q 'skipped' integration_result.txt"
     # 必须确有用例通过（防止 collection 为空被当成成功）

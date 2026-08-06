@@ -36,8 +36,8 @@ class GoldMappingScope:
 
     - tenant_id：租户隔离，避免跨租户同名 logical_key 命中；
     - case_id：只认 case_documents 绑定到本案件的 DocumentVersion；
-    - allowed_parse_run_ids：只认本次 Snapshot 冻结的 Parse Run，
-      避免命中已 SUPERSEDED 或尚未激活的解析结果。
+    - allowed_parse_run_ids：只认本次 Snapshot 冻结的 Parse Run；它后来即使变为
+      SUPERSEDED 仍属于该历史世界，同时拒绝新激活但未冻结的解析结果。
     """
 
     tenant_id: uuid.UUID
@@ -50,8 +50,8 @@ async def map_anchor_to_section_ids(
 ) -> set[uuid.UUID]:
     """稳定锚点 -> Snapshot 冻结 Parse Run 下的 Section ID 集合（限定在 scope 内）。"""
     rows = (
-        await session.execute(
-            select(DocumentSection, DocumentVersion)
+        await session.scalars(
+            select(DocumentSection)
             .join(DocumentVersion, DocumentVersion.id == DocumentSection.document_version_id)
             .join(Document, Document.id == DocumentVersion.document_id)
             .join(CaseDocument, CaseDocument.document_version_id == DocumentVersion.id)
@@ -63,15 +63,14 @@ async def map_anchor_to_section_ids(
                 DocumentVersion.tenant_id == scope.tenant_id,
                 DocumentSection.tenant_id == scope.tenant_id,
                 CaseDocument.case_id == scope.case_id,
-                # 只认本次 Snapshot 冻结的解析版本
+                # 只认本次 Snapshot 冻结的解析版本。旧 Snapshot 必须继续访问
+                # 已变为 SUPERSEDED 的 ParseRun，不能再跟随 DocumentVersion.active_parse_run_id。
                 DocumentSection.parse_run_id.in_(scope.allowed_parse_run_ids),
             )
         )
     ).all()
     matched: set[uuid.UUID] = set()
-    for section, version in rows:
-        if version.active_parse_run_id and section.parse_run_id != version.active_parse_run_id:
-            continue
+    for section in rows:
         if anchor.article_anchor:
             heading = section.heading or ""
             path = " ".join(section.heading_path or [])
