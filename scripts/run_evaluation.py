@@ -102,13 +102,26 @@ def git_provenance() -> dict:
 
     commit = run("rev-parse", "HEAD")
     status = run("status", "--porcelain")
+    if status is None:
+        dirty: bool | None = None
+        dirty_files: int | None = None
+        untracked_files = 0
+    else:
+        lines = status.splitlines()
+        # dirty 只计已跟踪文件的改动；评测报告等新增输出文件（untracked）
+        # 不改变被测代码，若计入会把第 2 轮起的运行误判为脏工作区
+        tracked = [ln for ln in lines if not ln.startswith("?? ")]
+        dirty = bool(tracked)
+        dirty_files = len(tracked)
+        untracked_files = len(lines) - len(tracked)
     return {
         "git_commit": commit or "unknown",
         "git_branch": run("rev-parse", "--abbrev-ref", "HEAD") or "unknown",
         "git_describe": run("describe", "--tags", "--always", "--dirty") or "unknown",
-        # dirty：工作区存在未提交改动，指标不可作为冻结证据引用
-        "git_dirty": bool(status) if status is not None else None,
-        "git_dirty_files": len(status.splitlines()) if status else 0,
+        # dirty：已跟踪文件存在未提交改动，指标不可作为冻结证据引用
+        "git_dirty": dirty,
+        "git_dirty_files": dirty_files,
+        "git_untracked_files": untracked_files,
     }
 
 
@@ -223,7 +236,7 @@ async def evaluate_channel(
             context_key = question_context_key(question)
             if context_key not in case_contexts:
                 raise KeyError(f"题目 {question.question_id} 的时点上下文 {context_key} 未冻结")
-            question_trusted, case_snapshot = case_contexts[context_key]
+            question_trusted, case_snapshot, _ = case_contexts[context_key]
             # 时点已在冻结时固定；每题只需独立 request_id
             question_trusted = question_trusted.model_copy(
                 update={"request_id": uuid.uuid4()},
@@ -369,7 +382,16 @@ async def main(dataset_path: Path, split: str) -> None:
                 summaries_collection=settings.summaries_collection_name,
                 acl_hash=acl_scope_hash(trusted),
             )
-            case_contexts[context_key] = (trusted, snapshot)
+            # 内容规范化 Hash：每轮评测都会新冻结 Snapshot（id 不同），
+            # 只有 snapshot_hash 逐位一致才能证明是同一冻结世界
+            from sqlalchemy import select as sa_select
+
+            from creditlens.infrastructure.postgres.models import CaseSnapshot
+
+            snap_hash = await session.scalar(
+                sa_select(CaseSnapshot.snapshot_hash).where(CaseSnapshot.id == snapshot.snapshot_id)
+            )
+            case_contexts[context_key] = (trusted, snapshot, snap_hash or "")
     print(
         f"已冻结 {len(case_contexts)} 个时点上下文"
         f"（案件×as_of×cutoff 组合），覆盖 {len(dataset.questions)} 题"
@@ -550,12 +572,13 @@ async def main(dataset_path: Path, split: str) -> None:
                 "as_of_date": key[1],
                 "decision_cutoff_at": key[2],
                 "snapshot_id": str(snapshot.snapshot_id),
+                "snapshot_hash": snap_hash,
                 "parse_run_ids": sorted(str(p) for p in snapshot.allowed_parse_run_ids),
                 "fact_count": len(snapshot.allowed_fact_ids),
                 "chunks_collection": snapshot.chunks_collection,
                 "summaries_collection": snapshot.summaries_collection,
             }
-            for key, (_, snapshot) in sorted(case_contexts.items())
+            for key, (_, snapshot, snap_hash) in sorted(case_contexts.items())
         ],
         # 各通道 Reranker 降级观测（次数 + 原因分布），来自 evaluate_channel
         "rerank_degradation": {
