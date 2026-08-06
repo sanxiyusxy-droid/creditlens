@@ -86,8 +86,9 @@ uv run python scripts/run_evaluation.py --dataset evaluation/datasets/frozen_v2.
 `--split dev` 仅用于调参；简历指标只在冻结 `test` 上报。
 输出 Recall@5/10/20、NDCG@K、Precision@K、MRR@10、Retrieved Evidence Precision/Recall、
 per-case 指标与宏平均、独立回表 Leakage 审计（目标为 0）与 P50/P95 延迟，
-报告落盘 `evaluation/reports/`，含可复现 Manifest（dataset hash / split /
-alembic revision / collection point count / 模型版本）。
+报告落盘 `evaluation/reports/`，含可复现 Manifest（Git 溯源与脏工作区标记 /
+dataset·uv.lock·语料 SHA256 / split / alembic revision / collection point count /
+模型版本 / 每个时点组合的 snapshot_id 与内容规范化 snapshot_hash）。
 口径说明：无答案生成层，不宣称 Faithfulness / Citation Accuracy / Refusal Accuracy。
 
 数据口径（v1.1）：3 个合成案件（制造业流贷 / 科技型流贷 / 保理）、6 个逻辑文档、
@@ -128,36 +129,41 @@ powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
 ② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
 ④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
 
-## 冻结指标（v1.1，简历口径）
+## 冻结指标（v1.1.1，简历口径）
 
 frozen_v2 冻结 test split（3 案件 / 121 题 / 110 可答；数据集 sha256 前缀
 `d3dc24c3527b23f6`），bge-m3 + bge-reranker-v2-m3（API）+ bm25-jieba-v1，
-Alembic `0006_hitl_wp3`，真实栈（PG16 + Qdrant v1.18.0）+ RLS 业务角色下，
+Alembic `0006_hitl_wp3`，真实栈（PG16 + Qdrant v1.18.0）+ RLS 业务角色、
+一次性干净环境（全新数据库与 Collection，幂等 Seed）下，
 **三次连续评测**（报告 `evaluation/reports/ablation_frozen_v2_test_
-{20260804T165017Z, 20260804T165546Z, 20260804T170112Z}.json`）：
+{20260806T131128Z, 20260806T131616Z, 20260806T132057Z}.json`，
+Manifest `git_dirty=false`、三轮的 4 个冻结世界 snapshot_hash 逐位一致）：
 
 | 通道 | Recall@10 | Recall@20 | MRR@10 | 延迟 P50/P95 |
 |---|---|---|---|---|
-| E0 Dense-only | 0.9545 | 0.9682 | 0.9485 | 230–237 / 266–289 ms |
-| E23 +Sparse+RRF | 0.9561 | 0.9606 | 0.8970 | 297–305 / 421–432 ms |
-| E4 Dense+Summary | 0.7697 | 0.9682 | 0.7562 | 417–446 / 493–502 ms |
-| E5 +QuerySpec Rewrite | 0.9515 | 0.9606 | 0.8666 | 288–313 / 420–461 ms |
-| **E7 全链路（默认）** | **0.9682** | **0.9909** | 0.8897–0.8912 | 874–889 / 1101–1116 ms |
+| E0 Dense-only | 0.9545 | 0.9682 | 0.9485 | 207–229 / 237–302 ms |
+| E23 +Sparse+RRF | 0.9561 | 0.9606 | 0.8970 | 248–258 / 336–345 ms |
+| E4 Dense+Summary | 0.7788 | 0.9682 | 0.7572 | 383–403 / 437–489 ms |
+| E5 +QuerySpec Rewrite | 0.9515 | 0.9606 | 0.8666 | 247–260 / 329–395 ms |
+| **E7 全链路（默认）** | **0.9682** | **0.9909** | 0.8912 | 822–828 / 965–1026 ms |
 
-- E0/E23/E4/E5 全部指标三次**逐位一致**；独立回表 Leakage = **0**（全通道）、
-  unmapped = 0、时点/ACL 拒绝为 0；
+- E0/E23/E4/E5 全部指标与 E7 Recall@10/@20/MRR@10 三次**逐位一致**；
+  独立回表 Leakage = **0**（全通道）、unmapped = 0、时点/ACL 拒绝为 0；
 - E7 per-case Recall@10：case001 0.9490 / case002 0.9881 / case003 0.9737，
   宏平均 0.9703；
+- 与 v1.1 数字的关系：主链（E0/E23/E5/E7）聚合指标逐位不变；E4 由 0.7697
+  变为 0.7788（±1 题）——v1.1 环境集合含早期实验残留点（chunks 125 vs
+  干净环境 250），v1.1.1 按规约在一次性干净环境重冻，以本节数字为准；
 - 通道决策：E7 相比 E0 有真实召回增益（R@10 +1.4pp、R@20 +2.3pp），保留为
-  在线默认；E4 单独 Summary 显著弱于 Dense（R@10 0.7697 vs 0.9545），
+  在线默认；E4 单独 Summary 显著弱于 Dense（R@10 0.7788 vs 0.9545），
   Summary 只作为 RRF 参与通道、不单独成链——如实取舍；
-- 诚实口径：E7 MRR@10/NDCG@10 存在 ±1 题的运行间波动（q020/q063/q120，
-  远程 rerank API 侧分数抖动；融合/精排层已做确定性 tie-break，Recall 全稳），
-  简历只引用 Recall 与 Leakage。
+- 诚实口径：E7 的 @5 系列与 NDCG 存在 ±1 题的运行间波动（case003，
+  远程 rerank API 侧分数抖动；融合/精排层已做确定性 tie-break，
+  Recall@10/@20 全稳），简历只引用 Recall@10/@20 与 Leakage。
 
 口径说明：无答案生成层，报告指标为检索层 Recall/NDCG/MRR 与
 Retrieved Evidence Precision/Recall，不宣称 Faithfulness / Citation Accuracy /
-Refusal Accuracy。自动化测试：92 passed（非集成）+ 6 项真实栈集成测试
-（0 skip / 0 fail）。
+Refusal Accuracy。自动化测试：103 passed（非集成，0 skip）+ 9 项真实栈
+集成测试（含 3 项 HITL 并发，0 skip / 0 fail）。
 
 
