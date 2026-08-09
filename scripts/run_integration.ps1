@@ -12,9 +12,10 @@
 #   2) 管理身份：创建 NOSUPERUSER NOBYPASSRLS 业务角色 creditlens_app
 #   3) 管理身份：Alembic 迁移（env.py 自动剥离 +asyncpg 走同步驱动）
 #   4) 管理身份：应用 RLS 基线（ENABLE + FORCE + 租户/案件级策略）
-#   5) 管理身份：向业务角色授权（表 owner 为 postgres）
-#   6) 业务身份：三案件幂等 Seed
-#   7) 业务身份：集成测试（0 skip / 0 fail 门禁）
+#   5) 管理身份：创建固定测试 Principal/Case/Membership
+#   6) 管理身份：向业务角色授权（表 owner 为 postgres；授权根表只读）
+#   7) 业务身份：三案件幂等 Seed
+#   8) 业务身份：集成测试（0 skip / 0 fail 门禁）
 #
 # 关键点：Seed 与测试都以业务角色连接，绝不用超级用户绕过 RLS，
 # 否则 RLS 隔离测试形同虚设。
@@ -141,24 +142,34 @@ try {
         Invoke-Psql -File "infra/postgres/rls_policies.sql"
     }
 
-    # ---------- 5) 授权业务角色 ----------
+    # ---------- 5) 测试授权根（只能由管理身份创建） ----------
+    Invoke-Step "创建测试 Principal/Case/Membership（管理身份）" {
+        Invoke-Psql -File "infra/postgres/ci_seed_principals.sql"
+    }
+
+    # ---------- 6) 授权业务角色 ----------
     Invoke-Step "向业务角色授权" {
         Invoke-Psql -Sql @"
 GRANT USAGE ON SCHEMA public TO creditlens_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app;
 REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts FROM creditlens_app;
+REVOKE UPDATE, DELETE ON claims FROM creditlens_app;
+GRANT UPDATE (review_status) ON claims TO creditlens_app;
+REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, financial_metric_definitions, search_index_versions, alembic_version FROM creditlens_app;
+REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_app;
+REVOKE INSERT, DELETE ON credit_cases FROM creditlens_app;
 "@
     }
 
-    # ---------- 6) Seed（业务身份） ----------
+    # ---------- 7) Seed（业务身份） ----------
     Invoke-Step "三案件 Seed（业务角色 + local 对象存储）" {
         Set-IntegrationEnvironment
         & $Uv run --no-sync python scripts/seed_synthetic_data.py
         if ($LASTEXITCODE -ne 0) { throw "Seed 失败" }
     }
 
-    # ---------- 7) 集成测试（业务身份，0 skip 门禁） ----------
+    # ---------- 8) 集成测试（业务身份，0 skip 门禁） ----------
     Invoke-Step "集成测试（真实 PG + Qdrant + RLS）" {
         Set-IntegrationEnvironment
         $output = & $Uv run --no-sync python -m pytest tests/e2e/ -m integration -ra -q --timeout=300 2>&1 | Tee-Object -Variable lines

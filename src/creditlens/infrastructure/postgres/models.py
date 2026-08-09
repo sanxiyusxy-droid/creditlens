@@ -427,6 +427,13 @@ class FinancialFact(Base):
 
 class ReviewRun(Base):
     __tablename__ = "review_runs"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "request_idempotency_key",
+            name="uq_review_runs_tenant_request_idem",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_id)
     tenant_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("tenants.id"))
@@ -443,6 +450,10 @@ class ReviewRun(Base):
     state_version: Mapped[int] = mapped_column(Integer, default=1)
     model_manifest: Mapped[dict] = mapped_column(JSON, default=dict)
     retrieval_config: Mapped[dict] = mapped_column(JSON, default=dict)
+    # SIMPLE_QA 请求幂等：同一租户内 key 唯一，hash 用于拒绝“同 key 不同请求”。
+    # 旧 Run/非 API Run 保持 NULL，不参与唯一约束。
+    request_idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    request_hash: Mapped[str] = mapped_column(String(64), default="")
     started_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
     completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(GUID, nullable=True)

@@ -94,6 +94,61 @@ async def hitl_session(tmp_path):
     await engine.dispose()
 
 
+async def _add_real_artifact_claim(session, tenant_id, run, review_status):
+    from creditlens.agents.contracts import AgentArtifact, AgentClaim
+    from creditlens.infrastructure.postgres.artifact_integrity import (
+        canonical_artifact_payload_hash,
+    )
+
+    source_claim = AgentClaim(
+        category="DATA_CONFLICT",
+        statement="正反证据数值不一致。",
+        verdict="PARTIALLY_SUPPORTED",
+        as_of_date=AS_OF,
+    )
+    source_artifact = AgentArtifact(
+        run_id=run.id,
+        task_id="challenge",
+        producer="challenger",
+        lifecycle_status="VALIDATED",
+        claims=[source_claim],
+    )
+    payload = source_artifact.model_dump(mode="json", exclude={"output_hash"})
+    artifact = ArtifactRecord(
+        id=source_artifact.artifact_id,
+        tenant_id=tenant_id,
+        run_id=run.id,
+        task_id=source_artifact.task_id,
+        artifact_type=source_artifact.producer,
+        producer=source_artifact.producer,
+        lifecycle_status=source_artifact.lifecycle_status,
+        payload=payload,
+        output_hash=canonical_artifact_payload_hash(payload),
+    )
+    session.add(artifact)
+    await session.flush()
+    claim = ClaimRecord(
+        id=source_claim.claim_id,
+        tenant_id=tenant_id,
+        run_id=run.id,
+        artifact_id=artifact.id,
+        category=source_claim.category,
+        statement=source_claim.statement,
+        verdict=source_claim.verdict,
+        as_of_date=source_claim.as_of_date,
+        review_status=review_status,
+        payload={
+            "supporting_evidence_ids": [],
+            "opposing_evidence_ids": [],
+            "calculation_ids": [],
+            "source_claim_id": None,
+        },
+    )
+    session.add(claim)
+    await session.flush()
+    return claim
+
+
 async def _make_run(session, *, status="HUMAN_REVIEW", claim_status="PENDING"):
     run = ReviewRun(
         tenant_id=TENANT,
@@ -104,29 +159,7 @@ async def _make_run(session, *, status="HUMAN_REVIEW", claim_status="PENDING"):
     )
     session.add(run)
     await session.flush()
-    artifact = ArtifactRecord(
-        tenant_id=TENANT,
-        run_id=run.id,
-        task_id="challenge",
-        artifact_type="challenger",
-        producer="challenger",
-        payload={},
-    )
-    session.add(artifact)
-    await session.flush()
-    claim = ClaimRecord(
-        tenant_id=TENANT,
-        run_id=run.id,
-        artifact_id=artifact.id,
-        category="DATA_CONFLICT",
-        statement="正反证据数值不一致。",
-        verdict="PARTIALLY_SUPPORTED",
-        as_of_date=AS_OF,
-        review_status=claim_status,
-        payload={},
-    )
-    session.add(claim)
-    await session.flush()
+    claim = await _add_real_artifact_claim(session, TENANT, run, claim_status)
     return run, claim
 
 
@@ -472,28 +505,7 @@ async def _api_run(factory, role: str):
         )
         session.add(run)
         await session.flush()
-        artifact = ArtifactRecord(
-            tenant_id=API_TENANT,
-            run_id=run.id,
-            task_id="challenge",
-            artifact_type="challenger",
-            producer="challenger",
-            payload={},
-        )
-        session.add(artifact)
-        await session.flush()
-        claim = ClaimRecord(
-            tenant_id=API_TENANT,
-            run_id=run.id,
-            artifact_id=artifact.id,
-            category="DATA_CONFLICT",
-            statement="正反证据数值不一致。",
-            verdict="PARTIALLY_SUPPORTED",
-            as_of_date=AS_OF,
-            review_status="PENDING",
-            payload={},
-        )
-        session.add(claim)
+        claim = await _add_real_artifact_claim(session, API_TENANT, run, "PENDING")
         session.add(CaseMembership(case_id=CASE, user_id=API_USER, case_role=role))
         await session.commit()
         return run.id, claim.id, run.state_version

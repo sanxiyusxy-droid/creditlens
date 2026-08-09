@@ -11,6 +11,7 @@
 """
 
 import hashlib
+import uuid
 
 import requests
 import streamlit as st
@@ -89,7 +90,7 @@ def _show_evidence_locators(title: str, locators: list[dict], claim_id: str, pol
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
-        "① 政策时点切换",
+        "① 可审计问答 / 政策时点",
         "② 完整预审 (Multi-Agent)",
         "③ 证据回原文页",
         "④ 人工复核 HITL",
@@ -99,7 +100,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
 
 # ---------------------------------------------------------------- ① 时点切换
 with tab1:
-    st.subheader("同一问题，不同审查时点 → 不同版本政策条款")
+    st.subheader("Grounded Answer：同一问题，不同审查时点 → 不同版本政策条款")
     st.caption(
         "政策适用性由 as_of_date 决定（2026-01-01 起新版政策生效：负债率上限 65%→70%、"
         "流动比率 1.2→1.0）。检索前硬过滤 + Snapshot 冻结，时点错误的版本根本不进入候选。"
@@ -115,7 +116,12 @@ with tab1:
             ("2026-06-30", None),
             ("2025-06-30", "2025-06-30T15:59:59+00:00"),
         ):
-            payload = {"question": question, "top_k": 3, "as_of_date": as_of}
+            payload = {
+                "idempotency_key": f"demo-qa-{uuid.uuid4()}",
+                "question": question,
+                "top_k": 3,
+                "as_of_date": as_of,
+            }
             if cutoff:
                 payload["decision_cutoff_at"] = cutoff
             with st.spinner(f"以 {as_of} 冻结 Snapshot + 硬过滤检索中..."):
@@ -136,6 +142,40 @@ with tab1:
             st.markdown(f"**{label}**")
             data = st.session_state.get(f"qa-{as_of}")
             if data:
+                status = data.get("answer_status")
+                st.caption(
+                    f"答案状态：{status} · 生成模式：{data.get('generation_mode', '?')} · "
+                    f"Run {data.get('run_id', '')[:8]}…"
+                )
+                if status == "ABSTAINED":
+                    st.warning(data.get("abstention_reason") or "证据不足，系统拒答")
+                    st.caption(
+                        f"稳定拒答码：{data.get('refusal_reason_code') or 'UNSPECIFIED_REFUSAL'}"
+                    )
+                elif status == "NEEDS_REVIEW":
+                    st.warning("当前结果只完成结构化证据校验，需人工复核后才能作为正式答案。")
+                elif data.get("answer"):
+                    st.success(data["answer"])
+                if data.get("missing_information"):
+                    st.info("缺失信息：" + "；".join(data["missing_information"]))
+                if data.get("conflicts"):
+                    st.warning("证据冲突：" + "；".join(data["conflicts"]))
+                for claim in data.get("claims", []):
+                    with st.expander(f"已审计 Claim：{claim['statement'][:50]}"):
+                        st.write(claim["statement"])
+                        _show_evidence_locators(
+                            "正式引用",
+                            claim.get("citations", []),
+                            claim["claim_id"],
+                            f"qa-{as_of}-supporting",
+                        )
+                        _show_evidence_locators(
+                            "反向引用",
+                            claim.get("opposing_citations", []),
+                            claim["claim_id"],
+                            f"qa-{as_of}-opposing",
+                        )
+                st.markdown("**检索候选（答案只能引用其中已通过审计的段落）**")
                 for c in data["candidates"]:
                     with st.container(border=True):
                         st.markdown(f"**{' > '.join(c['heading_path'])}**（第 {c['page']} 页）")

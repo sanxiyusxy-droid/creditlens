@@ -61,6 +61,10 @@ class HttpCrossEncoderReranker:
             scores[item["index"]] = float(item.get("relevance_score", item.get("score", 0.0)))
         return scores
 
+    async def aclose(self) -> None:
+        """关闭底层 HTTP 连接池。"""
+        await self._client.aclose()
+
 
 def build_reranker(settings) -> RerankProvider | None:
     if settings.rerank_provider == "disabled":

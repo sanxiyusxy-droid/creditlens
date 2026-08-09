@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "local"
+    # 固定租户/用户只是本地演示身份，不是生产认证。默认要求真实
+    # identity provider；本地演示必须同时显式设置 mode=demo 和 allow=true。
+    api_identity_mode: str = "required"
+    allow_insecure_demo_identity: bool = False
 
     # --- PostgreSQL ---
     database_url: str = "sqlite+aiosqlite:///./data/creditlens_local.db"
@@ -58,6 +62,15 @@ class Settings(BaseSettings):
     llm_api_base: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
+
+    # --- Grounded QA（v1.3） ---
+    qa_prompt_version: str = "grounded_qa_v1"
+    qa_max_claims: int = 6
+    qa_max_generation_tokens: int = 2048
+    qa_max_audit_repairs: int = 1
+    # 离线演示使用“原文抽取 + 引用”而非伪造模型回答；生产环境建议关闭，
+    # LLM 未配置时按技术失败处理。
+    qa_allow_extractive_fallback: bool = False
 
     @property
     def effective_embedding_version(self) -> str:

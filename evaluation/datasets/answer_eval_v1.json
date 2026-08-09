@@ -1,0 +1,389 @@
+{
+  "dataset_id": "creditlens_answer_eval_v1",
+  "dataset_version": "1.0.0",
+  "source_dataset_id": "frozen_v2",
+  "source_dataset_version": "2.1.0",
+  "source_split": "test",
+  "frozen": true,
+  "questions": [
+    {
+      "question_id": "q001", "case_key": "golden_case_001", "question": "本行流动资金贷款对借款人资产负债率的要求是什么？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "debt_ratio_cap", "acceptable_phrases": ["资产负债率不高于70%", "资产负债率不得超过70%", "资产负债率上限为70%", "资产负债率≤70%"]}],
+        "numeric_facts": [{"name": "资产负债率上限", "aliases": ["资产负债率", "负债率上限"], "value": "70", "unit": "%"}],
+        "forbidden_assertions": ["资产负债率上限为65%", "资产负债率不得超过65%"], "citation_refs": ["policy2026:art06"]
+      }, "tags": ["policy", "threshold"]
+    },
+    {
+      "question_id": "q003", "case_key": "golden_case_001", "question": "单一小微企业借款人的流动资金贷款余额上限是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "single_borrower_limit", "acceptable_phrases": ["单一借款人余额不超过1000万元", "单户余额上限为1000万元", "最高1000万元"]}],
+        "numeric_facts": [{"name": "单户贷款余额上限", "aliases": ["单一借款人余额上限", "单户上限"], "value": "1000", "unit": "万元"}],
+        "forbidden_assertions": ["单户余额上限为500万元", "最高500万元"], "citation_refs": ["policy2026:art09"]
+      }, "tags": ["policy", "threshold"]
+    },
+    {
+      "question_id": "q004", "case_key": "golden_case_001", "question": "流动资金贷款期限最长可以是多久？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "normal_term", "acceptable_phrases": ["一般不超过12个月", "通常最长12个月", "正常期限为12个月"]},
+          {"key": "extended_term", "acceptable_phrases": ["经审批可延长至24个月", "批准后最长24个月", "可延长到24个月并制定还款计划"]}
+        ],
+        "numeric_facts": [
+          {"name": "一般期限上限", "aliases": ["正常期限", "一般期限"], "value": "12", "unit": "个月"},
+          {"name": "审批后期限上限", "aliases": ["延长期限", "特殊期限"], "value": "24", "unit": "个月"}
+        ],
+        "forbidden_assertions": ["最长只能12个月", "不存在24个月期限"], "citation_refs": ["policy2026:art10"]
+      }, "tags": ["policy", "term"]
+    },
+    {
+      "question_id": "q006", "case_key": "golden_case_001", "question": "如果企业财务指标不达标，还有什么例外准入途径？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "guarantee_coverage", "acceptable_phrases": ["有效担保覆盖率不低于130%", "担保覆盖率至少130%", "有效担保覆盖率≥130%"]},
+          {"key": "approval_required", "acceptable_phrases": ["履行审批程序", "须经审批", "需要有权审批"]},
+          {"key": "prohibited_industry_guardrail", "acceptable_phrases": ["不得绕过禁止准入行业", "禁止行业不能例外准入", "不适用于禁止准入行业"]}
+        ],
+        "numeric_facts": [{"name": "有效担保覆盖率下限", "aliases": ["担保覆盖率", "覆盖率下限"], "value": "130", "unit": "%"}],
+        "forbidden_assertions": ["无需审批", "可以绕过禁止准入行业"], "citation_refs": ["policy2026:art08", "policy2026:art06"]
+      }, "tags": ["policy", "exception", "cross_article"]
+    },
+    {
+      "question_id": "q007", "case_key": "golden_case_001", "question": "银行流水材料需要覆盖多长期间？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "bank_statement_period", "acceptable_phrases": ["覆盖最近12个月", "需要12个月银行流水", "连续12个月流水"]}],
+        "numeric_facts": [{"name": "银行流水覆盖期", "aliases": ["流水覆盖期", "银行流水期间"], "value": "12", "unit": "个月"}],
+        "forbidden_assertions": ["只需6个月流水", "覆盖最近6个月"], "citation_refs": ["policy2026:art14"]
+      }, "tags": ["policy", "materials"]
+    },
+    {
+      "question_id": "q009", "case_key": "golden_case_001", "question": "发现贷款资金被挪用于股权投资应当如何处理？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "early_recovery", "acceptable_phrases": ["立即启动提前收贷", "立即提前收回贷款", "应马上启动提前收贷程序"]}],
+        "forbidden_assertions": ["可以继续使用贷款", "无需提前收贷"], "citation_refs": ["policy2026:art15"]
+      }, "tags": ["policy", "post_loan"]
+    },
+    {
+      "question_id": "q018", "case_key": "golden_case_001", "question": "客户集中度多高会触发预警？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "concentration_threshold", "acceptable_phrases": ["单一客户销售占比超过50%", "单一客户销售收入占比高于50%", "单一客户占比>50%"]},
+          {"key": "payment_delay_condition", "acceptable_phrases": ["且出现回款延迟", "同时存在付款延迟", "并伴随回款延迟"]}
+        ],
+        "numeric_facts": [{"name": "单一客户销售占比预警阈值", "aliases": ["客户集中度阈值", "销售占比阈值"], "value": "50", "unit": "%"}],
+        "forbidden_assertions": ["超过40%即触发预警", "无需出现回款延迟"], "citation_refs": ["policy2026:art16"]
+      }, "tags": ["policy", "warning", "threshold"]
+    },
+    {
+      "question_id": "q048", "case_key": "golden_case_001", "question": "2025年度营业收入是多少？同比增长多少？", "intent": "FINANCIAL_FACT", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "revenue", "acceptable_phrases": ["营业收入50000万元", "营业收入为5亿元", "实现营收50000万元"]},
+          {"key": "revenue_growth", "acceptable_phrases": ["同比增长12.5%", "较上年增长12.5%"]}
+        ],
+        "numeric_facts": [
+          {"name": "营业收入", "aliases": ["营收"], "value": "50000", "unit": "万元"},
+          {"name": "营业收入同比增幅", "aliases": ["营收同比增长", "同比增幅"], "value": "12.5", "unit": "%"}
+        ],
+        "forbidden_assertions": ["营业收入1.85亿元", "同比增长23.3%"], "citation_refs": ["ar2025:sec2"]
+      }, "tags": ["annual_report", "number"]
+    },
+    {
+      "question_id": "q050", "case_key": "golden_case_001", "question": "经营活动现金流量净额是多少？较上年如何变化？", "intent": "FINANCIAL_FACT", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "operating_cash_flow", "acceptable_phrases": ["经营活动现金流量净额1800万元", "经营现金流净额为1800万元"]},
+          {"key": "cash_flow_change", "acceptable_phrases": ["同比下降8%", "较上年下降8%"]}
+        ],
+        "numeric_facts": [
+          {"name": "经营活动现金流量净额", "aliases": ["经营现金流净额"], "value": "1800", "unit": "万元"},
+          {"name": "经营现金流同比降幅", "aliases": ["现金流降幅", "同比下降"], "value": "8", "unit": "%"}
+        ],
+        "forbidden_assertions": ["经营现金流净额3200万元", "较上年上升8%"], "citation_refs": ["ar2025:sec3"]
+      }, "tags": ["annual_report", "number"]
+    },
+    {
+      "question_id": "q061", "case_key": "golden_case_001", "question": "借款人的资产负债率是否满足现行政策上限要求？", "intent": "CROSS_SOURCE_CONFLICT", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "actual_debt_ratio", "acceptable_phrases": ["资产负债率为65%", "实际负债率65%"]},
+          {"key": "policy_cap", "acceptable_phrases": ["政策上限为70%", "政策要求不超过70%"]},
+          {"key": "meets_policy", "acceptable_phrases": ["满足政策要求", "未超过上限", "符合准入要求"]}
+        ],
+        "numeric_facts": [
+          {"name": "借款人资产负债率", "aliases": ["实际资产负债率"], "value": "65", "unit": "%"},
+          {"name": "政策资产负债率上限", "aliases": ["政策上限"], "value": "70", "unit": "%"}
+        ],
+        "forbidden_assertions": ["不满足政策要求", "超过70%的上限"], "citation_refs": ["policy2026:art06", "ar2025:sec3"]
+      }, "tags": ["cross_doc", "decision"]
+    },
+
+    {
+      "question_id": "q081", "case_key": "golden_case_002", "question": "科技型企业流贷对资产负债率的上限要求是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "debt_ratio_cap", "acceptable_phrases": ["资产负债率不高于75%", "资产负债率不得超过75%", "上限为75%"]}],
+        "numeric_facts": [{"name": "科技企业资产负债率上限", "aliases": ["资产负债率上限", "负债率上限"], "value": "75", "unit": "%"}],
+        "forbidden_assertions": ["资产负债率上限为70%", "不得超过70%"], "citation_refs": ["techpol2026:art06"]
+      }, "tags": ["policy", "threshold"]
+    },
+    {
+      "question_id": "q082", "case_key": "golden_case_002", "question": "科技型企业认定标准是什么？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "national_high_tech_path", "acceptable_phrases": ["取得国家高新技术企业认定", "国家高新技术企业认证"]},
+          {"key": "provincial_sme_path", "acceptable_phrases": ["完成省级科技型中小企业备案", "省级科技型中小企业备案"]},
+          {"key": "either_path", "acceptable_phrases": ["满足任一条件", "二者之一", "或者"]}
+        ],
+        "forbidden_assertions": ["只能通过国家高新技术企业认定", "两项条件必须同时满足"], "citation_refs": ["techpol2026:art03"]
+      }, "tags": ["policy", "definition"]
+    },
+    {
+      "question_id": "q086", "case_key": "golden_case_002", "question": "对研发投入占比有什么要求？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "rd_ratio_floor", "acceptable_phrases": ["研发投入占营业收入不低于3%", "研发投入占比至少3%", "研发投入占比≥3%"]}],
+        "numeric_facts": [{"name": "研发投入占比下限", "aliases": ["研发投入最低占比", "研发占比下限"], "value": "3", "unit": "%"}],
+        "forbidden_assertions": ["研发投入占比14.2%", "研发投入占比无需达到3%"], "citation_refs": ["techpol2026:art06"]
+      }, "tags": ["policy", "rd", "threshold"]
+    },
+    {
+      "question_id": "q087", "case_key": "golden_case_002", "question": "科技型企业流贷单户余额上限是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "single_borrower_limit", "acceptable_phrases": ["单户余额不超过2000万元", "单户余额上限为2000万元", "最高2000万元"]}],
+        "numeric_facts": [{"name": "科技企业单户余额上限", "aliases": ["单户余额上限", "单户上限"], "value": "2000", "unit": "万元"}],
+        "forbidden_assertions": ["单户余额上限为1000万元", "最高1000万元"], "citation_refs": ["techpol2026:art09"]
+      }, "tags": ["policy", "threshold"]
+    },
+    {
+      "question_id": "q088", "case_key": "golden_case_002", "question": "贷款期限最长可以是多久？研发项目有何特殊规定？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "normal_term", "acceptable_phrases": ["一般不超过18个月", "正常期限最长18个月", "通常为18个月"]},
+          {"key": "rd_extended_term", "acceptable_phrases": ["研发周期较长的经审批可延长至36个月", "长期研发项目批准后最长36个月"]},
+          {"key": "milestone_plan", "acceptable_phrases": ["设置研发里程碑", "需要研发里程碑计划", "按里程碑管理"]}
+        ],
+        "numeric_facts": [
+          {"name": "一般贷款期限上限", "aliases": ["正常期限"], "value": "18", "unit": "个月"},
+          {"name": "研发项目审批后期限上限", "aliases": ["研发延长期限", "特殊期限"], "value": "36", "unit": "个月"}
+        ],
+        "forbidden_assertions": ["正常期限为12个月", "研发项目不能超过18个月"], "citation_refs": ["techpol2026:art10"]
+      }, "tags": ["policy", "term", "rd"]
+    },
+    {
+      "question_id": "q092", "case_key": "golden_case_002", "question": "什么情况下可以例外准入？担保覆盖率要求是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "risk_compensation_guarantee", "acceptable_phrases": ["由风险补偿基金提供担保", "风险补偿基金担保"]},
+          {"key": "coverage_floor", "acceptable_phrases": ["担保覆盖率不低于120%", "覆盖率至少120%", "担保覆盖率≥120%"]},
+          {"key": "approval_required", "acceptable_phrases": ["须经审批", "履行审批程序", "经有权审批"]}
+        ],
+        "numeric_facts": [{"name": "例外准入担保覆盖率下限", "aliases": ["担保覆盖率", "覆盖率下限"], "value": "120", "unit": "%"}],
+        "forbidden_assertions": ["担保覆盖率150%", "无需审批即可例外准入"], "citation_refs": ["techpol2026:art08"]
+      }, "tags": ["policy", "exception"]
+    },
+    {
+      "question_id": "q095", "case_key": "golden_case_002", "question": "核心技术人员离职多少会触发预警？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "departure_threshold", "acceptable_phrases": ["离职超过三分之一触发预警", "核心技术人员离职比例超过1/3", "超过33.33%触发预警"]}],
+        "numeric_facts": [{"name": "核心技术人员离职预警比例", "aliases": ["离职比例阈值", "预警比例"], "value": "33.3333", "unit": "%", "tolerance": "0.01"}],
+        "forbidden_assertions": ["离职超过一半才触发", "离职50%触发预警"], "citation_refs": ["techpol2026:art16"]
+      }, "tags": ["policy", "warning", "threshold"]
+    },
+    {
+      "question_id": "q101", "case_key": "golden_case_002", "question": "星辰微电子的营业收入是多少？同比增长多少？", "intent": "FINANCIAL_FACT", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "revenue", "acceptable_phrases": ["营业收入1.85亿元", "营收为1.85亿元", "营业收入18500万元"]},
+          {"key": "revenue_growth", "acceptable_phrases": ["同比增长23.3%", "较上年增长23.3%"]}
+        ],
+        "numeric_facts": [
+          {"name": "营业收入", "aliases": ["营收"], "value": "1.85", "unit": "亿元"},
+          {"name": "营业收入同比增幅", "aliases": ["营收同比增长", "同比增幅"], "value": "23.3", "unit": "%"}
+        ],
+        "forbidden_assertions": ["营业收入50000万元", "同比增长12.5%"], "citation_refs": ["ar_tech:sec2"]
+      }, "tags": ["annual_report", "number"]
+    },
+    {
+      "question_id": "q102", "case_key": "golden_case_002", "question": "星辰微电子的资产负债率是多少？流动比率是多少？", "intent": "FINANCIAL_FACT", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "debt_ratio", "acceptable_phrases": ["资产负债率70%", "资产负债率为70%"]},
+          {"key": "current_ratio", "acceptable_phrases": ["流动比率0.92", "流动比率为0.92"]}
+        ],
+        "numeric_facts": [
+          {"name": "资产负债率", "aliases": ["负债率"], "value": "70", "unit": "%"},
+          {"name": "流动比率", "aliases": ["流动比"], "value": "0.92", "unit": "倍"}
+        ],
+        "forbidden_assertions": ["资产负债率65%", "流动比率1.2"], "citation_refs": ["ar_tech:sec3"]
+      }, "tags": ["annual_report", "number"]
+    },
+    {
+      "question_id": "q118", "case_key": "golden_case_002", "question": "星辰微电子的研发投入占比是否满足政策要求？", "intent": "CROSS_SOURCE_CONFLICT", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "actual_rd_ratio", "acceptable_phrases": ["研发投入占比16%", "实际研发占比为16%"]},
+          {"key": "policy_floor", "acceptable_phrases": ["政策要求不低于3%", "政策下限为3%"]},
+          {"key": "meets_policy", "acceptable_phrases": ["满足政策要求", "高于政策下限", "符合要求"]}
+        ],
+        "numeric_facts": [
+          {"name": "实际研发投入占比", "aliases": ["研发投入占比"], "value": "16", "unit": "%"},
+          {"name": "政策研发投入占比下限", "aliases": ["政策下限"], "value": "3", "unit": "%"}
+        ],
+        "forbidden_assertions": ["不满足政策要求", "研发投入占比低于3%"], "citation_refs": ["techpol2026:art06", "ar_tech:sec2"]
+      }, "tags": ["cross_doc", "rd", "decision"]
+    },
+
+    {
+      "question_id": "q144", "case_key": "golden_case_003", "question": "商业保理业务的定义是什么？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "receivable_transfer", "acceptable_phrases": ["供应商将真实交易合同产生的应收账款转让给保理商", "转让真实贸易形成的应收账款"]},
+          {"key": "factoring_services", "acceptable_phrases": ["提供融资、应收账款管理或催收服务", "提供融资及应收账款管理和收款服务"]}
+        ],
+        "forbidden_assertions": ["商业保理就是发放贷款", "无需真实贸易背景"], "citation_refs": ["factreg:art02"]
+      }, "tags": ["regulation", "definition"]
+    },
+    {
+      "question_id": "q145", "case_key": "golden_case_003", "question": "商业保理公司注册资本最低要求是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "registered_capital_floor", "acceptable_phrases": ["注册资本不低于5000万元", "最低注册资本5000万元"]},
+          {"key": "paid_in_cash", "acceptable_phrases": ["一次性实缴货币资本", "以货币形式一次性实缴"]}
+        ],
+        "numeric_facts": [{"name": "注册资本下限", "aliases": ["最低注册资本"], "value": "5000", "unit": "万元"}],
+        "forbidden_assertions": ["最低注册资本3000万元", "可以分期实缴"], "citation_refs": ["factreg:art03"]
+      }, "tags": ["regulation", "threshold"]
+    },
+    {
+      "question_id": "q146", "case_key": "golden_case_003", "question": "保理业务的基础贸易关系审查内容包括哪些？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "trade_documents", "acceptable_phrases": ["审查贸易合同、发票、物流单据和验收材料", "核验合同发票物流及验收凭证"]},
+          {"key": "receivable_checks", "acceptable_phrases": ["核实应收账款的真实性、有效性和可转让性", "验证应收账款真实有效且可转让"]}
+        ],
+        "forbidden_assertions": ["无需核验发票", "只审查贸易合同即可"], "citation_refs": ["factreg:art05"]
+      }, "tags": ["regulation", "due_diligence"]
+    },
+    {
+      "question_id": "q147", "case_key": "golden_case_003", "question": "商业保理公司不得有哪些行为？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "no_deposits", "acceptable_phrases": ["不得吸收公众存款", "禁止吸收存款"]},
+          {"key": "no_lending", "acceptable_phrases": ["不得发放贷款或受托贷款", "禁止贷款和受托贷款"]},
+          {"key": "no_collection_only", "acceptable_phrases": ["不得专门从事催收或讨债", "禁止以催收讨债为专门业务"]},
+          {"key": "no_illegal_recovery", "acceptable_phrases": ["不得暴力或非法催收", "禁止暴力催收和违法追债"]}
+        ],
+        "forbidden_assertions": ["可以吸收公众存款", "可以发放贷款", "可以暴力催收"], "citation_refs": ["factreg:art06"]
+      }, "tags": ["regulation", "prohibition"]
+    },
+    {
+      "question_id": "q148", "case_key": "golden_case_003", "question": "保理融资余额与净资产的比例上限是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "leverage_cap", "acceptable_phrases": ["融资余额不超过净资产的10倍", "比例上限为10倍", "不得高于净资产10倍"]}],
+        "numeric_facts": [{"name": "融资余额净资产倍数上限", "aliases": ["杠杆倍数上限", "比例上限"], "value": "10", "unit": "倍"}],
+        "forbidden_assertions": ["比例上限为5倍", "不超过净资产5倍"], "citation_refs": ["factreg:art07"]
+      }, "tags": ["regulation", "threshold"]
+    },
+    {
+      "question_id": "q149", "case_key": "golden_case_003", "question": "有追索权保理融资比例上限是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "recourse_ratio_cap", "acceptable_phrases": ["有追索权保理不超过应收账款的80%", "有追索权融资比例上限80%", "最高80%"]}],
+        "numeric_facts": [{"name": "有追索权融资比例上限", "aliases": ["有追索权比例上限"], "value": "80", "unit": "%"}],
+        "forbidden_assertions": ["有追索权比例上限90%", "最高90%"], "citation_refs": ["factreg:art08"]
+      }, "tags": ["regulation", "threshold"]
+    },
+    {
+      "question_id": "q150", "case_key": "golden_case_003", "question": "无追索权保理融资比例上限是多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "non_recourse_ratio_cap", "acceptable_phrases": ["无追索权保理不超过应收账款的90%", "无追索权融资比例上限90%", "最高90%"]}],
+        "numeric_facts": [{"name": "无追索权融资比例上限", "aliases": ["无追索权比例上限"], "value": "90", "unit": "%"}],
+        "forbidden_assertions": ["无追索权比例上限80%", "最高80%"], "citation_refs": ["factreg:art08"]
+      }, "tags": ["regulation", "threshold"]
+    },
+    {
+      "question_id": "q152", "case_key": "golden_case_003", "question": "应收账款逾期多少天应列入关注类？多少天列入可疑类？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [
+          {"key": "watch_threshold", "acceptable_phrases": ["逾期超过90天列入关注类", "90天以上纳入关注"]},
+          {"key": "doubtful_threshold", "acceptable_phrases": ["逾期超过180天列入可疑类", "180天以上纳入可疑"]}
+        ],
+        "numeric_facts": [
+          {"name": "关注类逾期阈值", "aliases": ["关注阈值"], "value": "90", "unit": "天"},
+          {"name": "可疑类逾期阈值", "aliases": ["可疑阈值"], "value": "180", "unit": "天"}
+        ],
+        "forbidden_assertions": ["逾期60天列入关注类", "逾期120天列入可疑类"], "citation_refs": ["factreg:art11"]
+      }, "tags": ["regulation", "classification", "threshold"]
+    },
+    {
+      "question_id": "q153", "case_key": "golden_case_003", "question": "一般风险准备金余额不低于融资余额的百分之几？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "general_reserve_floor", "acceptable_phrases": ["一般风险准备金不低于融资余额的1%", "准备金比例至少1%", "准备金余额≥融资余额1%"]}],
+        "numeric_facts": [{"name": "一般风险准备金比例下限", "aliases": ["准备金比例", "风险准备金下限"], "value": "1", "unit": "%"}],
+        "forbidden_assertions": ["准备金比例不低于5%", "最低5%"], "citation_refs": ["factreg:art12"]
+      }, "tags": ["regulation", "reserve", "threshold"]
+    },
+    {
+      "question_id": "q157", "case_key": "golden_case_003", "question": "对同一债务人的保理融资余额不得超过净资产的多少？", "intent": "POLICY_QA", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": true,
+      "expected": {
+        "key_points": [{"key": "single_debtor_cap", "acceptable_phrases": ["同一债务人融资余额不超过净资产的50%", "同一债务人上限为净资产50%", "不得高于净资产的50%"]}],
+        "numeric_facts": [{"name": "同一债务人集中度上限", "aliases": ["同一债务人余额上限", "集中度上限"], "value": "50", "unit": "%"}],
+        "forbidden_assertions": ["不得超过净资产100%", "上限为净资产100%"], "citation_refs": ["factreg:art07"]
+      }, "tags": ["regulation", "concentration", "threshold"]
+    },
+
+    {
+      "question_id": "q069", "case_key": "golden_case_001", "question": "借款人实际控制人的个人征信记录如何？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["个人征信记录良好", "个人征信记录不良"], "acceptable_refusal_reason_codes": ["MISSING_PERSONAL_CREDIT", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料不包含个人征信信息", "tags": ["refusal", "missing_evidence"]
+    },
+    {
+      "question_id": "q070", "case_key": "golden_case_001", "question": "借款人在其他银行的贷款余额是多少？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["他行贷款余额为"], "acceptable_refusal_reason_codes": ["MISSING_EXTERNAL_CREDIT", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料不包含他行授信信息", "tags": ["refusal", "missing_evidence"]
+    },
+    {
+      "question_id": "q071", "case_key": "golden_case_001", "question": "2026年上半年各月银行流水明细是怎样的？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["2026年1月流水为"], "acceptable_refusal_reason_codes": ["MISSING_BANK_STATEMENTS", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料未包含银行流水明细", "tags": ["refusal", "missing_evidence"]
+    },
+    {
+      "question_id": "q072", "case_key": "golden_case_001", "question": "法定代表人的身份证号码是多少？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["身份证号码为"], "acceptable_refusal_reason_codes": ["PRIVACY_AND_MISSING_EVIDENCE", "SENSITIVE_DATA_UNAVAILABLE"]},
+      "expected_refusal_reason": "涉及个人敏感信息且材料中不存在", "tags": ["refusal", "privacy", "missing_evidence"]
+    },
+    {
+      "question_id": "q133", "case_key": "golden_case_002", "question": "星辰微电子实际控制人的配偶个人资产有多少？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["配偶个人资产为"], "acceptable_refusal_reason_codes": ["MISSING_PERSONAL_ASSETS", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料不包含个人资产信息", "tags": ["refusal", "privacy", "missing_evidence"]
+    },
+    {
+      "question_id": "q134", "case_key": "golden_case_002", "question": "星辰微电子2026年的订单情况如何？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["2026年订单金额为"], "acceptable_refusal_reason_codes": ["MISSING_FUTURE_DATA", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "材料不含2026年经营数据", "tags": ["refusal", "temporal", "missing_evidence"]
+    },
+    {
+      "question_id": "q135", "case_key": "golden_case_002", "question": "星辰微电子在央行的征信报告内容是什么？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["央行征信报告显示"], "acceptable_refusal_reason_codes": ["MISSING_CREDIT_REPORT", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料不包含央行征信报告", "tags": ["refusal", "missing_evidence"]
+    },
+    {
+      "question_id": "q136", "case_key": "golden_case_002", "question": "星辰微电子的股票市值是多少？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["股票市值为"], "acceptable_refusal_reason_codes": ["NOT_APPLICABLE_NON_PUBLIC_COMPANY", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "公司为非上市企业，无市值信息", "tags": ["refusal", "not_applicable"]
+    },
+    {
+      "question_id": "q137", "case_key": "golden_case_002", "question": "星辰微电子竞争对手的市场份额排名如何？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["市场份额排名第"], "acceptable_refusal_reason_codes": ["MISSING_MARKET_DATA", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料不含行业竞争格局数据", "tags": ["refusal", "missing_evidence"]
+    },
+    {
+      "question_id": "q168", "case_key": "golden_case_003", "question": "恒达精密机械的法定代表人是谁？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["法定代表人为"], "acceptable_refusal_reason_codes": ["MISSING_CORPORATE_IDENTITY_DATA", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料未包含恒达精密机械的年报或工商信息", "tags": ["refusal", "missing_evidence"]
+    },
+    {
+      "question_id": "q169", "case_key": "golden_case_003", "question": "恒达精密机械去年的净利润是多少？", "intent": "UNANSWERABLE", "as_of_date": "2026-06-30", "decision_cutoff_at": "2026-06-30T15:59:59Z", "answerable": false,
+      "expected": {"forbidden_assertions": ["净利润为"], "acceptable_refusal_reason_codes": ["MISSING_FINANCIAL_DATA", "INSUFFICIENT_EVIDENCE"]},
+      "expected_refusal_reason": "案件材料未包含恒达精密机械的财务数据", "tags": ["refusal", "missing_evidence"]
+    }
+  ]
+}

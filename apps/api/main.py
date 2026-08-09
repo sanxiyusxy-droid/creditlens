@@ -5,26 +5,38 @@
 PostgreSQL / Qdrant / MinIO。注意：内存 Qdrant 进程重启后需重跑种子脚本。
 """
 
+import inspect
+import logging
 import sys
 import uuid
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
+from contextvars import ContextVar
+from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from fastapi import FastAPI, Header, HTTPException, Query, Response  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from pydantic import BaseModel, Field, field_validator  # noqa: E402
 from sqlalchemy import func, select  # noqa: E402
 
 from creditlens import __version__  # noqa: E402
+from creditlens.application.qa_service import QAService, QAServiceError  # noqa: E402
 from creditlens.common.config import get_settings  # noqa: E402
 from creditlens.common.errors import CreditLensError  # noqa: E402
 from creditlens.evidence.preview import EvidencePreviewService  # noqa: E402
+from creditlens.infrastructure.llm.chat import build_chat_provider  # noqa: E402
 from creditlens.infrastructure.llm.embedding import build_embedding_provider  # noqa: E402
 from creditlens.infrastructure.objectstore import build_object_store  # noqa: E402
+from creditlens.infrastructure.postgres.artifact_integrity import (  # noqa: E402
+    ArtifactIntegrityError,
+    validate_grounded_qa_artifact_and_claims,
+)
 from creditlens.infrastructure.postgres.models import (  # noqa: E402
+    ArtifactRecord,
     Base,
     ClaimRecord,
     CreditCase,
@@ -39,10 +51,7 @@ from creditlens.infrastructure.postgres.session import (  # noqa: E402
 )
 from creditlens.infrastructure.qdrant.collections import build_qdrant_client  # noqa: E402
 from creditlens.retrieval.contracts import EvidenceRef  # noqa: E402
-from creditlens.retrieval.orchestrator import (  # noqa: E402
-    OrchestratorConfig,
-    RetrievalOrchestrator,
-)
+from creditlens.retrieval.orchestrator import RetrievalOrchestrator  # noqa: E402
 from creditlens.retrieval.rerank import build_reranker  # noqa: E402
 
 settings = get_settings()
@@ -52,15 +61,40 @@ object_store = build_object_store(settings)
 qdrant = build_qdrant_client(settings)
 embedder = build_embedding_provider(settings)
 reranker = build_reranker(settings)
+chat_provider = build_chat_provider(settings)
 orchestrator = RetrievalOrchestrator(
     qdrant=qdrant, embedder=embedder, reranker=reranker, rrf_k=settings.rrf_k
 )
 preview_service = EvidencePreviewService(object_store)
+logger = logging.getLogger(__name__)
 
 # MVP 单租户：与种子脚本一致
 DEFAULT_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 # MVP 无登录层：以固定演示用户模拟已验证 Token（RLS Membership 需要）
 DEMO_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000301")
+
+
+@dataclass(frozen=True, slots=True)
+class APIIdentity:
+    """Identity that has been accepted by the server-side request gate."""
+
+    tenant_id: uuid.UUID
+    user_id: uuid.UUID
+
+
+_REQUEST_IDENTITY: ContextVar[APIIdentity | None] = ContextVar(
+    "creditlens_api_identity", default=None
+)
+_PUBLIC_API_PATHS = frozenset(
+    {
+        "/health/live",
+        "/health/ready",
+        "/openapi.json",
+        "/docs",
+        "/docs/oauth2-redirect",
+        "/redoc",
+    }
+)
 
 # SSE 在这些状态下不再有后台阶段可等待。REWORK/数据质量阻断等状态虽然可能
 # 由后续人工操作创建新的阶段，但当前连接必须结束，避免客户端无限轮询。
@@ -76,6 +110,60 @@ SSE_STOP_STATUSES = frozenset(
         "SUPERSEDED",
     }
 )
+
+
+def _assert_demo_identity_is_safe(current_settings) -> None:
+    """仅在双重显式授权的本地环境允许固定演示身份。"""
+    mode = str(current_settings.api_identity_mode).strip().lower()
+    environment = str(current_settings.app_env).strip().lower()
+    if mode != "demo":
+        raise RuntimeError("API_IDENTITY_PROVIDER_NOT_CONFIGURED")
+    if not current_settings.allow_insecure_demo_identity:
+        raise RuntimeError("INSECURE_DEMO_IDENTITY_NOT_ALLOWED")
+    if environment not in {"local", "development", "dev", "test"}:
+        raise RuntimeError("DEMO_IDENTITY_FORBIDDEN_OUTSIDE_LOCAL_ENV")
+
+
+def _resolve_api_identity(current_settings) -> APIIdentity:
+    """Resolve the only identity mode implemented in v1.3, failing closed otherwise."""
+    _assert_demo_identity_is_safe(current_settings)
+    return APIIdentity(tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID)
+
+
+def _current_api_identity() -> APIIdentity:
+    """Return the request-gated identity, also protecting direct endpoint calls in tests."""
+    identity = _REQUEST_IDENTITY.get()
+    if identity is not None:
+        return identity
+    return _resolve_api_identity(settings)
+
+
+async def _close_resources_best_effort(
+    resources: list[tuple[str, object | None, tuple[str, ...]]],
+) -> list[str]:
+    """互不影响地关闭运行时资源，返回关闭失败的资源名。"""
+    failures: list[str] = []
+    for resource_name, resource, method_names in resources:
+        if resource is None:
+            continue
+        close_method = next(
+            (
+                method
+                for method_name in method_names
+                if callable(method := getattr(resource, method_name, None))
+            ),
+            None,
+        )
+        if close_method is None:
+            continue
+        try:
+            result = close_method()
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            failures.append(resource_name)
+            logger.exception("failed to close API resource: %s", resource_name)
+    return failures
 
 
 async def _mark_run_failed_with_trace(
@@ -111,48 +199,53 @@ async def _mark_run_failed_with_trace(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    # P0-4：孤儿 Run 回收——进程内后台任务不持久，重启后残留的非终态 Run
-    # 置 FAILED（ORPHANED），不假装仍在执行。持久任务队列（Celery）列偏差 D9。
-    from datetime import timedelta
-
-    from creditlens.common.clock import utc_now
-
-    terminal = [
-        "COMPLETED",
-        "FAILED",
-        "DENIED",
-        "HUMAN_REVIEW",
-        "REWORK",
-        "NEED_MORE_INFO",
-        "DATA_QUALITY_BLOCKED",
-        "SUPERSEDED",
-    ]
-    cutoff = utc_now() - timedelta(minutes=30)
-    async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
-    ) as session:
-        orphans = (
-            await session.scalars(
-                select(ReviewRun).where(
-                    ReviewRun.status.not_in(terminal), ReviewRun.started_at < cutoff
-                )
-            )
-        ).all()
-        for run in orphans:
-            await _mark_run_failed_with_trace(session, run.id, "ORPHANED_RUN_FAILED", "ORPHANED")
-    yield
-    await engine.dispose()
+    _assert_demo_identity_is_safe(settings)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        # 没有 lease/heartbeat 协议时，启动过程不根据 started_at 推断非终态 Run 已失活。
+        # 真实后台 task 的异常仍由 _execute_review_background 当场收口为 FAILED。
+        yield
+    finally:
+        await _close_resources_best_effort(
+            [
+                ("chat", chat_provider, ("aclose", "close")),
+                ("embedding", embedder, ("aclose", "close")),
+                ("reranker", reranker, ("aclose", "close")),
+                ("qdrant", qdrant, ("aclose", "close")),
+                ("engine", engine, ("dispose", "aclose", "close")),
+            ]
+        )
 
 
 app = FastAPI(title="CreditLens API", version=__version__, lifespan=lifespan)
 
 
+@app.middleware("http")
+async def require_api_identity(request: Request, call_next):
+    """Fail closed on every business request even when ASGI lifespan is disabled."""
+    normalized_path = request.url.path.rstrip("/") or "/"
+    if normalized_path in _PUBLIC_API_PATHS:
+        return await call_next(request)
+
+    try:
+        identity = _resolve_api_identity(settings)
+    except RuntimeError:
+        # Do not expose whether the provider, environment, or demo opt-in is misconfigured.
+        return JSONResponse(
+            status_code=503,
+            content={"detail": {"error_code": "API_IDENTITY_UNAVAILABLE"}},
+        )
+
+    token = _REQUEST_IDENTITY.set(identity)
+    try:
+        return await call_next(request)
+    finally:
+        _REQUEST_IDENTITY.reset(token)
+
+
 @app.exception_handler(CreditLensError)
 async def creditlens_error_handler(request, exc: CreditLensError):
-    from fastapi.responses import JSONResponse
-
     if exc.error_code in {"REVIEW_CONFLICT", "IDEMPOTENCY_CONFLICT"}:
         status = 409  # WP3：并发审批冲突
     elif exc.error_code in {"ACL_DENIED", "TOOL_CALL_DENIED", "ACTION_NOT_AUTHORIZED"}:
@@ -174,17 +267,16 @@ async def health_live():
 async def health_ready():
     from sqlalchemy import text
 
-    async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
-    ) as session:
+    async with session_scope(session_factory) as session:
         await session.execute(text("SELECT 1"))
     return {"status": "ready"}
 
 
 @app.get("/api/v1/cases/{case_id}")
 async def get_case(case_id: uuid.UUID):
+    identity = _current_api_identity()
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         case = await session.get(CreditCase, case_id)
         if case is None:
@@ -201,91 +293,61 @@ async def get_case(case_id: uuid.UUID):
 
 
 class QuestionRequest(BaseModel):
-    question: str
-    top_k: int = 8
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    question: str = Field(min_length=1, max_length=2000)
+    top_k: int = Field(default=8, ge=1, le=20)
     # 演示时点切换（任务 30）：不传则用案件默认时点
     as_of_date: date | None = None
     decision_cutoff_at: datetime | None = None
 
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("question 不能为空")
+        return value
+
+    @field_validator("decision_cutoff_at")
+    @classmethod
+    def validate_cutoff_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("decision_cutoff_at 必须包含时区")
+        return value
+
 
 @app.post("/api/v1/cases/{case_id}/questions")
 async def ask_question(case_id: uuid.UUID, body: QuestionRequest):
-    """简单问答（SIMPLE_QA）：同样创建 Run 并冻结 Snapshot，
-    不绕过时点、物理索引与审计契约（文档 §14.2）。"""
-    from creditlens.application.snapshot_service import freeze_snapshot
-    from creditlens.application.trusted_context import acl_scope_hash, build_trusted_context
-    from creditlens.infrastructure.postgres.models import ReviewRun
-
-    async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
-    ) as session:
-        trusted = await build_trusted_context(
-            session, tenant_id=DEFAULT_TENANT_ID, case_id=case_id, user_id=DEMO_USER_ID
+    """可审计简单问答：Snapshot → 多路检索 → Grounded QA → 引用审计。"""
+    identity = _current_api_identity()
+    service = QAService(
+        session_factory=session_factory,
+        orchestrator=orchestrator,
+        settings=settings,
+        chat=chat_provider,
+        tenant_id=identity.tenant_id,
+        user_id=identity.user_id,
+    )
+    try:
+        result = await service.ask(
+            case_id=case_id,
+            question=body.question,
+            top_k=body.top_k,
+            as_of_date=body.as_of_date,
+            decision_cutoff_at=body.decision_cutoff_at,
+            idempotency_key=body.idempotency_key,
         )
-        # 时点覆盖仅收紧/平移观察时点，ACL 范围仍由服务端派生，不可放宽
-        if body.as_of_date is not None:
-            update: dict = {"as_of_date": body.as_of_date}
-            if body.decision_cutoff_at is not None:
-                update["decision_cutoff_at"] = body.decision_cutoff_at.astimezone(UTC)
-            trusted = trusted.model_copy(update=update)
-        snapshot = await freeze_snapshot(
-            session,
-            trusted,
-            chunks_collection=settings.chunks_collection_name,
-            summaries_collection=settings.summaries_collection_name,
-            acl_hash=acl_scope_hash(trusted),
-        )
-        run = ReviewRun(
-            tenant_id=trusted.tenant_id,
-            case_id=trusted.case_id,
-            run_type="SIMPLE_QA",
-            status="COMPLETED",
-            as_of_date=trusted.as_of_date,
-            decision_cutoff_at=trusted.decision_cutoff_at,
-            input_snapshot_id=snapshot.snapshot_id,
-        )
-        session.add(run)
-        await session.flush()
-
-        result = await orchestrator.retrieve(
-            session,
-            trusted,
-            body.question,
-            snapshot.chunks_collection,
-            config=OrchestratorConfig(
-                final_limit=body.top_k,
-                enable_rerank=settings.orchestrator_enable_rerank,
-                enable_summary=settings.orchestrator_enable_summary,
-                enable_exact=settings.orchestrator_enable_exact,
-                enable_packing=True,
-                token_budget=settings.context_token_budget,
-                max_per_document_ratio=settings.context_max_per_document_ratio,
-                expand_adjacent=settings.context_expand_adjacent,
-            ),
-            snapshot=snapshot,
-            summaries_collection=snapshot.summaries_collection,
-        )
-        return {
-            "question": body.question,
-            "run_id": str(run.id),
-            "snapshot_id": str(snapshot.snapshot_id),
-            "as_of_date": trusted.as_of_date.isoformat(),
-            "candidates": [
-                {
-                    "section_id": str(c.section_id),
-                    "document_version_id": str(c.document_version_id),
-                    "parse_run_id": str(c.parse_run_id),
-                    "heading_path": c.heading_path,
-                    "page": c.page_start,
-                    "text": c.text,
-                    "text_hash": c.text_hash,
-                }
-                for c in result.candidates
-            ],
-            "channel_config": result.channel_config,
-            "trace": result.trace,
-            "packing": result.packing,
-        }
+    except QAServiceError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error_code": "GROUNDED_QA_FAILED",
+                "run_id": str(exc.run_id),
+                "error_type": exc.error_type,
+                "trace_url": f"/api/v1/runs/{exc.run_id}/trace",
+            },
+        ) from exc
+    return result.model_dump(mode="json")
 
 
 @app.get("/api/v1/evidence/preview")
@@ -302,6 +364,8 @@ async def evidence_preview(
     P0-2：必须携带 case_id；服务端先做 Membership + 案件绑定授权再渲染。"""
     from creditlens.application.trusted_context import build_trusted_context
 
+    identity = _current_api_identity()
+
     ref = EvidenceRef(
         section_id=section_id,
         document_version_id=document_version_id,
@@ -311,10 +375,10 @@ async def evidence_preview(
         text_hash=text_hash,
     )
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         trusted = await build_trusted_context(
-            session, DEFAULT_TENANT_ID, case_id, user_id=DEMO_USER_ID
+            session, identity.tenant_id, case_id, user_id=identity.user_id
         )
         png = await preview_service.render_page(session, trusted, ref)
     return Response(content=png, media_type="image/png")
@@ -324,20 +388,21 @@ class RunRequest(BaseModel):
     run_type: str = "FULL_REVIEW"
 
 
-async def _execute_review_background(run_id: uuid.UUID, case_id: uuid.UUID) -> None:
+async def _execute_review_background(
+    run_id: uuid.UUID, case_id: uuid.UUID, identity: APIIdentity
+) -> None:
     """后台执行完整预审（独立 session；预建 Run 处于 RECEIVED）。"""
     from creditlens.agents.wiring import build_supervisor
     from creditlens.application.snapshot_service import load_snapshot_context
     from creditlens.application.trusted_context import build_trusted_context
-    from creditlens.infrastructure.llm.chat import build_chat_provider
 
     try:
         async with session_scope(
-            session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+            session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
         ) as session:
             run = await session.get(ReviewRun, run_id)
             trusted = await build_trusted_context(
-                session, DEFAULT_TENANT_ID, case_id, user_id=DEMO_USER_ID
+                session, identity.tenant_id, case_id, user_id=identity.user_id
             )
             snapshot = await load_snapshot_context(session, run.input_snapshot_id)
             supervisor, _ = build_supervisor(
@@ -345,7 +410,7 @@ async def _execute_review_background(run_id: uuid.UUID, case_id: uuid.UUID) -> N
                 qdrant,
                 embedder,
                 snapshot,
-                chat=build_chat_provider(settings),
+                chat=chat_provider,
                 reranker=reranker,
                 rrf_k=settings.rrf_k,
             )
@@ -356,7 +421,7 @@ async def _execute_review_background(run_id: uuid.UUID, case_id: uuid.UUID) -> N
         # 失败不得假成功：Run 置 FAILED 并保留已写入的 Trace（文档 §13）；
         # 记录异常类型便于排查（v1.0 演示踩坑教训）
         async with session_scope(
-            session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+            session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
         ) as session:
             await _mark_run_failed_with_trace(
                 session, run_id, "BACKGROUND_FAILED", type(exc).__name__
@@ -371,11 +436,12 @@ async def start_full_review(case_id: uuid.UUID, body: RunRequest):
     from creditlens.application.snapshot_service import freeze_snapshot
     from creditlens.application.trusted_context import acl_scope_hash, build_trusted_context
 
+    identity = _current_api_identity()
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         trusted = await build_trusted_context(
-            session, DEFAULT_TENANT_ID, case_id, user_id=DEMO_USER_ID
+            session, identity.tenant_id, case_id, user_id=identity.user_id
         )
         snapshot = await freeze_snapshot(
             session,
@@ -397,7 +463,7 @@ async def start_full_review(case_id: uuid.UUID, body: RunRequest):
         await session.flush()
         run_id = run.id
 
-    asyncio.get_running_loop().create_task(_execute_review_background(run_id, case_id))
+    asyncio.get_running_loop().create_task(_execute_review_background(run_id, case_id, identity))
     return {
         "run_id": str(run_id),
         "status": "RECEIVED",
@@ -422,16 +488,17 @@ async def run_events_sse(
 
     from creditlens.application.trusted_context import build_trusted_context
 
+    identity = _current_api_identity()
     # 授权前置：无权案件按 RUN_NOT_FOUND 处理，不泄露存在性
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         run = await session.get(ReviewRun, run_id)
         if run is None:
             raise HTTPException(404, "RUN_NOT_FOUND")
         try:
             await build_trusted_context(
-                session, DEFAULT_TENANT_ID, run.case_id, user_id=DEMO_USER_ID
+                session, identity.tenant_id, run.case_id, user_id=identity.user_id
             )
         except CreditLensError as exc:
             raise HTTPException(404, "RUN_NOT_FOUND") from exc
@@ -443,7 +510,7 @@ async def run_events_sse(
         cursor = initial_cursor
         while True:
             async with session_scope(
-                session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+                session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
             ) as session:
                 events = (
                     await session.scalars(
@@ -489,6 +556,7 @@ async def submit_review_decision(run_id: uuid.UUID, body: ReviewDecisionRequest)
     from creditlens.common.errors import ActionNotAuthorizedError
     from creditlens.infrastructure.postgres.models import CaseMembership, HumanDecision
 
+    identity = _current_api_identity()
     allowed_actions = {
         "APPROVE_CLAIM",
         "REJECT_CLAIM",
@@ -501,7 +569,7 @@ async def submit_review_decision(run_id: uuid.UUID, body: ReviewDecisionRequest)
         raise HTTPException(422, "INVALID_ACTION")
 
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         run = await session.get(ReviewRun, run_id)
         if run is None:
@@ -512,7 +580,7 @@ async def submit_review_decision(run_id: uuid.UUID, body: ReviewDecisionRequest)
             await session.scalars(
                 select(CaseMembership.case_role).where(
                     CaseMembership.case_id == run.case_id,
-                    CaseMembership.user_id == DEMO_USER_ID,
+                    CaseMembership.user_id == identity.user_id,
                     CaseMembership.revoked_at.is_(None),
                 )
             )
@@ -538,7 +606,7 @@ async def submit_review_decision(run_id: uuid.UUID, body: ReviewDecisionRequest)
             reason_code=body.reason_code,
             reason=body.reason,
             # WP3：reviewer 服务端注入，不接受客户端自报
-            reviewer_id=DEMO_USER_ID,
+            reviewer_id=identity.user_id,
             idempotency_key=body.idempotency_key,
             target_version=body.expected_state_version,
         )
@@ -548,8 +616,9 @@ async def submit_review_decision(run_id: uuid.UUID, body: ReviewDecisionRequest)
 
 @app.get("/api/v1/runs/{run_id}")
 async def get_run(run_id: uuid.UUID):
+    identity = _current_api_identity()
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         run = await session.get(ReviewRun, run_id)
         if run is None:
@@ -560,6 +629,30 @@ async def get_run(run_id: uuid.UUID):
         evidence_rows = (
             await session.scalars(select(EvidenceRecord).where(EvidenceRecord.run_id == run_id))
         ).all()
+        qa_artifacts = (
+            await session.scalars(
+                select(ArtifactRecord)
+                .where(
+                    ArtifactRecord.run_id == run_id,
+                    ArtifactRecord.artifact_type == "GROUNDED_ANSWER",
+                )
+                .order_by(ArtifactRecord.created_at.desc())
+            )
+        ).all()
+        if len(qa_artifacts) > 1:
+            raise HTTPException(409, "ARTIFACT_INTEGRITY_FAILED")
+        qa_artifact = qa_artifacts[0] if qa_artifacts else None
+        verified_qa_payload = None
+        if qa_artifact is not None:
+            try:
+                verified_qa_payload = validate_grounded_qa_artifact_and_claims(
+                    run=run,
+                    artifact=qa_artifact,
+                    claims=claims,
+                    expected_prompt_version=settings.qa_prompt_version,
+                )
+            except ArtifactIntegrityError as exc:
+                raise HTTPException(409, "ARTIFACT_INTEGRITY_FAILED") from exc
         # evidence_id 是跨 Run 可复用的逻辑键；EvidenceRecord.id 则是本次 Run 的
         # 数据库行主键。因此必须按 evidence_key 映射，不能误用行 id。
         locators_by_key = {
@@ -583,7 +676,7 @@ async def get_run(run_id: uuid.UUID):
                 if str(evidence_id) in locators_by_key
             ]
 
-        return {
+        response = {
             "run_id": str(run.id),
             "status": run.status,
             "state_version": run.state_version,
@@ -611,6 +704,19 @@ async def get_run(run_id: uuid.UUID):
                 for c in claims
             ],
         }
+        if verified_qa_payload is not None:
+            payload = verified_qa_payload
+            response["grounded_answer"] = {
+                "answer_status": payload.get("answer_status"),
+                "answer": payload.get("direct_answer", ""),
+                "missing_information": payload.get("missing_information", []),
+                "conflicts": payload.get("conflicts", []),
+                "abstention_reason": payload.get("abstention_reason"),
+                "refusal_reason_code": payload.get("refusal_reason_code"),
+                "prompt_version": payload.get("prompt_version"),
+                "generation_mode": payload.get("generation_mode"),
+            }
+        return response
 
 
 @app.get("/api/v1/runs/{run_id}/report")
@@ -619,15 +725,16 @@ async def get_run_report(run_id: uuid.UUID):
     from creditlens.application.trusted_context import build_trusted_context
     from creditlens.infrastructure.postgres.models import ReportVersion
 
+    identity = _current_api_identity()
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         run = await session.get(ReviewRun, run_id)
         if run is None:
             raise HTTPException(404, "RUN_NOT_FOUND")
         try:
             await build_trusted_context(
-                session, DEFAULT_TENANT_ID, run.case_id, user_id=DEMO_USER_ID
+                session, identity.tenant_id, run.case_id, user_id=identity.user_id
             )
         except CreditLensError as exc:
             raise HTTPException(404, "RUN_NOT_FOUND") from exc
@@ -653,8 +760,9 @@ async def get_run_report(run_id: uuid.UUID):
 async def get_run_trace(run_id: uuid.UUID):
     from creditlens.application.trusted_context import build_trusted_context
 
+    identity = _current_api_identity()
     async with session_scope(
-        session_factory, tenant_id=DEFAULT_TENANT_ID, user_id=DEMO_USER_ID
+        session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
     ) as session:
         run = await session.get(ReviewRun, run_id)
         if run is None:
@@ -662,7 +770,7 @@ async def get_run_trace(run_id: uuid.UUID):
         # P0-2：Trace 属案件数据，先授权 Membership
         try:
             await build_trusted_context(
-                session, DEFAULT_TENANT_ID, run.case_id, user_id=DEMO_USER_ID
+                session, identity.tenant_id, run.case_id, user_id=identity.user_id
             )
         except CreditLensError as exc:
             raise HTTPException(404, "RUN_NOT_FOUND") from exc

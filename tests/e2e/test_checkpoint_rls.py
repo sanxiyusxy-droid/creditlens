@@ -13,6 +13,8 @@
 """
 
 import uuid
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select, text
@@ -27,9 +29,21 @@ pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
 ]
 
-TENANT_A = uuid.UUID("00000000-0000-0000-0000-000000000091")
-TENANT_B = uuid.UUID("00000000-0000-0000-0000-000000000092")
-USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000399")
+SEEDED_TENANT = uuid.UUID("00000000-0000-0000-0000-000000000001")
+SEEDED_CASE = uuid.UUID("00000000-0000-0000-0000-000000000201")
+SEEDED_MEMBER = uuid.UUID("00000000-0000-0000-0000-000000000301")
+TENANT_A = SEEDED_TENANT
+USER_A = SEEDED_MEMBER
+TENANT_B = uuid.UUID("00000000-0000-0000-0000-0000000000c1")
+USER_B = uuid.UUID("00000000-0000-0000-0000-0000000000c4")
+
+
+def _assert_policy_or_privilege_denied(error: Exception) -> None:
+    message = str(error).lower()
+    assert any(
+        marker in message
+        for marker in ("row-level security", "policy", "permission denied", "insufficientprivilege")
+    ), message
 
 
 async def test_business_role_cannot_mutate_append_only_audit_tables(pg_engine):
@@ -58,14 +72,278 @@ async def test_business_role_cannot_mutate_append_only_audit_tables(pg_engine):
             )
 
 
-async def _ensure_tenant(factory, tenant_id, name):
-    """tenants 表无 RLS 策略（元数据表），任何角色可写。"""
-    from creditlens.infrastructure.postgres.models import Tenant
-    from creditlens.infrastructure.postgres.session import session_scope
+async def test_business_role_can_only_update_claim_review_status(pg_engine):
+    """Claim facts stay append-only while the workflow may advance review_status."""
+    from creditlens.agents.contracts import AgentArtifact, AgentClaim
+    from creditlens.infrastructure.postgres.artifact_integrity import (
+        canonical_artifact_payload_hash,
+    )
+    from creditlens.infrastructure.postgres.models import ArtifactRecord, ClaimRecord, ReviewRun
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
 
-    async with session_scope(factory, tenant_id=tenant_id, user_id=USER_ID) as session:
-        if await session.get(Tenant, tenant_id) is None:
-            session.add(Tenant(id=tenant_id, name=name))
+    async with pg_engine.connect() as connection:
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.claims', 'SELECT')")
+        )
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.claims', 'INSERT')")
+        )
+        assert not await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.claims', 'UPDATE')")
+        )
+        assert not await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.claims', 'DELETE')")
+        )
+        assert await connection.scalar(
+            text(
+                "SELECT has_column_privilege("
+                "current_user, 'public.claims', 'review_status', 'UPDATE')"
+            )
+        )
+        for column in ("statement", "verdict", "payload", "severity", "as_of_date"):
+            assert not await connection.scalar(
+                text(
+                    "SELECT has_column_privilege(current_user, 'public.claims', :column, 'UPDATE')"
+                ),
+                {"column": column},
+            )
+
+    factory = create_session_factory(pg_engine)
+    run = ReviewRun(
+        tenant_id=TENANT_A,
+        case_id=SEEDED_CASE,
+        run_type="FULL_REVIEW",
+        status="HUMAN_REVIEW",
+        as_of_date=date(2026, 6, 30),
+        decision_cutoff_at=datetime(2026, 6, 30, 15, 59, 59, tzinfo=UTC),
+    )
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        session.add(run)
+        await session.flush()
+        run_id = run.id
+
+    source_claim = AgentClaim(
+        category="ELIGIBILITY",
+        statement="immutable grounded fact",
+        verdict="SUPPORTED",
+        as_of_date=run.as_of_date,
+        supporting_evidence_ids=[uuid.uuid4()],
+    )
+    source_artifact = AgentArtifact(
+        run_id=run_id,
+        task_id="claim-integrity",
+        producer="policy_analyst",
+        claims=[source_claim],
+    )
+    payload = source_artifact.model_dump(mode="json", exclude={"output_hash"})
+    payload["lifecycle_status"] = "VALIDATED"
+    artifact = ArtifactRecord(
+        id=source_artifact.artifact_id,
+        tenant_id=TENANT_A,
+        run_id=run_id,
+        task_id=source_artifact.task_id,
+        artifact_type=source_artifact.producer,
+        producer=source_artifact.producer,
+        lifecycle_status="VALIDATED",
+        payload=payload,
+        output_hash=canonical_artifact_payload_hash(payload),
+    )
+    claim = ClaimRecord(
+        id=source_claim.claim_id,
+        tenant_id=TENANT_A,
+        run_id=run_id,
+        artifact_id=artifact.id,
+        category=source_claim.category,
+        statement=source_claim.statement,
+        verdict=source_claim.verdict,
+        severity=source_claim.severity,
+        as_of_date=source_claim.as_of_date,
+        review_status="PENDING",
+        payload={
+            "supporting_evidence_ids": [str(item) for item in source_claim.supporting_evidence_ids],
+            "opposing_evidence_ids": [],
+            "calculation_ids": [],
+            "source_claim_id": None,
+        },
+    )
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        session.add(artifact)
+        session.add(claim)
+        await session.flush()
+        claim.review_status = "AUDITED"
+        await session.flush()
+        claim_id = claim.id
+
+    mutation_attempts = (
+        text("UPDATE claims SET statement = 'tampered' WHERE id = :claim_id"),
+        text("UPDATE claims SET verdict = 'CONTRADICTED' WHERE id = :claim_id"),
+        text("UPDATE claims SET payload = '{}' WHERE id = :claim_id"),
+        text("UPDATE claims SET severity = 'CRITICAL' WHERE id = :claim_id"),
+    )
+    for statement in mutation_attempts:
+        async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+            with pytest.raises(Exception) as exc_info:
+                await session.execute(statement, {"claim_id": claim_id})
+            await session.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)
+
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        persisted = await session.get(ClaimRecord, claim_id)
+        assert persisted is not None
+        assert persisted.review_status == "AUDITED"
+        assert persisted.statement == "immutable grounded fact"
+        assert persisted.verdict == "SUPPORTED"
+
+
+async def test_business_role_cannot_self_grant_or_revoke_case_membership(pg_engine):
+    """授权根由管理身份维护；运行角色不能给自己授权、撤销或删除授权。"""
+    from creditlens.infrastructure.postgres.models import CaseMembership
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    async with pg_engine.connect() as connection:
+        qualified = "public.case_memberships"
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, :table, 'SELECT')"),
+            {"table": qualified},
+        )
+        for privilege in ("INSERT", "UPDATE", "DELETE"):
+            assert not await connection.scalar(
+                text("SELECT has_table_privilege(current_user, :table, :privilege)"),
+                {"table": qualified, "privilege": privilege},
+            )
+
+    statements = (
+        text(
+            """
+            INSERT INTO case_memberships (case_id, user_id, case_role, granted_at)
+            VALUES (:case_id, :user_id, 'OWNER', now())
+            """
+        ),
+        text(
+            """
+            UPDATE case_memberships SET revoked_at = now()
+            WHERE case_id = :case_id AND user_id = :user_id
+            """
+        ),
+        text(
+            """
+            DELETE FROM case_memberships
+            WHERE case_id = :case_id AND user_id = :user_id
+            """
+        ),
+    )
+    params = {"case_id": SEEDED_CASE, "user_id": SEEDED_MEMBER}
+    for statement in statements:
+        async with pg_engine.connect() as connection:
+            with pytest.raises(Exception) as exc_info:
+                await connection.execute(statement, params)
+            await connection.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)
+
+    factory = create_session_factory(pg_engine)
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=uuid.uuid4(),
+    ) as session:
+        leaked = (
+            await session.scalars(
+                select(CaseMembership).where(CaseMembership.case_id == SEEDED_CASE)
+            )
+        ).all()
+        assert leaked == [], "业务角色不得枚举其他用户的授权根记录"
+
+
+async def test_identity_roots_and_global_catalogs_are_read_only(pg_engine):
+    """Tenant/User 仅暴露当前身份；授权根与全局目录都不能被业务角色改写。"""
+    from creditlens.infrastructure.postgres.models import AppUser, Tenant
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    readonly_tables = (
+        "tenants",
+        "app_users",
+        "financial_metric_definitions",
+        "search_index_versions",
+        "alembic_version",
+    )
+    async with pg_engine.connect() as connection:
+        for table in readonly_tables:
+            qualified = f"public.{table}"
+            assert await connection.scalar(
+                text("SELECT has_table_privilege(current_user, :table, 'SELECT')"),
+                {"table": qualified},
+            )
+            for privilege in ("INSERT", "UPDATE", "DELETE"):
+                assert not await connection.scalar(
+                    text("SELECT has_table_privilege(current_user, :table, :privilege)"),
+                    {"table": qualified, "privilege": privilege},
+                ), f"{qualified} must not grant {privilege} to creditlens_app"
+            # 运行时仍可读取必要的全局/当前身份元数据。
+            await connection.execute(text(f"SELECT 1 FROM {qualified} LIMIT 1"))
+
+    factory = create_session_factory(pg_engine)
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        assert await session.get(Tenant, TENANT_A) is not None
+        assert await session.get(AppUser, USER_A) is not None
+        assert await session.get(Tenant, TENANT_B) is None
+        assert await session.get(AppUser, USER_B) is None
+        assert (await session.scalars(select(Tenant.id))).all() == [TENANT_A]
+        assert (await session.scalars(select(AppUser.id))).all() == [USER_A]
+
+    async with session_scope(factory, tenant_id=TENANT_B, user_id=USER_B) as session:
+        assert await session.get(Tenant, TENANT_B) is not None
+        assert await session.get(AppUser, USER_B) is not None
+        assert await session.get(Tenant, TENANT_A) is None
+        assert await session.get(AppUser, USER_A) is None
+
+    mutation_attempts = (
+        (
+            text(
+                """
+                INSERT INTO tenants (id, name, status, data_isolation_mode, created_at)
+                VALUES (:new_id, 'unauthorized tenant', 'ACTIVE', 'SHARED_COLLECTION', now())
+                """
+            ),
+            {"new_id": uuid.uuid4()},
+        ),
+        (
+            text(
+                """
+                INSERT INTO app_users
+                  (id, tenant_id, external_subject, display_name, status, created_at)
+                VALUES
+                  (:new_id, :tenant_id, :subject, 'unauthorized user', 'ACTIVE', now())
+                """
+            ),
+            {
+                "new_id": uuid.uuid4(),
+                "tenant_id": TENANT_A,
+                "subject": f"unauthorized-{uuid.uuid4()}",
+            },
+        ),
+        (
+            text("UPDATE tenants SET name = 'cross-tenant-write' WHERE id = :target_id"),
+            {"target_id": TENANT_B},
+        ),
+        (
+            text("UPDATE app_users SET status = 'DISABLED' WHERE id = :target_id"),
+            {"target_id": USER_B},
+        ),
+    )
+    for statement, params in mutation_attempts:
+        async with pg_engine.connect() as connection:
+            await connection.execute(
+                text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(TENANT_A)},
+            )
+            await connection.execute(
+                text("SELECT set_config('app.user_id', :user_id, true)"),
+                {"user_id": str(USER_A)},
+            )
+            with pytest.raises(Exception) as exc_info:
+                await connection.execute(statement, params)
+            await connection.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)
 
 
 async def test_checkpoint_commit_restores_rls(pg_engine):
@@ -78,8 +356,6 @@ async def test_checkpoint_commit_restores_rls(pg_engine):
     )
 
     factory = create_session_factory(pg_engine)
-    await _ensure_tenant(factory, TENANT_A, "租户 A")
-
     doc_before = Document(
         tenant_id=TENANT_A,
         logical_key=f"chk-before-{uuid.uuid4().hex[:8]}",
@@ -93,7 +369,7 @@ async def test_checkpoint_commit_restores_rls(pg_engine):
         document_type="INTERNAL_POLICY",
     )
 
-    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_ID) as session:
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
         # 阶段一：写入并真实执行阶段 Checkpoint 提交
         session.add(doc_before)
         await session.flush()
@@ -109,7 +385,7 @@ async def test_checkpoint_commit_restores_rls(pg_engine):
         await session.flush()
 
     # 新事务复核：两次 Checkpoint 间的数据均已持久化且对同租户可见
-    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_ID) as session:
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
         assert await session.get(Document, doc_before.id) is not None
         assert await session.get(Document, doc_after.id) is not None
 
@@ -120,12 +396,9 @@ async def test_cross_tenant_isolation(pg_engine):
     from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
 
     factory = create_session_factory(pg_engine)
-    await _ensure_tenant(factory, TENANT_A, "租户 A")
-    await _ensure_tenant(factory, TENANT_B, "租户 B")
-
     # 租户 A 写入一条受 RLS 租户隔离保护的 document
     secret_doc_id = uuid.uuid4()
-    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_ID) as session:
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
         session.add(
             Document(
                 id=secret_doc_id,
@@ -137,7 +410,7 @@ async def test_cross_tenant_isolation(pg_engine):
         )
 
     # 租户 B 上下文：按主键直取、条件查询、计数三重断言不可见
-    async with session_scope(factory, tenant_id=TENANT_B, user_id=USER_ID) as session:
+    async with session_scope(factory, tenant_id=TENANT_B, user_id=USER_B) as session:
         assert await session.get(Document, secret_doc_id) is None, "跨租户主键读取必须被 RLS 拒绝"
         rows = (await session.scalars(select(Document).where(Document.id == secret_doc_id))).all()
         assert rows == [], "跨租户条件查询必须返回 0 行"
@@ -165,19 +438,347 @@ async def test_cross_tenant_isolation(pg_engine):
 
 async def test_session_rollback_on_error(pg_engine):
     """session_scope 异常时应自动回滚。"""
-    from creditlens.infrastructure.postgres.models import Tenant
+    from creditlens.infrastructure.postgres.models import Document
     from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
 
     factory = create_session_factory(pg_engine)
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000098")
+    document_id = uuid.uuid4()
 
     with pytest.raises(ValueError):
-        async with session_scope(factory, tenant_id=tenant_id, user_id=USER_ID) as session:
-            session.add(Tenant(id=tenant_id, name="将被回滚的租户"))
+        async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+            session.add(
+                Document(
+                    id=document_id,
+                    tenant_id=TENANT_A,
+                    logical_key=f"rollback-{uuid.uuid4().hex}",
+                    title="将被回滚的文档",
+                    document_type="INTERNAL_POLICY",
+                )
+            )
             await session.flush()
             raise ValueError("模拟异常")
 
     # 验证数据未持久化
-    async with session_scope(factory, tenant_id=tenant_id, user_id=USER_ID) as session:
-        tenant = await session.get(Tenant, tenant_id)
-        assert tenant is None
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        assert await session.get(Document, document_id) is None
+
+
+async def test_snapshot_parent_and_children_require_case_membership(pg_engine):
+    """同租户但无案件 Membership 的用户不可读取 Snapshot 及其三个子表。"""
+    from creditlens.application.snapshot_service import freeze_snapshot
+    from creditlens.application.trusted_context import build_trusted_context
+    from creditlens.common.config import get_settings
+    from creditlens.infrastructure.postgres.models import (
+        CaseSnapshot,
+        SnapshotDocument,
+        SnapshotFact,
+        SnapshotIndex,
+    )
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    factory = create_session_factory(pg_engine)
+    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+    case_id = uuid.UUID("00000000-0000-0000-0000-000000000201")
+    member_id = uuid.UUID("00000000-0000-0000-0000-000000000301")
+    outsider_id = uuid.uuid4()
+
+    async with session_scope(factory, tenant_id=tenant_id, user_id=member_id) as session:
+        trusted = await build_trusted_context(
+            session,
+            tenant_id,
+            case_id,
+            user_id=member_id,
+        )
+        frozen = await freeze_snapshot(
+            session,
+            trusted,
+            chunks_collection=get_settings().chunks_collection_name,
+        )
+        snapshot_id = frozen.snapshot_id
+        assert frozen.allowed_parse_run_ids
+
+    async with session_scope(factory, tenant_id=tenant_id, user_id=outsider_id) as session:
+        assert await session.get(CaseSnapshot, snapshot_id) is None
+        for model in (SnapshotDocument, SnapshotIndex, SnapshotFact):
+            rows = (
+                await session.scalars(select(model).where(model.snapshot_id == snapshot_id))
+            ).all()
+            assert rows == []
+
+
+async def test_same_tenant_outsider_cannot_insert_case_scoped_rows(pg_engine):
+    """仅持有 tenant_id 不构成写权限；无 Membership 不得创建 Run/Upload。"""
+    from creditlens.infrastructure.postgres.models import ReviewRun, UploadSession
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    factory = create_session_factory(pg_engine)
+    outsider_id = uuid.uuid4()
+    attempts = (
+        ReviewRun(
+            tenant_id=SEEDED_TENANT,
+            case_id=SEEDED_CASE,
+            run_type="SIMPLE_QA",
+            status="RECEIVED",
+            as_of_date=date(2026, 6, 30),
+            decision_cutoff_at=datetime(2026, 6, 30, 15, 59, 59, tzinfo=UTC),
+        ),
+        UploadSession(
+            tenant_id=SEEDED_TENANT,
+            case_id=SEEDED_CASE,
+            object_key=f"unauthorized/{uuid.uuid4()}",
+        ),
+    )
+    for row in attempts:
+        async with session_scope(
+            factory,
+            tenant_id=SEEDED_TENANT,
+            user_id=outsider_id,
+        ) as session:
+            session.add(row)
+            with pytest.raises(Exception) as exc_info:
+                await session.flush()
+            await session.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)
+
+
+async def test_credit_case_creation_is_admin_only_and_borrower_tenant_is_immutable(pg_engine):
+    """业务角色不能造孤儿 Case，也不能把已有 Case 指向另一租户借款人。"""
+    from creditlens.infrastructure.postgres.models import CreditCase, Entity
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    async with pg_engine.connect() as connection:
+        qualified = "public.credit_cases"
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, :table, 'SELECT')"),
+            {"table": qualified},
+        )
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, :table, 'UPDATE')"),
+            {"table": qualified},
+        )
+        for privilege in ("INSERT", "DELETE"):
+            assert not await connection.scalar(
+                text("SELECT has_table_privilege(current_user, :table, :privilege)"),
+                {"table": qualified, "privilege": privilege},
+            )
+
+    factory = create_session_factory(pg_engine)
+    outsider_id = uuid.uuid4()
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=outsider_id,
+    ) as session:
+        session.add(
+            CreditCase(
+                tenant_id=SEEDED_TENANT,
+                case_number=f"UNAUTHORIZED-{uuid.uuid4().hex[:8]}",
+                borrower_entity_id=uuid.UUID("00000000-0000-0000-0000-000000000101"),
+                product_code="working_capital",
+                requested_amount=Decimal("1"),
+                application_date=date(2026, 6, 30),
+                as_of_date=date(2026, 6, 30),
+                decision_cutoff_at=datetime(2026, 6, 30, tzinfo=UTC),
+            )
+        )
+        with pytest.raises(Exception) as exc_info:
+            await session.flush()
+        await session.rollback()
+    _assert_policy_or_privilege_denied(exc_info.value)
+
+    foreign_tenant = TENANT_B
+    foreign_borrower = uuid.uuid4()
+    async with session_scope(factory, tenant_id=foreign_tenant, user_id=USER_B) as session:
+        session.add(
+            Entity(
+                id=foreign_borrower,
+                tenant_id=foreign_tenant,
+                entity_type="COMPANY",
+                canonical_name="另一租户借款人",
+            )
+        )
+
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=SEEDED_MEMBER,
+    ) as session:
+        case = await session.get(CreditCase, SEEDED_CASE)
+        assert case is not None
+        case.loan_purpose = "合法同租户更新"
+        await session.flush()
+        await session.rollback()
+
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=SEEDED_MEMBER,
+    ) as session:
+        case = await session.get(CreditCase, SEEDED_CASE)
+        assert case is not None
+        case.borrower_entity_id = foreign_borrower
+        with pytest.raises(Exception) as exc_info:
+            await session.flush()
+        await session.rollback()
+    _assert_policy_or_privilege_denied(exc_info.value)
+
+
+async def test_snapshot_children_reject_cross_tenant_sources(pg_engine):
+    """授权案件成员也不能把另一租户的文档/Fact 或不可归属索引挂进 Snapshot。"""
+    from creditlens.application.snapshot_service import freeze_snapshot
+    from creditlens.application.trusted_context import build_trusted_context
+    from creditlens.common.config import get_settings
+    from creditlens.infrastructure.postgres.models import (
+        Document,
+        DocumentSection,
+        DocumentVersion,
+        Entity,
+        FinancialFact,
+        ParseRun,
+        SnapshotDocument,
+        SnapshotFact,
+        SnapshotIndex,
+        SummaryNode,
+        SummaryNodeSource,
+    )
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    factory = create_session_factory(pg_engine)
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=SEEDED_MEMBER,
+    ) as session:
+        trusted = await build_trusted_context(
+            session,
+            SEEDED_TENANT,
+            SEEDED_CASE,
+            user_id=SEEDED_MEMBER,
+        )
+        frozen = await freeze_snapshot(
+            session,
+            trusted,
+            chunks_collection=get_settings().chunks_collection_name,
+        )
+        snapshot_id = frozen.snapshot_id
+
+    foreign_tenant = TENANT_B
+    foreign_entity_id = uuid.uuid4()
+    foreign_document_id = uuid.uuid4()
+    foreign_version_id = uuid.uuid4()
+    foreign_parse_id = uuid.uuid4()
+    foreign_section_id = uuid.uuid4()
+    foreign_fact_id = uuid.uuid4()
+    async with session_scope(factory, tenant_id=foreign_tenant, user_id=USER_B) as session:
+        session.add_all(
+            [
+                Entity(
+                    id=foreign_entity_id,
+                    tenant_id=foreign_tenant,
+                    entity_type="COMPANY",
+                    canonical_name="跨租户污染源",
+                ),
+                Document(
+                    id=foreign_document_id,
+                    tenant_id=foreign_tenant,
+                    logical_key=f"foreign-{uuid.uuid4().hex}",
+                    title="另一租户文档",
+                    document_type="ANNUAL_REPORT",
+                ),
+            ]
+        )
+        await session.flush()
+        version = DocumentVersion(
+            id=foreign_version_id,
+            tenant_id=foreign_tenant,
+            document_id=foreign_document_id,
+            version_label="1",
+            source_available_at=datetime(2026, 1, 1, tzinfo=UTC),
+            object_uri="local://foreign.pdf",
+            source_filename="foreign.pdf",
+            mime_type="application/pdf",
+            file_size=1,
+            content_hash="f" * 64,
+        )
+        session.add(version)
+        await session.flush()
+        parse_run = ParseRun(
+            id=foreign_parse_id,
+            tenant_id=foreign_tenant,
+            document_version_id=foreign_version_id,
+            generation_no=1,
+            status="SUCCEEDED",
+            activation_status="ACTIVE",
+            parser_name="rls-test",
+            parser_version="1",
+            config_hash="e" * 64,
+        )
+        session.add(parse_run)
+        await session.flush()
+        version.active_parse_run_id = foreign_parse_id
+        session.add_all(
+            [
+                DocumentSection(
+                    id=foreign_section_id,
+                    tenant_id=foreign_tenant,
+                    document_version_id=foreign_version_id,
+                    parse_run_id=foreign_parse_id,
+                    section_type="PARAGRAPH",
+                    ordinal=1,
+                    page_start=1,
+                    page_end=1,
+                    text="另一租户原文",
+                    text_hash="d" * 64,
+                ),
+                FinancialFact(
+                    id=foreign_fact_id,
+                    tenant_id=foreign_tenant,
+                    case_id=None,
+                    entity_id=foreign_entity_id,
+                    metric_code="revenue",
+                    period_end=date(2025, 12, 31),
+                    value=Decimal("1"),
+                    canonical_value=Decimal("1"),
+                    source_available_at=datetime(2026, 1, 1, tzinfo=UTC),
+                ),
+            ]
+        )
+
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=SEEDED_MEMBER,
+    ) as session:
+        summary_node_id = await session.scalar(select(SummaryNode.id).limit(1))
+        assert summary_node_id is not None
+
+    attempts = (
+        SnapshotDocument(
+            snapshot_id=snapshot_id,
+            document_version_id=foreign_version_id,
+            parse_run_id=foreign_parse_id,
+        ),
+        SnapshotFact(snapshot_id=snapshot_id, fact_id=foreign_fact_id),
+        SnapshotIndex(
+            snapshot_id=snapshot_id,
+            index_family="SUMMARIES",
+            index_version_id=uuid.uuid4(),
+            physical_collection_name="unattestable-foreign-index",
+        ),
+        SummaryNodeSource(
+            summary_node_id=summary_node_id,
+            section_id=foreign_section_id,
+            ordinal=999999,
+        ),
+    )
+    for child in attempts:
+        async with session_scope(
+            factory,
+            tenant_id=SEEDED_TENANT,
+            user_id=SEEDED_MEMBER,
+        ) as session:
+            session.add(child)
+            with pytest.raises(Exception) as exc_info:
+                await session.flush()
+            await session.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)

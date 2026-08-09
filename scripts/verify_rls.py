@@ -34,6 +34,9 @@ TENANT_A, TENANT_B = str(uuid.uuid4()), str(uuid.uuid4())
 USER_1, USER_2 = str(uuid.uuid4()), str(uuid.uuid4())
 CASE_A = str(uuid.uuid4())
 ENTITY_A = str(uuid.uuid4())
+RUN_A = str(uuid.uuid4())
+ARTIFACT_A = str(uuid.uuid4())
+CLAIM_A = str(uuid.uuid4())
 
 results: list[tuple[str, bool, str]] = []
 
@@ -84,11 +87,24 @@ def migrate_and_apply_rls() -> None:
         cur.execute(
             "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app"
         )
+        cur.execute(
+            "REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, "
+            "evidence, artifacts FROM creditlens_app"
+        )
+        cur.execute("REVOKE UPDATE, DELETE ON claims FROM creditlens_app")
+        cur.execute("GRANT UPDATE (review_status) ON claims TO creditlens_app")
+        cur.execute(
+            "REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, "
+            "financial_metric_definitions, search_index_versions, alembic_version "
+            "FROM creditlens_app"
+        )
+        cur.execute("REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_app")
+        cur.execute("REVOKE INSERT, DELETE ON credit_cases FROM creditlens_app")
     conn.close()
 
 
 def seed_fixture(conn) -> None:
-    """以租户各自的 Session Context 写入夹具（WITH CHECK 同时被验证）。"""
+    """管理身份写入授权根；普通业务数据仍由后续业务角色验证 RLS。"""
     with conn.cursor() as cur:
         # tenant A 上下文写入 A 侧数据
         cur.execute("BEGIN")
@@ -123,6 +139,25 @@ def seed_fixture(conn) -> None:
             " VALUES (%s, %s, 'ANALYST', now())",
             (CASE_A, USER_1),
         )
+        cur.execute(
+            "INSERT INTO review_runs "
+            "(id, tenant_id, case_id, run_type, status, as_of_date, decision_cutoff_at) "
+            "VALUES (%s, %s, %s, 'FULL_REVIEW', 'HUMAN_REVIEW', '2026-06-30', now())",
+            (RUN_A, TENANT_A, CASE_A),
+        )
+        cur.execute(
+            "INSERT INTO artifacts "
+            "(id, tenant_id, run_id, task_id, artifact_type, producer, payload) "
+            "VALUES (%s, %s, %s, 'rls-check', 'rls-check', 'rls-check', '{}')",
+            (ARTIFACT_A, TENANT_A, RUN_A),
+        )
+        cur.execute(
+            "INSERT INTO claims "
+            "(id, tenant_id, run_id, artifact_id, category, statement, verdict, as_of_date, payload) "
+            "VALUES (%s, %s, %s, %s, 'ELIGIBILITY', 'immutable statement', "
+            "'SUPPORTED', '2026-06-30', '{}')",
+            (CLAIM_A, TENANT_A, RUN_A, ARTIFACT_A),
+        )
         cur.execute("COMMIT")
         # tenant B 仅建租户记录
         cur.execute("BEGIN")
@@ -148,6 +183,20 @@ def count_cases(conn, tenant: str | None, user: str | None) -> int:
         return n
 
 
+def visible_identity_ids(conn, tenant: str, user: str) -> tuple[list[str], list[str]]:
+    """返回当前会话可见的 Tenant/User 身份根主键。"""
+    with conn.cursor() as cur:
+        cur.execute("BEGIN")
+        cur.execute("SET LOCAL app.tenant_id = %s", (tenant,))
+        cur.execute("SET LOCAL app.user_id = %s", (user,))
+        cur.execute("SELECT id::text FROM tenants ORDER BY id")
+        tenant_ids = [row[0] for row in cur.fetchall()]
+        cur.execute("SELECT id::text FROM app_users ORDER BY id")
+        user_ids = [row[0] for row in cur.fetchall()]
+        cur.execute("COMMIT")
+        return tenant_ids, user_ids
+
+
 def main() -> None:
     print("[1/3] 重建验证库并应用迁移 + RLS 策略…")
     recreate_test_db()
@@ -167,13 +216,105 @@ def main() -> None:
     check("正确租户 + 无 Membership 不可见案件", count_cases(conn, TENANT_A, USER_2) == 0)
     check("错误租户（B）不可见 A 的案件", count_cases(conn, TENANT_B, USER_1) == 0)
 
-    # 撤销 Membership 立即失效
+    own_tenants, own_users = visible_identity_ids(conn, TENANT_A, USER_1)
+    check("业务身份只读取当前 Tenant", own_tenants == [TENANT_A])
+    check("业务身份只读取当前 User 自身", own_users == [USER_1])
+    cross_tenants, cross_users = visible_identity_ids(conn, TENANT_B, USER_1)
+    check("切换 Tenant 后不可读取原 Tenant", cross_tenants == [TENANT_B])
+    check("Tenant/User 上下文不匹配时 User fail-closed", cross_users == [])
+
     with conn.cursor() as cur:
+        readonly_tables = (
+            "tenants",
+            "app_users",
+            "financial_metric_definitions",
+            "search_index_versions",
+            "alembic_version",
+        )
+        for table in readonly_tables:
+            qualified = f"public.{table}"
+            cur.execute(
+                "SELECT has_table_privilege(current_user, %s, 'SELECT')",
+                (qualified,),
+            )
+            can_select = cur.fetchone()[0]
+            can_mutate = False
+            for privilege in ("INSERT", "UPDATE", "DELETE"):
+                cur.execute(
+                    "SELECT has_table_privilege(current_user, %s, %s)",
+                    (qualified, privilege),
+                )
+                can_mutate = can_mutate or cur.fetchone()[0]
+            check(f"{table} 仅授予只读权限", can_select and not can_mutate)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT "
+            "has_table_privilege(current_user, 'public.claims', 'SELECT'), "
+            "has_table_privilege(current_user, 'public.claims', 'INSERT'), "
+            "has_table_privilege(current_user, 'public.claims', 'UPDATE'), "
+            "has_table_privilege(current_user, 'public.claims', 'DELETE'), "
+            "has_column_privilege(current_user, 'public.claims', 'review_status', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.claims', 'statement', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.claims', 'verdict', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.claims', 'payload', 'UPDATE')"
+        )
+        claim_privileges = cur.fetchone()
+    check(
+        "Claim only grants column-level UPDATE(review_status)",
+        claim_privileges == (True, True, False, False, True, False, False, False),
+    )
+
+    with conn.cursor() as cur:
+        cur.execute("BEGIN")
+        cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
+        cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
+        cur.execute("UPDATE claims SET review_status = 'AUDITED' WHERE id = %s", (CLAIM_A,))
+        updated = cur.rowcount
+        cur.execute("COMMIT")
+    check("business role can update Claim.review_status", updated == 1)
+
+    for column, value in (
+        ("statement", "tampered"),
+        ("verdict", "CONTRADICTED"),
+        ("payload", "{}"),
+    ):
+        denied = False
+        try:
+            with conn.cursor() as cur:
+                cur.execute("BEGIN")
+                cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
+                cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
+                cur.execute(f"UPDATE claims SET {column} = %s WHERE id = %s", (value, CLAIM_A))
+                cur.execute("COMMIT")
+        except psycopg2.errors.InsufficientPrivilege:
+            conn.rollback()
+            denied = True
+        check(f"business role cannot update Claim.{column}", denied)
+
+    # 业务角色不得撤销 Membership；授权变更只能由管理身份执行。
+    with conn.cursor() as cur:
+        denied = False
+        try:
+            cur.execute(
+                "UPDATE case_memberships SET revoked_at = now() "
+                "WHERE case_id = %s AND user_id = %s",
+                (CASE_A, USER_1),
+            )
+            conn.commit()
+        except psycopg2.errors.InsufficientPrivilege:
+            conn.rollback()
+            denied = True
+    check("业务角色不能撤销 Membership", denied)
+
+    admin_conn = psycopg2.connect(TEST_DSN)
+    with admin_conn.cursor() as cur:
         cur.execute(
             "UPDATE case_memberships SET revoked_at = now() WHERE case_id = %s AND user_id = %s",
             (CASE_A, USER_1),
         )
-        conn.commit()
+        admin_conn.commit()
+    admin_conn.close()
     check("Membership 撤销后立即不可见", count_cases(conn, TENANT_A, USER_1) == 0)
 
     # 跨租户写入被 WITH CHECK 拒绝

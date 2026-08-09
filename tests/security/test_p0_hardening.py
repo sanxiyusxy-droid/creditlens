@@ -166,6 +166,12 @@ class TestP02CrossCaseIsolation:
 
 class TestP03StateMachine:
     async def _setup_run(self, session, case, review_statuses):
+        from creditlens.agents.contracts import AgentArtifact, AgentClaim
+        from creditlens.infrastructure.postgres.artifact_integrity import (
+            canonical_artifact_payload_hash,
+        )
+        from creditlens.infrastructure.postgres.models import ArtifactRecord
+
         run = ReviewRun(
             tenant_id=TENANT_ID,
             case_id=case.id,
@@ -176,24 +182,55 @@ class TestP03StateMachine:
         )
         session.add(run)
         await session.flush()
-        from creditlens.infrastructure.postgres.models import ArtifactRecord
 
+        source_claims = [
+            AgentClaim(
+                category="ELIGIBILITY",
+                statement=f"测试 {index}",
+                verdict="SUPPORTED",
+                as_of_date=date(2026, 6, 30),
+            )
+            for index, _status in enumerate(review_statuses)
+        ]
+        source_artifact = AgentArtifact(
+            run_id=run.id,
+            task_id="t",
+            producer="test",
+            lifecycle_status="VALIDATED",
+            claims=source_claims,
+        )
+        payload = source_artifact.model_dump(mode="json", exclude={"output_hash"})
         artifact = ArtifactRecord(
-            tenant_id=TENANT_ID, run_id=run.id, task_id="t", artifact_type="test", producer="test"
+            id=source_artifact.artifact_id,
+            tenant_id=TENANT_ID,
+            run_id=run.id,
+            task_id=source_artifact.task_id,
+            artifact_type=source_artifact.producer,
+            producer=source_artifact.producer,
+            lifecycle_status=source_artifact.lifecycle_status,
+            payload=payload,
+            output_hash=canonical_artifact_payload_hash(payload),
         )
         session.add(artifact)
         await session.flush()
         claim_ids = []
-        for status in review_statuses:
+        for status, source_claim in zip(review_statuses, source_claims, strict=True):
             claim = ClaimRecord(
+                id=source_claim.claim_id,
                 tenant_id=TENANT_ID,
                 run_id=run.id,
                 artifact_id=artifact.id,
-                category="ELIGIBILITY",
-                statement="测试",
-                verdict="SUPPORTED",
-                as_of_date=date(2026, 6, 30),
+                category=source_claim.category,
+                statement=source_claim.statement,
+                verdict=source_claim.verdict,
+                as_of_date=source_claim.as_of_date,
                 review_status=status,
+                payload={
+                    "supporting_evidence_ids": [],
+                    "opposing_evidence_ids": [],
+                    "calculation_ids": [],
+                    "source_claim_id": None,
+                },
             )
             session.add(claim)
             await session.flush()

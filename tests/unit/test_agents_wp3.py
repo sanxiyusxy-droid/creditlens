@@ -15,11 +15,19 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from creditlens.agents.auditor import EvidenceAuditor
 from creditlens.agents.challenger import Challenger, assess_conflict
-from creditlens.agents.contracts import AgentArtifact, AgentClaim, AgentEvidenceRef
+from creditlens.agents.contracts import (
+    AgentArtifact,
+    AgentClaim,
+    AgentEvidenceRef,
+    AnswerStatus,
+    GroundedAnswerArtifact,
+    RefusalReasonCode,
+)
 from creditlens.agents.report_agent import ReportAgent
 from creditlens.agents.risk_agent import RiskAgent
 from creditlens.application.snapshot_service import SnapshotContext
@@ -475,6 +483,572 @@ async def test_auditor_passes_valid_evidence_within_snapshot(session):
     assert not result.needs_human_review_claim_ids
 
 
+async def test_grounded_answer_audit_accepts_exact_claim_rendering(session):
+    section_id, parse_run_id, version_id = await _make_world(session)
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].statement = "原文内容"
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer="原文内容",
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids={artifact.evidence[0].evidence_id},
+        snapshot=snapshot,
+    )
+
+    assert result.ok
+    assert result.derived_answer_status == "ANSWERED"
+    assert result.verification_scope == "STRUCTURAL_VERIFICATION"
+    assert result.semantic_entailment_verified is False
+
+
+def test_grounded_answer_contract_enforces_strict_execution_status_matrix():
+    """Every business state has exactly one permitted technical execution state."""
+    claim = AgentClaim(
+        category="ELIGIBILITY",
+        statement="原文内容",
+        verdict="SUPPORTED",
+        supporting_evidence_ids=[uuid.uuid4()],
+        as_of_date=AS_OF,
+    )
+    cases = [
+        (
+            "PARTIAL",
+            {
+                "answer_status": AnswerStatus.ANSWERED,
+                "claims": [claim],
+                "direct_answer": claim.statement,
+            },
+        ),
+        (
+            "FAILED",
+            {
+                "answer_status": AnswerStatus.ANSWERED,
+                "claims": [claim],
+                "direct_answer": claim.statement,
+            },
+        ),
+        (
+            "SUCCESS",
+            {
+                "answer_status": AnswerStatus.NEEDS_REVIEW,
+                "claims": [claim],
+                "direct_answer": None,
+            },
+        ),
+        (
+            "FAILED",
+            {
+                "answer_status": AnswerStatus.NEEDS_REVIEW,
+                "claims": [claim],
+                "direct_answer": None,
+            },
+        ),
+        (
+            "SUCCESS",
+            {
+                "answer_status": AnswerStatus.ABSTAINED,
+                "claims": [],
+                "direct_answer": None,
+                "abstention_reason": "现有证据不足。",
+                "refusal_reason_code": RefusalReasonCode.INSUFFICIENT_EVIDENCE,
+            },
+        ),
+        (
+            "FAILED",
+            {
+                "answer_status": AnswerStatus.ABSTAINED,
+                "claims": [],
+                "direct_answer": None,
+                "abstention_reason": "现有证据不足。",
+                "refusal_reason_code": RefusalReasonCode.INSUFFICIENT_EVIDENCE,
+            },
+        ),
+    ]
+
+    for execution_status, answer_fields in cases:
+        with pytest.raises(ValidationError, match="requires execution_status"):
+            GroundedAnswerArtifact(
+                run_id=uuid.uuid4(),
+                task_id="grounded_qa",
+                producer="grounded_qa",
+                execution_status=execution_status,
+                prompt_version="grounded_qa_v1",
+                **answer_fields,
+            )
+
+
+def test_grounded_answer_contract_enforces_refusal_reason_status_matrix():
+    claim = AgentClaim(
+        category="ELIGIBILITY",
+        statement="原文内容",
+        verdict="SUPPORTED",
+        supporting_evidence_ids=[uuid.uuid4()],
+        as_of_date=AS_OF,
+    )
+    with pytest.raises(ValidationError, match="requires refusal_reason_code"):
+        GroundedAnswerArtifact(
+            run_id=uuid.uuid4(),
+            task_id="grounded_qa",
+            producer="grounded_qa",
+            execution_status="INSUFFICIENT_EVIDENCE",
+            answer_status=AnswerStatus.ABSTAINED,
+            abstention_reason="现有证据不足。",
+            prompt_version="grounded_qa_v1",
+        )
+
+    non_refusals = [
+        {
+            "execution_status": "SUCCESS",
+            "answer_status": AnswerStatus.ANSWERED,
+            "claims": [claim],
+            "direct_answer": claim.statement,
+        },
+        {
+            "execution_status": "PARTIAL",
+            "answer_status": AnswerStatus.NEEDS_REVIEW,
+            "claims": [claim],
+            "direct_answer": None,
+        },
+    ]
+    for fields in non_refusals:
+        with pytest.raises(ValidationError, match="non-ABSTAINED artifact"):
+            GroundedAnswerArtifact(
+                run_id=uuid.uuid4(),
+                task_id="grounded_qa",
+                producer="grounded_qa",
+                refusal_reason_code=RefusalReasonCode.INSUFFICIENT_EVIDENCE,
+                prompt_version="grounded_qa_v1",
+                **fields,
+            )
+
+
+async def test_grounded_answer_auditor_rejects_bypassed_failed_state_without_derivation(
+    session,
+):
+    """Auditor remains fail-closed when model_copy bypasses Pydantic validation."""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].statement = "原文内容"
+    answered = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer="原文内容",
+        prompt_version="grounded_qa_v1",
+    )
+    abstained = GroundedAnswerArtifact(
+        run_id=uuid.uuid4(),
+        task_id="grounded_qa",
+        producer="grounded_qa",
+        execution_status="INSUFFICIENT_EVIDENCE",
+        answer_status=AnswerStatus.ABSTAINED,
+        abstention_reason="现有证据不足。",
+        refusal_reason_code=RefusalReasonCode.INSUFFICIENT_EVIDENCE,
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    for artifact, allowed_ids in (
+        (answered, {answered.evidence[0].evidence_id}),
+        (abstained, set()),
+    ):
+        bypassed = artifact.model_copy(update={"execution_status": "FAILED"})
+        result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+            session,
+            _trusted(),
+            bypassed,
+            allowed_evidence_ids=allowed_ids,
+            snapshot=snapshot,
+        )
+
+        assert not result.ok
+        assert result.derived_answer_status is None
+        assert result.blocking_failures == ["GROUNDING_EXECUTION_FAILED"]
+        assert result.violations["grounded_answer"] == ["GROUNDING_EXECUTION_FAILED"]
+
+
+async def test_grounded_answer_audit_rejects_unpacked_citation_and_numeric_invention(session):
+    section_id, parse_run_id, version_id = await _make_world(session)
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].statement = "该政策阈值为 70%"
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer="该政策阈值为 70%",
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids=set(),
+        snapshot=snapshot,
+    )
+
+    assert not result.ok
+    violations = [code for codes in result.violations.values() for code in codes]
+    assert any(code.startswith("EVIDENCE_NOT_IN_PACKED_CONTEXT") for code in violations)
+    assert "CITATION_NOT_IN_PACKED_CONTEXT" in violations
+    assert "NUMERIC_TOKEN_NOT_IN_CITATION:70%" in violations
+
+
+async def test_grounded_financial_number_may_use_verified_document_span(session):
+    """Grounded QA's document-number exception opens only after full span checks."""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    statement = "2025年度营业收入为50000万元。"
+    section = await session.get(DocumentSection, section_id)
+    section.text = statement
+    await session.flush()
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].category = "FINANCIAL"
+    base.claims[0].statement = statement
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer=statement,
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids={artifact.evidence[0].evidence_id},
+        snapshot=snapshot,
+    )
+
+    assert result.ok
+    assert result.accepted_claim_ids == [artifact.claims[0].claim_id]
+
+
+async def _audit_grounded_pair(
+    session,
+    *,
+    cited_text: str,
+    statement: str,
+    category: str = "FINANCIAL",
+):
+    """Build a valid locator so answer-layer guards are isolated in tests."""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    section = await session.get(DocumentSection, section_id)
+    section.text = cited_text
+    await session.flush()
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].category = category
+    base.claims[0].statement = statement
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer=statement,
+        prompt_version="grounded_qa_v1",
+    )
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids={artifact.evidence[0].evidence_id},
+        snapshot=SnapshotContext(
+            snapshot_id=uuid.uuid4(),
+            allowed_parse_run_ids=[parse_run_id],
+        ),
+    )
+    return result, artifact
+
+
+async def test_grounded_numeric_guard_binds_explicit_sign(session):
+    result, artifact = await _audit_grounded_pair(
+        session,
+        cited_text="2025年度营业收入同比增长+10%。",
+        statement="2025年度营业收入同比增长-10%。",
+    )
+
+    assert not result.ok
+    assert (
+        "NUMERIC_TOKEN_NOT_IN_CITATION:-10%" in result.violations[str(artifact.claims[0].claim_id)]
+    )
+
+
+async def test_grounded_numeric_guard_binds_amount_scale_and_currency(session):
+    result, artifact = await _audit_grounded_pair(
+        session,
+        cited_text="2025年度营业收入为50000元。",
+        statement="2025年度营业收入为50000万元。",
+    )
+
+    assert not result.ok
+    # The stable external code retains the historical numeric payload, while
+    # the internal comparison also binds CNY and the 万 scale.
+    assert (
+        "NUMERIC_TOKEN_NOT_IN_CITATION:50000" in result.violations[str(artifact.claims[0].claim_id)]
+    )
+
+
+async def test_grounded_numeric_guard_still_runs_structural_coverage(session):
+    result, artifact = await _audit_grounded_pair(
+        session,
+        cited_text="2025年度营业收入为50000万元。",
+        statement="2025年度重大诉讼金额为50000万元。",
+    )
+
+    claim_id = artifact.claims[0].claim_id
+    assert not result.ok
+    assert claim_id in result.needs_human_review_claim_ids
+    assert "STRUCTURAL_COVERAGE_INSUFFICIENT" in result.violations[str(claim_id)]
+
+
+async def test_grounded_numeric_guard_normalizes_nfkc_spaces_and_thousands(session):
+    result, artifact = await _audit_grounded_pair(
+        session,
+        cited_text="2025年度营业收入为50000万元。",
+        statement="２０２５ 年度营业收入为 ５０,０００ 万元。",
+    )
+
+    assert result.ok, result.violations
+    assert result.accepted_claim_ids == [artifact.claims[0].claim_id]
+
+
+@pytest.mark.parametrize(
+    ("cited_text", "statement"),
+    [
+        ("该企业不存在重大诉讼。", "该企业存在重大诉讼。"),
+        ("申请人不满足准入要求。", "申请人满足准入要求。"),
+        ("营业收入同比下降。", "营业收入同比上升。"),
+    ],
+)
+async def test_grounded_obvious_polarity_reversal_routes_to_review(
+    session,
+    cited_text,
+    statement,
+):
+    result, artifact = await _audit_grounded_pair(
+        session,
+        cited_text=cited_text,
+        statement=statement,
+    )
+
+    claim_id = artifact.claims[0].claim_id
+    assert not result.ok
+    assert claim_id in result.needs_human_review_claim_ids
+    assert claim_id not in result.rejected_claim_ids
+    assert "POLARITY_CONFLICT_WITH_CITATION" in result.violations[str(claim_id)]
+
+
+async def test_grounded_threshold_wording_is_not_a_polarity_false_positive(session):
+    result, artifact = await _audit_grounded_pair(
+        session,
+        cited_text="政策规定资产负债率不得超过70%。",
+        statement="政策规定资产负债率上限为70%。",
+        category="ELIGIBILITY",
+    )
+
+    assert result.ok, result.violations
+    assert artifact.claims[0].claim_id in result.accepted_claim_ids
+
+
+async def test_grounded_financial_document_number_requires_verbatim_coverage(session):
+    section_id, parse_run_id, version_id = await _make_world(session)
+    section = await session.get(DocumentSection, section_id)
+    section.text = "2025年度营业收入尚待披露。"
+    await session.flush()
+    statement = "2025年度营业收入为50000万元。"
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].category = "FINANCIAL"
+    base.claims[0].statement = statement
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer=statement,
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids={artifact.evidence[0].evidence_id},
+        snapshot=snapshot,
+    )
+
+    assert not result.ok
+    assert artifact.claims[0].claim_id in result.rejected_claim_ids
+    assert (
+        "NUMERIC_TOKEN_NOT_IN_CITATION:50000" in result.violations[str(artifact.claims[0].claim_id)]
+    )
+
+
+async def test_grounded_financial_document_number_requires_matching_hash(session):
+    section_id, parse_run_id, version_id = await _make_world(session)
+    statement = "2025年度营业收入为50000万元。"
+    section = await session.get(DocumentSection, section_id)
+    section.text = statement
+    await session.flush()
+    base = _span_artifact(
+        uuid.uuid4(),
+        section_id,
+        version_id,
+        parse_run_id,
+        text_hash="tampered-hash",
+    )
+    base.producer = "grounded_qa"
+    base.claims[0].category = "FINANCIAL"
+    base.claims[0].statement = statement
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer=statement,
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids={artifact.evidence[0].evidence_id},
+        snapshot=snapshot,
+    )
+
+    assert not result.ok
+    assert "CONTENT_HASH_MISMATCH" in result.violations[str(artifact.evidence[0].evidence_id)]
+    assert artifact.claims[0].claim_id in result.rejected_claim_ids
+
+
+async def test_generic_agent_financial_document_number_still_requires_structured_fact(
+    session,
+):
+    """The document-number exception is not available to ordinary Agent artifacts."""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    statement = "2025年度营业收入为50000万元。"
+    section = await session.get(DocumentSection, section_id)
+    section.text = statement
+    await session.flush()
+    artifact = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    artifact.claims[0].category = "FINANCIAL"
+    artifact.claims[0].statement = statement
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify(
+        session,
+        _trusted(),
+        [artifact],
+        snapshot=snapshot,
+    )
+
+    claim = artifact.claims[0]
+    assert claim.claim_id in result.rejected_claim_ids
+    assert any(
+        code.endswith(":NUMERIC_CLAIM_WITHOUT_FACT")
+        for code in result.violations[str(claim.claim_id)]
+    )
+
+
+async def test_grounded_nonnumeric_counterexample_is_forced_to_human_review(session):
+    """A valid locator cannot turn an unrelated citation into semantic support."""
+    section_id, parse_run_id, version_id = await _make_world(session)
+    section = await session.get(DocumentSection, section_id)
+    section.text = "申请材料应包括最近一期经审计财务报表。"
+    await session.flush()
+    statement = "该企业已经获得国家级高新技术企业认证。"
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].statement = statement
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.ANSWERED,
+        direct_answer=statement,
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids={artifact.evidence[0].evidence_id},
+        snapshot=snapshot,
+    )
+
+    claim_id = artifact.claims[0].claim_id
+    assert not result.ok
+    assert result.derived_answer_status == "NEEDS_REVIEW"
+    assert result.requires_human_review
+    assert result.needs_human_review_claim_ids == [claim_id]
+    assert claim_id not in result.accepted_claim_ids
+    assert claim_id not in result.rejected_claim_ids
+    assert "STRUCTURAL_COVERAGE_INSUFFICIENT" in result.violations[str(claim_id)]
+    assert result.semantic_entailment_verified is False
+
+
+async def test_grounded_answer_audit_derives_review_status_instead_of_trusting_model(session):
+    section_id, parse_run_id, version_id = await _make_world(session)
+    base = _span_artifact(uuid.uuid4(), section_id, version_id, parse_run_id)
+    base.producer = "grounded_qa"
+    base.claims[0].statement = "原文内容"
+    base.execution_status = "PARTIAL"
+    artifact = GroundedAnswerArtifact(
+        **base.model_dump(),
+        answer_status=AnswerStatus.NEEDS_REVIEW,
+        direct_answer=None,
+        prompt_version="grounded_qa_v1",
+    )
+    snapshot = SnapshotContext(snapshot_id=uuid.uuid4(), allowed_parse_run_ids=[parse_run_id])
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids={artifact.evidence[0].evidence_id},
+        snapshot=snapshot,
+    )
+
+    assert not result.ok
+    assert result.derived_answer_status == "ANSWERED"
+    assert "ANSWER_STATUS_MISMATCH:NEEDS_REVIEW:ANSWERED" in result.violations["grounded_answer"]
+
+
+async def test_grounded_answer_audit_accepts_structured_abstention(session):
+    await _make_world(session)
+    artifact = GroundedAnswerArtifact(
+        run_id=uuid.uuid4(),
+        task_id="grounded_qa",
+        producer="grounded_qa",
+        execution_status="INSUFFICIENT_EVIDENCE",
+        answer_status=AnswerStatus.ABSTAINED,
+        direct_answer=None,
+        abstention_reason="现有证据不足。",
+        refusal_reason_code=RefusalReasonCode.INSUFFICIENT_EVIDENCE,
+        prompt_version="grounded_qa_v1",
+    )
+
+    result = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        artifact,
+        allowed_evidence_ids=set(),
+        snapshot=SnapshotContext(snapshot_id=uuid.uuid4()),
+    )
+
+    assert result.ok
+    assert result.derived_answer_status == "ABSTAINED"
+
+
 async def test_auditor_rejects_missing_document_locator(session):
     """DOCUMENT_SPAN 缺少版本、解析批次或页码时必须 fail-closed。"""
     section_id, parse_run_id, _ = await _make_world(session)
@@ -829,6 +1403,11 @@ async def test_auditor_core_failed_blocks_noncore_degrades(session):
 
 
 async def _make_report_world(session):
+    from creditlens.agents.contracts import AgentEvidenceRef
+    from creditlens.infrastructure.postgres.artifact_integrity import (
+        canonical_artifact_payload_hash,
+    )
+
     await _make_world(session)
     run = ReviewRun(
         tenant_id=TENANT,
@@ -840,53 +1419,82 @@ async def _make_report_world(session):
     session.add(run)
     await session.flush()
 
-    evidence_id = uuid.uuid4()
-    opposing_evidence_id = uuid.uuid4()
     section_id = uuid.uuid4()
     opposing_section_id = uuid.uuid4()
-    artifact = ArtifactRecord(
-        tenant_id=TENANT,
+    evidence = AgentEvidenceRef(
+        evidence_id=uuid.uuid4(),
+        evidence_type="DOCUMENT_SPAN",
+        source_id=section_id,
+        document_version_id=uuid.uuid4(),
+        section_id=section_id,
+        page_number=3,
+        content_hash="hash-loc",
+        source_available_at=CUTOFF,
+    )
+    opposing_evidence = AgentEvidenceRef(
+        evidence_id=uuid.uuid4(),
+        evidence_type="DOCUMENT_SPAN",
+        source_id=opposing_section_id,
+        document_version_id=uuid.uuid4(),
+        section_id=opposing_section_id,
+        page_number=4,
+        content_hash="hash-opposing",
+        source_available_at=CUTOFF,
+    )
+    source_claim_id = uuid.uuid4()
+    source_claim = AgentClaim(
+        category="ELIGIBILITY",
+        statement="符合准入条件。",
+        verdict="SUPPORTED",
+        supporting_evidence_ids=[evidence.evidence_id],
+        opposing_evidence_ids=[opposing_evidence.evidence_id],
+        as_of_date=AS_OF,
+        source_claim_id=source_claim_id,
+    )
+    excluded_source_claim = AgentClaim(
+        category="FINANCIAL",
+        statement="被排除的结论。",
+        verdict="SUPPORTED",
+        as_of_date=AS_OF,
+    )
+    source_artifact = AgentArtifact(
         run_id=run.id,
         task_id="policy_review",
-        artifact_type="AGENT",
         producer="policy_analyst",
-        payload={
-            "evidence": [
-                {
-                    "evidence_id": str(evidence_id),
-                    "evidence_type": "DOCUMENT_SPAN",
-                    "document_version_id": "ver-1",
-                    "section_id": str(section_id),
-                    "page_number": 3,
-                    "content_hash": "hash-loc",
-                },
-                {
-                    "evidence_id": str(opposing_evidence_id),
-                    "evidence_type": "DOCUMENT_SPAN",
-                    "document_version_id": "ver-2",
-                    "section_id": str(opposing_section_id),
-                    "page_number": 4,
-                    "content_hash": "hash-opposing",
-                },
-            ]
-        },
+        lifecycle_status="VALIDATED",
+        claims=[source_claim, excluded_source_claim],
+        evidence=[evidence, opposing_evidence],
+    )
+    persisted_payload = source_artifact.model_dump(mode="json", exclude={"output_hash"})
+    artifact = ArtifactRecord(
+        id=source_artifact.artifact_id,
+        tenant_id=TENANT,
+        run_id=run.id,
+        task_id=source_artifact.task_id,
+        artifact_type=source_artifact.producer,
+        producer=source_artifact.producer,
+        lifecycle_status=source_artifact.lifecycle_status,
+        execution_status=source_artifact.execution_status,
+        payload=persisted_payload,
+        output_hash=canonical_artifact_payload_hash(persisted_payload),
     )
     session.add(artifact)
     await session.flush()
 
-    source_claim_id = uuid.uuid4()
     claim = ClaimRecord(
+        id=source_claim.claim_id,
         tenant_id=TENANT,
         run_id=run.id,
         artifact_id=artifact.id,
-        category="ELIGIBILITY",
-        statement="符合准入条件。",
-        verdict="SUPPORTED",
+        category=source_claim.category,
+        statement=source_claim.statement,
+        verdict=source_claim.verdict,
         as_of_date=AS_OF,
         review_status="AUDITED",
         payload={
-            "supporting_evidence_ids": [str(evidence_id)],
-            "opposing_evidence_ids": [str(opposing_evidence_id)],
+            "supporting_evidence_ids": [str(evidence.evidence_id)],
+            "opposing_evidence_ids": [str(opposing_evidence.evidence_id)],
+            "calculation_ids": [],
             "source_claim_id": str(source_claim_id),
         },
     )
@@ -894,15 +1502,21 @@ async def _make_report_world(session):
     # 未通过审计的 Claim：不得进入报告
     session.add(
         ClaimRecord(
+            id=excluded_source_claim.claim_id,
             tenant_id=TENANT,
             run_id=run.id,
             artifact_id=artifact.id,
-            category="FINANCIAL",
-            statement="被排除的结论。",
-            verdict="SUPPORTED",
+            category=excluded_source_claim.category,
+            statement=excluded_source_claim.statement,
+            verdict=excluded_source_claim.verdict,
             as_of_date=AS_OF,
             review_status="NEEDS_REWORK",
-            payload={},
+            payload={
+                "supporting_evidence_ids": [],
+                "opposing_evidence_ids": [],
+                "calculation_ids": [],
+                "source_claim_id": None,
+            },
         )
     )
     await session.flush()
@@ -933,6 +1547,18 @@ async def test_report_agent_real_locators_and_source_claim(session):
     markdown = agent.render_markdown(content)
     assert "DEGRADED（部分审查覆盖缺失）" in markdown
     assert "risk, challenger" in markdown
+
+
+async def test_report_agent_rejects_tampered_claim_projection(session):
+    """Report generation fails closed if mutable storage diverges from the Artifact."""
+    from creditlens.infrastructure.postgres.artifact_integrity import ArtifactIntegrityError
+
+    run, claim, *_ = await _make_report_world(session)
+    claim.verdict = "CONTRADICTED"
+    await session.flush()
+
+    with pytest.raises(ArtifactIntegrityError, match="PERSISTED_ARTIFACT_INTEGRITY_FAILED"):
+        await ReportAgent().generate(session, run)
 
 
 async def test_report_agent_status_verified_then_approved(session):

@@ -114,8 +114,10 @@ jobs:
           DATABASE_URL="postgresql://postgres:postgres@localhost:5432/creditlens_test" uv run alembic upgrade head
           # 3) 管理身份：应用 RLS 基线（ENABLE + FORCE + 租户/案件级策略）
           psql -h localhost -U postgres -d creditlens_test -f infra/postgres/rls_policies.sql
-          # 4) 管理身份：向业务角色授权（表已由 Alembic 创建，owner 为 postgres）
-          psql -h localhost -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app; REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts FROM creditlens_app;"
+          # 4) 管理身份：授权根只能由管理身份创建；业务 Seed 不得自授 Membership
+          psql -h localhost -U postgres -d creditlens_test -f infra/postgres/ci_seed_principals.sql
+          # 5) 管理身份：向业务角色授权（case_memberships 仅保留业务读取）
+          psql -h localhost -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app; REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts FROM creditlens_app; REVOKE UPDATE, DELETE ON claims FROM creditlens_app; GRANT UPDATE (review_status) ON claims TO creditlens_app; REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, financial_metric_definitions, search_index_versions, alembic_version FROM creditlens_app; REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_app; REVOKE INSERT, DELETE ON credit_cases FROM creditlens_app;"
       - name: Seed（业务身份：三案件幂等 Seed）
         run: uv run python scripts/seed_synthetic_data.py
       - name: Integration tests（0 skip / 0 fail 门禁）

@@ -5,13 +5,15 @@
 - suggested_tasks 只是建议，专业 Agent 无权直接启动任务。
 """
 
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from creditlens.formulas.engine import CalculationArtifact
 
@@ -36,20 +38,26 @@ class AgentEvidenceRef(BaseModel):
     source_available_at: datetime
 
 
+AgentClaimCategory = Literal[
+    "ELIGIBILITY",
+    "FINANCIAL",
+    "CASH_FLOW",
+    "CONCENTRATION",
+    "RELATED_PARTY",
+    "DATA_CONFLICT",
+    "MISSING_MATERIAL",
+    "EXCEPTION",
+]
+AgentClaimVerdict = Literal[
+    "SUPPORTED", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"
+]
+
+
 class AgentClaim(BaseModel):
     claim_id: uuid.UUID = Field(default_factory=uuid.uuid4)
-    category: Literal[
-        "ELIGIBILITY",
-        "FINANCIAL",
-        "CASH_FLOW",
-        "CONCENTRATION",
-        "RELATED_PARTY",
-        "DATA_CONFLICT",
-        "MISSING_MATERIAL",
-        "EXCEPTION",
-    ]
+    category: AgentClaimCategory
     statement: str
-    verdict: Literal["SUPPORTED", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"]
+    verdict: AgentClaimVerdict
     severity: Literal["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"] = "INFO"
     supporting_evidence_ids: list[uuid.UUID] = Field(default_factory=list)
     opposing_evidence_ids: list[uuid.UUID] = Field(default_factory=list)
@@ -85,6 +93,150 @@ class AgentArtifact(BaseModel):
     output_hash: str = ""
 
 
+class AnswerStatus(StrEnum):
+    """Business answer state; technical failures belong to the enclosing Run."""
+
+    ANSWERED = "ANSWERED"
+    ABSTAINED = "ABSTAINED"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+
+
+class RefusalReasonCode(StrEnum):
+    """Stable, non-sensitive reason taxonomy for business abstentions."""
+
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+    UNSPECIFIED_REFUSAL = "UNSPECIFIED_REFUSAL"
+    MISSING_PERSONAL_CREDIT = "MISSING_PERSONAL_CREDIT"
+    MISSING_EXTERNAL_CREDIT = "MISSING_EXTERNAL_CREDIT"
+    MISSING_BANK_STATEMENTS = "MISSING_BANK_STATEMENTS"
+    PRIVACY_AND_MISSING_EVIDENCE = "PRIVACY_AND_MISSING_EVIDENCE"
+    SENSITIVE_DATA_UNAVAILABLE = "SENSITIVE_DATA_UNAVAILABLE"
+    MISSING_PERSONAL_ASSETS = "MISSING_PERSONAL_ASSETS"
+    MISSING_FUTURE_DATA = "MISSING_FUTURE_DATA"
+    MISSING_CREDIT_REPORT = "MISSING_CREDIT_REPORT"
+    NOT_APPLICABLE_NON_PUBLIC_COMPANY = "NOT_APPLICABLE_NON_PUBLIC_COMPANY"
+    MISSING_MARKET_DATA = "MISSING_MARKET_DATA"
+    MISSING_CORPORATE_IDENTITY_DATA = "MISSING_CORPORATE_IDENTITY_DATA"
+    MISSING_FINANCIAL_DATA = "MISSING_FINANCIAL_DATA"
+
+
+GROUNDING_EXECUTION_STATUS_BY_ANSWER: dict[AnswerStatus, str] = {
+    AnswerStatus.ANSWERED: "SUCCESS",
+    AnswerStatus.NEEDS_REVIEW: "PARTIAL",
+    AnswerStatus.ABSTAINED: "INSUFFICIENT_EVIDENCE",
+}
+
+
+class DraftAnswerClaim(BaseModel):
+    """Untrusted model draft without server-owned ids, locators or answer text."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: AgentClaimCategory
+    statement: str = Field(min_length=1, max_length=1000)
+    verdict: AgentClaimVerdict
+    supporting_evidence_ids: list[uuid.UUID] = Field(default_factory=list)
+    opposing_evidence_ids: list[uuid.UUID] = Field(default_factory=list)
+    uncertainty_reason: str | None = Field(default=None, max_length=500)
+
+    @field_validator("statement", mode="before")
+    @classmethod
+    def normalize_statement(cls, value):
+        """Normalize untrusted text before applying length/non-empty constraints."""
+        if not isinstance(value, str):
+            return value
+        normalized = unicodedata.normalize("NFKC", value).strip()
+        if not normalized:
+            raise ValueError("statement must not be blank")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_evidence_shape(self) -> "DraftAnswerClaim":
+        if self.verdict == "SUPPORTED" and not self.supporting_evidence_ids:
+            raise ValueError("SUPPORTED draft claim requires supporting evidence")
+        if self.verdict == "INSUFFICIENT_EVIDENCE" and not self.uncertainty_reason:
+            raise ValueError("INSUFFICIENT_EVIDENCE draft claim requires uncertainty_reason")
+        return self
+
+
+class GroundedAnswerDraft(BaseModel):
+    """Only structure the model may produce; status and direct answer are server-owned."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claims: list[DraftAnswerClaim] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
+    abstention_reason: str | None = Field(default=None, max_length=500)
+    refusal_reason_code: RefusalReasonCode | None = None
+
+    @field_validator("refusal_reason_code", mode="before")
+    @classmethod
+    def discard_unknown_refusal_reason(cls, value):
+        """Treat an untrusted model's unknown code as absent; never infer a replacement."""
+        if value is None or isinstance(value, RefusalReasonCode):
+            return value
+        if not isinstance(value, str):
+            return None
+        try:
+            return RefusalReasonCode(value.strip())
+        except ValueError:
+            return None
+
+    @model_validator(mode="after")
+    def validate_refusal_reason_shape(self) -> "GroundedAnswerDraft":
+        """A trusted refusal code may only accompany a draft that will abstain."""
+        if self.refusal_reason_code is None:
+            return self
+        insufficient_only = bool(self.claims) and all(
+            claim.verdict == "INSUFFICIENT_EVIDENCE" for claim in self.claims
+        )
+        will_abstain = (
+            bool(self.abstention_reason)
+            or insufficient_only
+            or (not self.claims and bool(self.missing_information))
+        )
+        if not will_abstain:
+            raise ValueError("refusal_reason_code is only valid for an abstaining draft")
+        return self
+
+
+class GroundedAnswerArtifact(AgentArtifact):
+    """Server-materialized grounded answer with deterministic evidence bindings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answer_status: AnswerStatus
+    direct_answer: str | None = None
+    missing_information: list[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
+    abstention_reason: str | None = None
+    refusal_reason_code: RefusalReasonCode | None = None
+    prompt_version: str
+    model_invocation_ids: list[uuid.UUID] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_answer_state(self) -> "GroundedAnswerArtifact":
+        expected_execution_status = GROUNDING_EXECUTION_STATUS_BY_ANSWER[self.answer_status]
+        if self.execution_status != expected_execution_status:
+            raise ValueError(
+                f"{self.answer_status.value} requires execution_status={expected_execution_status}"
+            )
+        if self.answer_status == AnswerStatus.ANSWERED:
+            if not self.direct_answer or not self.claims:
+                raise ValueError("ANSWERED artifact requires direct_answer and grounded claims")
+        elif self.direct_answer is not None:
+            raise ValueError("non-ANSWERED artifact must not expose direct_answer")
+        if self.answer_status == AnswerStatus.ABSTAINED and not self.abstention_reason:
+            raise ValueError("ABSTAINED artifact requires abstention_reason")
+        if self.answer_status == AnswerStatus.ABSTAINED:
+            if self.refusal_reason_code is None:
+                raise ValueError("ABSTAINED artifact requires refusal_reason_code")
+        elif self.refusal_reason_code is not None:
+            raise ValueError("non-ABSTAINED artifact must not expose refusal_reason_code")
+        return self
+
+
 @dataclass
 class ContractValidationResult:
     ok: bool
@@ -98,6 +250,8 @@ def validate_artifact_contract(
     artifact: AgentArtifact,
     as_of_date: date,
     requested_amount: Decimal | None = None,
+    *,
+    allow_grounded_document_numeric: bool = False,
 ) -> ContractValidationResult:
     """Contract Validator（文档 §10.9）。"""
     violations: list[str] = []
@@ -137,7 +291,21 @@ def validate_artifact_contract(
                 for e in artifact.evidence
                 if e.evidence_id in claim.supporting_evidence_ids
             )
-            if not fact_backed:
+            # Grounded QA may quote a number directly from an immutable document
+            # span, but only its dedicated auditor is allowed to open this gate.
+            # That caller subsequently proves the locator/hash and requires every
+            # numeric token to occur verbatim in the cited section.  Generic Agent
+            # artifacts retain the stricter structured-fact requirement.
+            grounded_document_backed = (
+                allow_grounded_document_numeric
+                and isinstance(artifact, GroundedAnswerArtifact)
+                and any(
+                    e.evidence_type == "DOCUMENT_SPAN"
+                    for e in artifact.evidence
+                    if e.evidence_id in claim.supporting_evidence_ids
+                )
+            )
+            if not fact_backed and not grounded_document_backed:
                 violations.append(f"{prefix}:NUMERIC_CLAIM_WITHOUT_FACT")
 
         # 时点必须与硬约束一致

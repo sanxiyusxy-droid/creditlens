@@ -378,7 +378,13 @@ class Supervisor:
         self, session: AsyncSession, run: ReviewRun, artifacts: list[AgentArtifact]
     ) -> None:
         """Artifact/Claim/Evidence Append-only 持久化。"""
+        from creditlens.infrastructure.postgres.artifact_integrity import (
+            canonical_artifact_payload_hash,
+        )
+
         for artifact in artifacts:
+            persisted_payload = artifact.model_dump(mode="json", exclude={"output_hash"})
+            persisted_payload["lifecycle_status"] = "VALIDATED"
             record = ArtifactRecord(
                 id=artifact.artifact_id,
                 tenant_id=run.tenant_id,
@@ -388,7 +394,9 @@ class Supervisor:
                 producer=artifact.producer,
                 lifecycle_status="VALIDATED",
                 execution_status=artifact.execution_status,
-                payload=artifact.model_dump(mode="json"),
+                payload=persisted_payload,
+                input_hash=artifact.input_hash,
+                output_hash=canonical_artifact_payload_hash(persisted_payload),
             )
             session.add(record)
             # P1：EvidenceRecord 独立落库——报告/审计可直接从 evidence 表

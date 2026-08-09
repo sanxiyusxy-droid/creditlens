@@ -13,6 +13,12 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 
+# HTTP tests deliberately exercise the local demo identity. Production defaults remain
+# fail-closed; these explicit test-only values are installed before apps.api.main is imported.
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("API_IDENTITY_MODE", "demo")
+os.environ.setdefault("ALLOW_INSECURE_DEMO_IDENTITY", "true")
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))

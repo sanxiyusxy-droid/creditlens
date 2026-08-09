@@ -7,6 +7,7 @@
 - Rerank 降级路径
 """
 
+import asyncio
 import uuid
 
 import pytest
@@ -139,3 +140,159 @@ async def test_orchestrator_rerank_degraded(orchestrator_deps):
         assert result.channel_config["rerank"] is False
     else:
         assert result.channel_config["rerank"] is False
+
+
+async def test_grounded_qa_persists_audited_answer_chain(orchestrator_deps):
+    """真实 PG/Qdrant/RLS 下，离线抽取答案仍必须经过引用审计并完整落库。"""
+    from datetime import UTC, date, datetime
+
+    from sqlalchemy import func, select
+
+    from creditlens.application.qa_service import QAService
+    from creditlens.infrastructure.postgres.models import (
+        ArtifactRecord,
+        ClaimRecord,
+        EvidenceRecord,
+        ReviewRun,
+        RunEvent,
+    )
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    orchestrator, settings, engine = orchestrator_deps
+    settings = settings.model_copy(update={"qa_allow_extractive_fallback": True})
+    factory = create_session_factory(engine)
+    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+    case_id = uuid.UUID("00000000-0000-0000-0000-000000000201")
+    user_id = uuid.UUID("00000000-0000-0000-0000-000000000301")
+    service = QAService(
+        session_factory=factory,
+        orchestrator=orchestrator,
+        settings=settings,
+        chat=None,
+        tenant_id=tenant_id,
+        user_id=user_id,
+    )
+
+    response = await service.ask(
+        case_id=case_id,
+        question="本行流动资金贷款对借款人资产负债率的要求是什么？",
+        top_k=8,
+        idempotency_key="integration-grounded-qa-v13",
+        as_of_date=date(2026, 6, 30),
+        decision_cutoff_at=datetime(2026, 6, 30, 15, 59, 59, tzinfo=UTC),
+    )
+    replay = await service.ask(
+        case_id=case_id,
+        question="本行流动资金贷款对借款人资产负债率的要求是什么？",
+        top_k=8,
+        idempotency_key="integration-grounded-qa-v13",
+        as_of_date=date(2026, 6, 30),
+        decision_cutoff_at=datetime(2026, 6, 30, 15, 59, 59, tzinfo=UTC),
+    )
+
+    assert response.answer_status == "NEEDS_REVIEW"
+    assert response.generation_mode == "deterministic_extractive"
+    assert response.answer == ""
+    assert response.claims and response.claims[0].citations
+    extractive_statement = response.claims[0].statement
+    assert extractive_statement.startswith("原文摘录:")
+    assert extractive_statement.removeprefix("原文摘录:").strip()
+    assert response.claims[0].citations[0]["preview_url"]
+    assert replay.run_id == response.run_id
+    assert replay.idempotent_replay is True
+    assert replay.candidates == []
+
+    async with session_scope(factory, tenant_id=tenant_id, user_id=user_id) as session:
+        run = await session.get(ReviewRun, response.run_id)
+        artifacts = await session.scalar(
+            select(func.count())
+            .select_from(ArtifactRecord)
+            .where(ArtifactRecord.run_id == response.run_id)
+        )
+        claims = await session.scalar(
+            select(func.count())
+            .select_from(ClaimRecord)
+            .where(ClaimRecord.run_id == response.run_id)
+        )
+        claim_review_statuses = (
+            await session.scalars(
+                select(ClaimRecord.review_status).where(ClaimRecord.run_id == response.run_id)
+            )
+        ).all()
+        evidence = await session.scalar(
+            select(func.count())
+            .select_from(EvidenceRecord)
+            .where(EvidenceRecord.run_id == response.run_id)
+        )
+        events = (
+            await session.scalars(
+                select(RunEvent.event_type)
+                .where(RunEvent.run_id == response.run_id)
+                .order_by(RunEvent.sequence_no)
+            )
+        ).all()
+
+    assert run.status == "COMPLETED"
+    assert artifacts == claims == evidence == 1
+    assert claim_review_statuses == ["PENDING"]
+    assert "ANSWER_AUDIT_COMPLETED" in events
+    assert "ANSWER_PERSISTED" in events
+    assert "QA_EXECUTION_FAILED" not in events
+
+
+async def test_concurrent_grounded_qa_idempotency_creates_one_run(orchestrator_deps):
+    """并发同键请求只允许一个执行者；另一方只能冲突或重放同一 Run。"""
+    from datetime import UTC, date, datetime
+
+    from sqlalchemy import func, select
+
+    from creditlens.application.qa_service import GroundedQAResponse, QAService
+    from creditlens.common.errors import IdempotencyConflictError
+    from creditlens.infrastructure.postgres.models import ArtifactRecord, ReviewRun
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    orchestrator, settings, engine = orchestrator_deps
+    settings = settings.model_copy(update={"qa_allow_extractive_fallback": True})
+    factory = create_session_factory(engine)
+    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+    case_id = uuid.UUID("00000000-0000-0000-0000-000000000201")
+    user_id = uuid.UUID("00000000-0000-0000-0000-000000000301")
+    key = "integration-grounded-qa-concurrent-v13"
+    service = QAService(
+        session_factory=factory,
+        orchestrator=orchestrator,
+        settings=settings,
+        chat=None,
+        tenant_id=tenant_id,
+        user_id=user_id,
+    )
+
+    async def invoke():
+        return await service.ask(
+            case_id=case_id,
+            question="流动资金贷款期限最长多久？",
+            top_k=8,
+            idempotency_key=key,
+            as_of_date=date(2026, 6, 30),
+            decision_cutoff_at=datetime(2026, 6, 30, 15, 59, 59, tzinfo=UTC),
+        )
+
+    outcomes = await asyncio.gather(invoke(), invoke(), return_exceptions=True)
+    responses = [item for item in outcomes if isinstance(item, GroundedQAResponse)]
+    conflicts = [item for item in outcomes if isinstance(item, IdempotencyConflictError)]
+    assert responses
+    assert len(responses) + len(conflicts) == 2
+    assert len({item.run_id for item in responses}) == 1
+
+    async with session_scope(factory, tenant_id=tenant_id, user_id=user_id) as session:
+        runs = (
+            await session.scalars(select(ReviewRun).where(ReviewRun.request_idempotency_key == key))
+        ).all()
+        artifacts = await session.scalar(
+            select(func.count())
+            .select_from(ArtifactRecord)
+            .where(ArtifactRecord.run_id == runs[0].id)
+        )
+    assert len(runs) == 1
+    assert runs[0].status == "COMPLETED"
+    assert artifacts == 1

@@ -40,6 +40,10 @@ CUTOFF = datetime(2026, 3, 31, 23, 59, 59, tzinfo=UTC)
 
 async def _make_review_world(factory):
     """构造一个停在 HUMAN_REVIEW、带两条 blocking Claim 的 Run。"""
+    from creditlens.agents.contracts import AgentArtifact, AgentClaim
+    from creditlens.infrastructure.postgres.artifact_integrity import (
+        canonical_artifact_payload_hash,
+    )
     from creditlens.infrastructure.postgres.models import (
         AppUser,
         ArtifactRecord,
@@ -101,32 +105,70 @@ async def _make_review_world(factory):
         )
         session.add(run)
         await session.flush()
-        artifact = ArtifactRecord(
-            tenant_id=TENANT,
-            run_id=run.id,
-            task_id="challenge",
-            artifact_type="challenger",
-            producer="challenger",
-            payload={},
-        )
-        session.add(artifact)
-        await session.flush()
-        claims = []
-        for i in range(2):
-            claim = ClaimRecord(
-                tenant_id=TENANT,
-                run_id=run.id,
-                artifact_id=artifact.id,
+
+        source_claims = [
+            AgentClaim(
                 category="DATA_CONFLICT",
                 statement=f"并发测试待复核结论 {i}",
                 verdict="PARTIALLY_SUPPORTED",
                 as_of_date=AS_OF,
-                review_status="PENDING",
-                payload={},
+            )
+            for i in range(2)
+        ]
+        source_artifact = AgentArtifact(
+            run_id=run.id,
+            task_id="challenge",
+            producer="challenger",
+            lifecycle_status="VALIDATED",
+            claims=source_claims,
+        )
+        artifact_payload = source_artifact.model_dump(mode="json", exclude={"output_hash"})
+        artifact = ArtifactRecord(
+            id=source_artifact.artifact_id,
+            tenant_id=TENANT,
+            run_id=run.id,
+            task_id=source_artifact.task_id,
+            artifact_type=source_artifact.producer,
+            contract_version=source_artifact.contract_version,
+            producer=source_artifact.producer,
+            lifecycle_status=source_artifact.lifecycle_status,
+            execution_status=source_artifact.execution_status,
+            input_hash=source_artifact.input_hash,
+            payload=artifact_payload,
+            output_hash=canonical_artifact_payload_hash(artifact_payload),
+        )
+        session.add(artifact)
+        await session.flush()
+        claims = []
+        for source_claim in source_claims:
+            claim = ClaimRecord(
+                id=source_claim.claim_id,
+                tenant_id=TENANT,
+                run_id=run.id,
+                artifact_id=artifact.id,
+                category=source_claim.category,
+                statement=source_claim.statement,
+                verdict=source_claim.verdict,
+                severity=source_claim.severity,
+                as_of_date=source_claim.as_of_date,
+                uncertainty_reason=source_claim.uncertainty_reason,
+                review_status=source_claim.review_status,
+                payload={
+                    "supporting_evidence_ids": [
+                        str(item) for item in source_claim.supporting_evidence_ids
+                    ],
+                    "opposing_evidence_ids": [
+                        str(item) for item in source_claim.opposing_evidence_ids
+                    ],
+                    "calculation_ids": [str(item) for item in source_claim.calculation_ids],
+                    "source_claim_id": (
+                        str(source_claim.source_claim_id) if source_claim.source_claim_id else None
+                    ),
+                },
             )
             session.add(claim)
             claims.append(claim)
-        # 主键由 default=new_id 在 flush 时生成：必须 flush 后再取 id
+        # IDs 先由 Agent contract 生成，再以同一投影写入 Artifact/Claim 记录。
         await session.flush()
         claim_ids = [c.id for c in claims]
         return run.id, run.state_version, claim_ids

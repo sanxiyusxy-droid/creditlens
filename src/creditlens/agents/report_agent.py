@@ -16,6 +16,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from creditlens.common.hashing import sha256_text
+from creditlens.infrastructure.postgres.artifact_integrity import (
+    validate_claim_records_against_artifacts,
+)
 from creditlens.infrastructure.postgres.models import (
     ArtifactRecord,
     ClaimRecord,
@@ -84,6 +87,14 @@ class ReportAgent:
         artifacts = (
             await session.scalars(select(ArtifactRecord).where(ArtifactRecord.run_id == run.id))
         ).all()
+        # Claims are mutable only in their workflow review_status. Before any
+        # report materialization, bind every other field back to the append-only
+        # Artifact payload (and its hash when present).
+        validate_claim_records_against_artifacts(
+            run=run,
+            artifacts=artifacts,
+            claims=claims,
+        )
         locator_by_evidence: dict[str, dict] = {}
         for artifact in artifacts:
             for evidence in (artifact.payload or {}).get("evidence", []):

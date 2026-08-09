@@ -89,6 +89,10 @@ class OpenAICompatEmbedding:
     async def embed_query(self, text: str) -> list[float]:
         return (await self.embed_documents([text]))[0]
 
+    async def aclose(self) -> None:
+        """关闭底层 HTTP 连接池。"""
+        await self._client.aclose()
+
 
 # 常见模型维度（未知模型在 build 时经一次探测调用确定）
 KNOWN_EMBEDDING_DIMS = {
