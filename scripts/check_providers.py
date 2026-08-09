@@ -81,7 +81,7 @@ async def main() -> None:
         ok = False
         print(f"      FAILED: {type(exc).__name__}: {exc}")
 
-    print("\n结论:", "全部可用 ✔" if ok else "存在失败项 ✘（见上）")
+    print("\n结论:", "全部可用 [OK]" if ok else "存在失败项 [FAIL]（见上）")
     sys.exit(0 if ok else 1)
 
 
