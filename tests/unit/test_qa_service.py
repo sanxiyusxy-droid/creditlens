@@ -24,6 +24,7 @@ from creditlens.agents.grounded_qa import (
     GroundedQAGeneration,
     GroundedQAOutputRejected,
     evidence_ref_from_packed,
+    grounded_qa_repair_hint,
 )
 from creditlens.application import qa_service as qa_module
 from creditlens.application.qa_service import QAService, QAServiceError
@@ -220,7 +221,7 @@ class _SequencedChat:
 class _RepairFeedbackAgent:
     def __init__(self):
         self.delegate = _AnsweredAgent()
-        self.feedback: list[list[str]] = []
+        self.feedback: list[list[object]] = []
 
     async def generate(self, question, run_id, as_of_date, packed, audit_feedback=None):
         self.feedback.append(list(audit_feedback or []))
@@ -258,11 +259,13 @@ class _RejectingAgent:
 class _RejectThenAcceptAuditor:
     def __init__(self):
         self.calls = 0
+        self.rejected_claim_id: uuid.UUID | None = None
 
     async def verify_grounded_answer(self, _session, _trusted, artifact, **_kwargs):
         self.calls += 1
         if self.calls == 1:
             claim_id = artifact.claims[0].claim_id
+            self.rejected_claim_id = claim_id
             return AuditResult(
                 rejected_claim_ids=[claim_id],
                 grounded_answer_ok=False,
@@ -278,6 +281,29 @@ class _RejectThenAcceptAuditor:
             accepted_claim_ids=[claim.claim_id for claim in artifact.claims],
             grounded_answer_ok=True,
             derived_answer_status=artifact.answer_status.value,
+        )
+
+
+class _ReviewOnlyAuditor:
+    async def verify_grounded_answer(self, _session, _trusted, artifact, **_kwargs):
+        claim_id = artifact.claims[0].claim_id
+        return AuditResult(
+            needs_human_review_claim_ids=[claim_id],
+            violations={str(claim_id): ["STRUCTURAL_COVERAGE_INSUFFICIENT"]},
+            grounded_answer_ok=True,
+            derived_answer_status="NEEDS_REVIEW",
+            review_normalization_required=True,
+        )
+
+
+class _AlwaysRejectingAuditor:
+    async def verify_grounded_answer(self, _session, _trusted, artifact, **_kwargs):
+        claim_id = artifact.claims[0].claim_id
+        return AuditResult(
+            rejected_claim_ids=[claim_id],
+            violations={str(claim_id): ["NUMERIC_TOKEN_NOT_IN_CITATION:70%"]},
+            grounded_answer_ok=False,
+            derived_answer_status="ANSWERED",
         )
 
 
@@ -721,10 +747,25 @@ async def test_audit_repair_receives_stable_codes_and_manifest_accumulates(qa_wo
 
     assert response.answer_status == "ANSWERED"
     assert auditor.calls == 2
-    assert agent.feedback == [
-        [],
-        ["NUMERIC_TOKEN_NOT_IN_CITATION", "SUPPORTED_WITHOUT_EVIDENCE"],
-    ]
+    assert agent.feedback[0] == []
+    assert {item["code"] for item in agent.feedback[1]} == {
+        "NUMERIC_TOKEN_NOT_IN_CITATION",
+        "SUPPORTED_WITHOUT_EVIDENCE",
+    }
+    assert all(item["scope"] == "CLAIM" for item in agent.feedback[1])
+    assert all(item["category"] == "MISSING_MATERIAL" for item in agent.feedback[1])
+    assert all(item["supporting_evidence_ids"] for item in agent.feedback[1])
+    assert all(item["opposing_evidence_ids"] == [] for item in agent.feedback[1])
+    assert all(item["apply_to"] == "MATCHING_CLAIM" for item in agent.feedback[1])
+    assert {
+        item["repair_hint"] for item in agent.feedback[1]
+    } == {
+        grounded_qa_repair_hint("NUMERIC_TOKEN_NOT_IN_CITATION"),
+        grounded_qa_repair_hint("SUPPORTED_WITHOUT_EVIDENCE"),
+    }
+    serialized_feedback = json.dumps(agent.feedback[1], ensure_ascii=False)
+    assert str(auditor.rejected_claim_id) not in serialized_feedback
+    assert "70%" not in serialized_feedback
     model_event_ids = [
         event.payload_redacted["invocation_id"]
         for event in events
@@ -735,7 +776,90 @@ async def test_audit_repair_receives_stable_codes_and_manifest_accumulates(qa_wo
     assert run.model_manifest["generation_repairs"] == 0
     assert run.model_manifest["audit_repairs"] == 1
     rejected = next(event for event in events if event.event_type == "ANSWER_AUDIT_REJECTED")
-    assert rejected.payload_redacted["violation_codes"] == agent.feedback[1]
+    assert rejected.payload_redacted["violation_codes"] == [
+        "NUMERIC_TOKEN_NOT_IN_CITATION",
+        "SUPPORTED_WITHOUT_EVIDENCE",
+    ]
+    assert "70%" not in json.dumps(rejected.payload_redacted)
+
+
+async def test_non_blocking_audit_review_is_normalized_without_model_repair(qa_world):
+    agent = _AnsweredAgent()
+    service = _service(qa_world, _packed(_section()), agent, _ReviewOnlyAuditor())
+
+    response = await service.ask(
+        case_id=qa_world.case_id,
+        question="结构覆盖不足时应进入人工复核",
+        top_k=5,
+        idempotency_key="unit-review-normalization",
+    )
+
+    async with qa_world.factory() as session:
+        run = await session.get(ReviewRun, response.run_id)
+        artifact = await session.scalar(
+            select(ArtifactRecord).where(ArtifactRecord.run_id == response.run_id)
+        )
+        claim = await session.scalar(
+            select(ClaimRecord).where(ClaimRecord.run_id == response.run_id)
+        )
+        completed = await session.scalar(
+            select(RunEvent).where(
+                RunEvent.run_id == response.run_id,
+                RunEvent.event_type == "ANSWER_AUDIT_COMPLETED",
+            )
+        )
+
+    assert response.answer_status == "NEEDS_REVIEW"
+    assert response.answer == ""
+    assert agent.calls == 1
+    assert run.status == "COMPLETED"
+    assert run.model_manifest["audit_repairs"] == 0
+    assert run.model_manifest["review_normalized"] is True
+    assert artifact.execution_status == "PARTIAL"
+    assert artifact.payload["answer_status"] == "NEEDS_REVIEW"
+    assert artifact.payload["direct_answer"] is None
+    assert claim.review_status == "PENDING"
+    assert completed.payload_redacted["violation_codes"] == ["STRUCTURAL_COVERAGE_INSUFFICIENT"]
+
+
+async def test_terminal_audit_failure_exposes_stable_safe_error_type(qa_world):
+    service = _service(
+        qa_world,
+        _packed(_section()),
+        _AnsweredAgent(),
+        _AlwaysRejectingAuditor(),
+    )
+
+    with pytest.raises(QAServiceError) as captured:
+        await service.ask(
+            case_id=qa_world.case_id,
+            question="持续审计失败不能伪装成业务结果",
+            top_k=5,
+            idempotency_key="unit-terminal-audit-failure",
+        )
+
+    async with qa_world.factory() as session:
+        events = (
+            await session.scalars(
+                select(RunEvent)
+                .where(RunEvent.run_id == captured.value.run_id)
+                .order_by(RunEvent.sequence_no)
+            )
+        ).all()
+        artifact_count = await session.scalar(
+            select(func.count())
+            .select_from(ArtifactRecord)
+            .where(ArtifactRecord.run_id == captured.value.run_id)
+        )
+
+    assert captured.value.error_type == "ANSWER_AUDIT_FAILED"
+    assert events[-1].event_type == "QA_EXECUTION_FAILED"
+    assert events[-1].payload_redacted["error_type"] == "ANSWER_AUDIT_FAILED"
+    rejected = [event for event in events if event.event_type == "ANSWER_AUDIT_REJECTED"]
+    assert rejected[-1].payload_redacted["terminal"] is True
+    assert rejected[-1].payload_redacted["violation_codes"] == ["NUMERIC_TOKEN_NOT_IN_CITATION"]
+    assert "70%" not in json.dumps([event.payload_redacted for event in events])
+    assert artifact_count == 0
 
 
 async def test_model_output_rejection_repairs_once_with_safe_code(qa_world):
@@ -1165,6 +1289,35 @@ async def test_idempotency_hash_tracks_runtime_fusion_configuration(qa_world):
     }
     await service.ask(**kwargs)
     service.orchestrator.route_weights = {"DENSE": 2.0, "SPARSE": 1.0}
+
+    with pytest.raises(IdempotencyConflictError):
+        await service.ask(**kwargs)
+
+    assert agent.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("version_attribute", "new_version"),
+    [
+        ("_audit_implementation_version", "structural_evidence_v3"),
+        ("_grounded_answer_contract_version", "1.2"),
+    ],
+)
+async def test_idempotency_hash_tracks_audit_and_answer_contract_versions(
+    qa_world,
+    version_attribute,
+    new_version,
+):
+    agent = _AnsweredAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    kwargs = {
+        "case_id": qa_world.case_id,
+        "question": "审计契约变化后不得命中旧问答结果",
+        "top_k": 5,
+        "idempotency_key": f"unit-audit-version-{version_attribute}",
+    }
+    await service.ask(**kwargs)
+    setattr(service, version_attribute, new_version)
 
     with pytest.raises(IdempotencyConflictError):
         await service.ask(**kwargs)

@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -30,10 +31,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+from creditlens.agents.auditor import (  # noqa: E402
+    GROUNDING_AUDIT_IMPLEMENTATION_VERSION,
+)
+from creditlens.agents.contracts import GROUNDED_ANSWER_CONTRACT_VERSION  # noqa: E402
 from creditlens.application.qa_service import QAService, QAServiceError  # noqa: E402
 from creditlens.application.snapshot_service import load_snapshot_context  # noqa: E402
 from creditlens.common.config import get_settings  # noqa: E402
 from creditlens.evaluation.answer_metrics import (  # noqa: E402
+    ARABIC_NUMERAL_PATTERN,
+    CHINESE_NUMERAL_PATTERN,
     AnswerEvalDataset,
     AnswerPrediction,
     AnswerPredictionProvenance,
@@ -41,6 +48,7 @@ from creditlens.evaluation.answer_metrics import (  # noqa: E402
     PredictedNumericFact,
     PredictionStatus,
     TechnicalFailureProvenance,
+    parse_restricted_chinese_number,
 )
 from creditlens.evaluation.gold_schema import GoldDataset, GoldQuestion  # noqa: E402
 from creditlens.evaluation.recall import GoldMappingScope, map_anchor_to_section_ids  # noqa: E402
@@ -74,11 +82,22 @@ CASE_KEY_MAP = {
     "golden_case_003": CASE_ID_003,
 }
 
+PREDICTION_ADAPTER_VERSION = "1.0.0"
 _NUMBER = re.compile(
-    r"(?P<value>-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*"
-    r"(?P<unit>个百分点|%|亿元|万元|元|个月|月|年|天|倍|家|户)?"
+    rf"百分之(?P<percent_chinese>{CHINESE_NUMERAL_PATTERN})"
+    rf"|百分之(?P<percent_arabic>{ARABIC_NUMERAL_PATTERN})"
+    rf"|(?P<arabic>{ARABIC_NUMERAL_PATTERN})\s*"
+    r"(?P<arabic_unit>个百分点|%|亿元|万元|元|个月|月|年|天|倍|家|户)"
+    rf"|(?P<chinese>{CHINESE_NUMERAL_PATTERN})\s*"
+    r"(?P<chinese_unit>个百分点|%|亿元|万元|元|个月|月|年|天|倍|家|户)"
 )
 _CLAUSE_BOUNDARY = re.compile(r"[。！？!?；;，,/\n]")
+_LABEL_TRAILING_BRIDGE = re.compile(
+    r"(?:为人民币|人民币|为|是|达|达到|约|不高于|不得高于|不低于|不得低于|"
+    r"不超过|不得超过|超过)$"
+)
+_LABEL_UPPER_BOUND = re.compile(r"(?:不高于|不得高于|不超过|不得超过)$")
+_LABEL_LOWER_BOUND = re.compile(r"(?:不低于|不得低于)$")
 _PLAUSIBLE_YEAR_MIN = 1900
 _PLAUSIBLE_YEAR_MAX = 2200
 
@@ -245,6 +264,8 @@ def _experiment_contract(
     prompt_sha256: str,
     settings: Any,
     orchestrator: Any | None = None,
+    audit_implementation_version: str = GROUNDING_AUDIT_IMPLEMENTATION_VERSION,
+    grounded_answer_contract_version: str = GROUNDED_ANSWER_CONTRACT_VERSION,
 ) -> dict[str, Any]:
     """Return every generation-affecting dimension required for idempotency."""
 
@@ -255,6 +276,7 @@ def _experiment_contract(
         # answer expectations nor source-gold bytes may influence Phase-1
         # idempotency keys.
         "query_dataset_sha256": query_dataset_sha256,
+        "prediction_adapter_version": PREDICTION_ADAPTER_VERSION,
         "top_k": top_k,
         "prompt": {"version": prompt_version, "sha256": prompt_sha256},
         "llm": {
@@ -277,6 +299,10 @@ def _experiment_contract(
             "max_claims": getattr(settings, "qa_max_claims", None),
             "max_generation_tokens": getattr(settings, "qa_max_generation_tokens", None),
             "max_audit_repairs": getattr(settings, "qa_max_audit_repairs", None),
+        },
+        "audit": {
+            "implementation_version": audit_implementation_version,
+            "grounded_answer_contract_version": grounded_answer_contract_version,
         },
         # Keep these effective runtime values aligned with QAService's request
         # hash.  Provider labels alone are insufficient when a model deployment
@@ -391,13 +417,32 @@ def _checkpoint_raw_results(
 def extract_numeric_facts(answer: str) -> list[PredictedNumericFact]:
     """Extract value/unit and bounded left context without consulting gold."""
 
+    answer = unicodedata.normalize("NFKC", answer)
     facts: list[PredictedNumericFact] = []
     seen: set[tuple[str, str, str]] = set()
     for match in _NUMBER.finditer(answer):
-        unit = match.group("unit")
-        if not unit:
+        raw_value = (
+            match.group("percent_chinese")
+            or match.group("percent_arabic")
+            or match.group("arabic")
+            or match.group("chinese")
+        )
+        unit = (
+            "%"
+            if match.group("percent_chinese") or match.group("percent_arabic")
+            else match.group("arabic_unit") or match.group("chinese_unit")
+        )
+        if match.group("percent_chinese") or match.group("chinese"):
+            parsed_value = parse_restricted_chinese_number(raw_value)
+            if parsed_value is None:
+                continue
+            normalized_value = format(parsed_value, "f")
+        else:
+            normalized_value = raw_value.replace(",", "")
+        if "." in normalized_value:
+            normalized_value = normalized_value.rstrip("0").rstrip(".")
+        if not normalized_value:
             continue
-        normalized_value = match.group("value").replace(",", "")
         if unit == "年":
             try:
                 numeric_year = int(normalized_value)
@@ -412,7 +457,12 @@ def extract_numeric_facts(answer: str) -> list[PredictedNumericFact]:
                 continue
         left = answer[max(0, match.start() - 48) : match.start()]
         label = _CLAUSE_BOUNDARY.split(left)[-1].strip(" ：:（）()[]【】\t")
-        label = re.sub(r"(?:为|是|达|达到|约|不高于|不低于|不超过|超过)$", "", label)
+        label = _LABEL_UPPER_BOUND.sub("上限", label)
+        label = _LABEL_LOWER_BOUND.sub("下限", label)
+        previous_label = None
+        while label != previous_label:
+            previous_label = label
+            label = _LABEL_TRAILING_BRIDGE.sub("", label).rstrip()
         label = label[-40:].strip() or "未命名数值"
         key = (label, normalized_value, unit)
         if key in seen:
@@ -736,6 +786,7 @@ def _prediction_metadata(
         "answer_eval_dataset_sha256": answer_eval_dataset_sha256,
         "source_gold_sha256": source_gold_sha256,
         "experiment_sha256": experiment_sha256,
+        "prediction_adapter_version": PREDICTION_ADAPTER_VERSION,
         "llm_provider": settings.llm_provider,
         "llm_model": settings.llm_model or None,
         "prompt_version": settings.qa_prompt_version,
@@ -764,6 +815,7 @@ def _build_prediction_set(
         prediction_set_id=f"grounded-qa-{experiment_sha256[:24]}",
         dataset_id=dataset.dataset_id,
         dataset_version=dataset.dataset_version,
+        prediction_adapter_version=PREDICTION_ADAPTER_VERSION,
         predictions=predictions,
         metadata=metadata,
     )

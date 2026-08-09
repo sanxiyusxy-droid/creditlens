@@ -10,7 +10,9 @@ from pathlib import Path
 import pytest
 
 from creditlens.evaluation.answer_metrics import (
+    LEGACY_PREDICTION_ADAPTER_VERSION,
     AnswerEvalDataset,
+    AnswerEvaluationReport,
     AnswerPrediction,
     AnswerPredictionProvenance,
     AnswerPredictionSet,
@@ -99,6 +101,7 @@ def _perfect_prediction_set(dataset: AnswerEvalDataset) -> AnswerPredictionSet:
         prediction_set_id="perfect-fixture",
         dataset_id=dataset.dataset_id,
         dataset_version=dataset.dataset_version,
+        prediction_adapter_version="fixture-adapter-v1",
         predictions=predictions,
     )
 
@@ -254,7 +257,8 @@ def test_report_contract_names_scope_and_semantic_limit(
 
     assert payload["evaluation_scope"] == "DETERMINISTIC_LEXICAL_AND_CITATION_SET"
     assert payload["semantic_entailment_evaluated"] is False
-    assert payload["metric_contract_version"] == "2.0.0"
+    assert payload["prediction_adapter_version"] == "fixture-adapter-v1"
+    assert payload["metric_contract_version"] == "2.1.0"
     assert "lexical_correctness" in summary
     assert "lexically_correct_citation_exact" in summary
     assert "deterministic_outcome_pass_rate" in summary
@@ -267,6 +271,203 @@ def test_report_contract_names_scope_and_semantic_limit(
     assert "answer_correct" not in question
     assert "fully_grounded_answer" not in question
     assert "outcome_correct" not in question
+
+
+def test_metric_2_report_without_adapter_version_is_labeled_legacy(
+    dataset: AnswerEvalDataset,
+) -> None:
+    payload = evaluate_answers(dataset, _perfect_prediction_set(dataset)).model_dump(mode="json")
+    payload.pop("prediction_adapter_version")
+    payload["metric_contract_version"] = "2.0.0"
+
+    restored = AnswerEvaluationReport.model_validate(payload)
+
+    assert restored.metric_contract_version == "2.0.0"
+    assert restored.prediction_adapter_version == LEGACY_PREDICTION_ADAPTER_VERSION
+
+
+@pytest.mark.parametrize(
+    ("question_id", "answer", "facts", "expected_key_points"),
+    [
+        (
+            "q001",
+            "借款人资产负债率不得高于百分之七十。",
+            [("借款人资产负债率上限", "70", "%")],
+            ["debt_ratio_cap"],
+        ),
+        (
+            "q003",
+            "单一小微企业借款人的流动资金贷款余额上限为人民币一千万元。",
+            [("单一小微企业借款人的流动资金贷款余额上限", "1000", "万元")],
+            ["single_borrower_limit"],
+        ),
+        (
+            "q081",
+            "资产负债率不得高于百分之七十五。",
+            [("资产负债率上限", "75", "%")],
+            ["debt_ratio_cap"],
+        ),
+        (
+            "q101",
+            "星辰微电子2025年度营业收入为人民币1.85亿元 2025年度营业收入同比增长23.3%",
+            [
+                ("星辰微电子2025年度营业收入", "1.85", "亿元"),
+                ("2025年度营业收入同比增长", "23.3", "%"),
+            ],
+            ["revenue", "revenue_growth"],
+        ),
+    ],
+)
+def test_first_run_chinese_number_answers_match_deterministically(
+    dataset: AnswerEvalDataset,
+    question_id: str,
+    answer: str,
+    facts: list[tuple[str, str, str]],
+    expected_key_points: list[str],
+) -> None:
+    predictions = _perfect_prediction_set(dataset)
+    original = next(item for item in predictions.predictions if item.question_id == question_id)
+    replacement = original.model_copy(
+        update={
+            "answer": answer,
+            "numeric_facts": [
+                PredictedNumericFact(name=name, value=Decimal(value), unit=unit)
+                for name, value, unit in facts
+            ],
+        },
+        deep=True,
+    )
+
+    score = _question_score(
+        evaluate_answers(dataset, _replace_prediction(predictions, question_id, replacement)),
+        question_id,
+    )
+
+    assert score.key_points_matched == expected_key_points
+    assert score.key_points_missed == []
+    assert score.numeric_facts_missed == []
+    assert score.lexical_correctness is True
+
+
+def test_non_revenue_does_not_match_revenue_metric_or_phrase(
+    dataset: AnswerEvalDataset,
+) -> None:
+    predictions = _perfect_prediction_set(dataset)
+    original = next(item for item in predictions.predictions if item.question_id == "q101")
+    replacement = original.model_copy(
+        update={
+            "answer": "非营业收入为人民币1.85亿元；同比增长23.3%",
+            "numeric_facts": [
+                PredictedNumericFact(name="非营业收入", value=Decimal("1.85"), unit="亿元"),
+                PredictedNumericFact(name="同比增长", value=Decimal("23.3"), unit="%"),
+            ],
+        },
+        deep=True,
+    )
+
+    score = _question_score(
+        evaluate_answers(dataset, _replace_prediction(predictions, "q101", replacement)),
+        "q101",
+    )
+
+    assert score.key_points_matched == ["revenue_growth"]
+    assert score.key_points_missed == ["revenue"]
+    assert score.numeric_facts_matched == ["营业收入同比增幅"]
+    assert score.numeric_facts_missed == ["营业收入"]
+    assert score.lexical_correctness is False
+
+
+def test_chinese_number_phrase_still_respects_negation_window(
+    dataset: AnswerEvalDataset,
+) -> None:
+    predictions = _perfect_prediction_set(dataset)
+    original = next(item for item in predictions.predictions if item.question_id == "q001")
+    replacement = original.model_copy(
+        update={
+            "answer": "无法确认资产负债率不得高于百分之七十。",
+            "numeric_facts": [
+                PredictedNumericFact(name="资产负债率", value=Decimal("70"), unit="%")
+            ],
+        },
+        deep=True,
+    )
+
+    score = _question_score(
+        evaluate_answers(dataset, _replace_prediction(predictions, "q001", replacement)),
+        "q001",
+    )
+
+    assert score.key_points_matched == []
+    assert score.key_points_missed == ["debt_ratio_cap"]
+    assert score.numeric_accuracy == 1.0
+    assert score.lexical_correctness is False
+
+
+@pytest.mark.parametrize("negation", ["不存在", "没有证据表明", "无法据此确认"])
+def test_high_confidence_negation_rejects_phrase_and_numeric_name_at_report_level(
+    dataset: AnswerEvalDataset,
+    negation: str,
+) -> None:
+    predictions = _perfect_prediction_set(dataset)
+    original = next(item for item in predictions.predictions if item.question_id == "q101")
+    replacement = original.model_copy(
+        update={
+            "answer": (f"{negation}营业收入1.85亿元，{negation}同比增长23.3%。"),
+            "numeric_facts": [
+                PredictedNumericFact(
+                    name=f"{negation}营业收入",
+                    value=Decimal("1.85"),
+                    unit="亿元",
+                ),
+                PredictedNumericFact(
+                    name=f"{negation}同比增长",
+                    value=Decimal("23.3"),
+                    unit="%",
+                ),
+            ],
+        },
+        deep=True,
+    )
+
+    report = evaluate_answers(dataset, _replace_prediction(predictions, "q101", replacement))
+    score = _question_score(report, "q101")
+
+    assert score.key_points_matched == []
+    assert score.key_points_missed == ["revenue", "revenue_growth"]
+    assert score.numeric_facts_matched == []
+    assert score.numeric_facts_missed == ["营业收入", "营业收入同比增幅"]
+    assert score.citation_fp == 0
+    assert score.citation_fn == 0
+    assert score.lexical_correctness is False
+    assert score.lexically_correct_citation_exact is False
+    assert report.summary.lexically_correct_answers == 29
+
+
+def test_negation_of_prior_clause_does_not_suppress_positive_revenue_fact(
+    dataset: AnswerEvalDataset,
+) -> None:
+    predictions = _perfect_prediction_set(dataset)
+    original = next(item for item in predictions.predictions if item.question_id == "q101")
+    replacement = original.model_copy(
+        update={
+            "answer": "无重大异常但营业收入1.85亿元，同比增长23.3%。",
+            "numeric_facts": [
+                PredictedNumericFact(name="营业收入", value=Decimal("1.85"), unit="亿元"),
+                PredictedNumericFact(name="同比增长", value=Decimal("23.3"), unit="%"),
+            ],
+        },
+        deep=True,
+    )
+
+    score = _question_score(
+        evaluate_answers(dataset, _replace_prediction(predictions, "q101", replacement)),
+        "q101",
+    )
+
+    assert score.key_points_missed == []
+    assert score.numeric_facts_missed == []
+    assert score.lexical_correctness is True
+    assert score.lexically_correct_citation_exact is True
 
 
 def test_numeric_alias_nfkc_unit_and_tolerance_are_supported(

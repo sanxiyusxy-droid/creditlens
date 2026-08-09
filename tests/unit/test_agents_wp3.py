@@ -25,11 +25,18 @@ from creditlens.agents.contracts import (
     AgentClaim,
     AgentEvidenceRef,
     AnswerStatus,
+    DraftAnswerClaim,
     GroundedAnswerArtifact,
+    GroundedAnswerDraft,
     RefusalReasonCode,
 )
+from creditlens.agents.grounded_qa import GroundedQAAgent
 from creditlens.agents.report_agent import ReportAgent
 from creditlens.agents.risk_agent import RiskAgent
+from creditlens.application.qa_service import (
+    _audit_repair_feedback,
+    _normalize_non_blocking_review,
+)
 from creditlens.application.snapshot_service import SnapshotContext
 from creditlens.formulas.engine import CalculationArtifact, FormulaRegistry
 from creditlens.infrastructure.postgres.models import (
@@ -46,6 +53,7 @@ from creditlens.infrastructure.postgres.models import (
     ReviewRun,
     Tenant,
 )
+from creditlens.retrieval.context_packing import PackedContext, PackedSection
 from creditlens.retrieval.contracts import RetrievedCandidate, TrustedRequestContext
 
 TENANT = uuid.UUID("00000000-0000-0000-0000-0000000000aa")
@@ -436,6 +444,161 @@ def _span_artifact(
     )
 
 
+class _SequentialDraftChat:
+    def __init__(self, *drafts):
+        self.drafts = list(drafts)
+        self.calls: list[dict] = []
+
+    async def generate_structured(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.drafts.pop(0)
+
+
+async def _packed_world(session, *, text: str) -> tuple[PackedContext, uuid.UUID]:
+    section_id, parse_run_id, version_id = await _make_world(session)
+    section = await session.get(DocumentSection, section_id)
+    version = await session.get(DocumentVersion, version_id)
+    section.text = text
+    await session.flush()
+    packed = PackedContext(
+        sections=[
+            PackedSection(
+                section_id=section_id,
+                document_id=version.document_id,
+                document_version_id=version_id,
+                parse_run_id=parse_run_id,
+                heading_path=["审计单测"],
+                text=text,
+                text_hash=section.text_hash,
+                page_start=1,
+                page_end=1,
+                tokens_est=len(text),
+                rank=1,
+            )
+        ],
+        total_tokens_est=len(text),
+        budget=2048,
+    )
+    return packed, parse_run_id
+
+
+async def test_real_grounded_agent_and_auditor_normalize_review_only_result(session):
+    packed, parse_run_id = await _packed_world(
+        session,
+        text="申请材料应包括最近一期经审计财务报表。",
+    )
+    ref_id = uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"evidence:{packed.sections[0].section_id}:{packed.sections[0].text_hash}",
+    )
+    draft = GroundedAnswerDraft(
+        claims=[
+            DraftAnswerClaim(
+                category="ELIGIBILITY",
+                statement="该企业已经获得国家级高新技术企业认证。",
+                verdict="SUPPORTED",
+                supporting_evidence_ids=[ref_id],
+            )
+        ]
+    )
+    generation = await GroundedQAAgent(_SequentialDraftChat(draft)).generate(
+        "企业具备什么资质？",
+        uuid.uuid4(),
+        AS_OF,
+        packed,
+    )
+    audit = await EvidenceAuditor(FormulaRegistry()).verify_grounded_answer(
+        session,
+        _trusted(),
+        generation.artifact,
+        allowed_evidence_ids={ref_id},
+        snapshot=SnapshotContext(
+            snapshot_id=uuid.uuid4(),
+            allowed_parse_run_ids=[parse_run_id],
+        ),
+    )
+
+    normalized, changed = _normalize_non_blocking_review(generation.artifact, audit)
+
+    assert audit.ok
+    assert audit.review_normalization_required
+    assert changed is True
+    assert normalized.answer_status == AnswerStatus.NEEDS_REVIEW
+    assert normalized.execution_status == "PARTIAL"
+    assert normalized.direct_answer is None
+
+
+async def test_real_grounded_agent_and_auditor_repair_uses_only_claim_id_and_code(session):
+    packed, parse_run_id = await _packed_world(
+        session,
+        text="政策规定资产负债率不得超过70%。",
+    )
+    ref_id = uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"evidence:{packed.sections[0].section_id}:{packed.sections[0].text_hash}",
+    )
+    bad_draft = GroundedAnswerDraft(
+        claims=[
+            DraftAnswerClaim(
+                category="ELIGIBILITY",
+                statement="政策规定资产负债率上限为80%。",
+                verdict="SUPPORTED",
+                supporting_evidence_ids=[ref_id],
+            )
+        ]
+    )
+    repaired_draft = GroundedAnswerDraft(
+        claims=[
+            DraftAnswerClaim(
+                category="ELIGIBILITY",
+                statement="政策规定资产负债率上限为70%。",
+                verdict="SUPPORTED",
+                supporting_evidence_ids=[ref_id],
+            )
+        ]
+    )
+    chat = _SequentialDraftChat(bad_draft, repaired_draft)
+    agent = GroundedQAAgent(chat)
+    auditor = EvidenceAuditor(FormulaRegistry())
+    snapshot = SnapshotContext(
+        snapshot_id=uuid.uuid4(),
+        allowed_parse_run_ids=[parse_run_id],
+    )
+    first = await agent.generate("资产负债率上限是多少？", uuid.uuid4(), AS_OF, packed)
+    first_audit = await auditor.verify_grounded_answer(
+        session,
+        _trusted(),
+        first.artifact,
+        allowed_evidence_ids={ref_id},
+        snapshot=snapshot,
+    )
+    feedback = _audit_repair_feedback(first_audit.violations, first.artifact)
+    repaired = await agent.generate(
+        "资产负债率上限是多少？",
+        uuid.uuid4(),
+        AS_OF,
+        packed,
+        audit_feedback=feedback,
+    )
+    repaired_audit = await auditor.verify_grounded_answer(
+        session,
+        _trusted(),
+        repaired.artifact,
+        allowed_evidence_ids={ref_id},
+        snapshot=snapshot,
+    )
+
+    claim_id = str(first.artifact.claims[0].claim_id)
+    assert not first_audit.ok
+    assert not first_audit.review_normalization_required
+    assert feedback == [f"CLAIM:{claim_id}:NUMERIC_TOKEN_NOT_IN_CITATION"]
+    assert claim_id in chat.calls[1]["user"]
+    assert "NUMERIC_TOKEN_NOT_IN_CITATION" in chat.calls[1]["user"]
+    assert "80%" not in chat.calls[1]["user"]
+    assert repaired_audit.ok
+    assert repaired_audit.derived_answer_status == "ANSWERED"
+
+
 async def test_auditor_rejects_when_case_missing(session):
     """WP3：Case 不存在/租户不一致 -> 全部 Claim 拒绝。"""
     await _make_world(session)
@@ -698,6 +861,7 @@ async def test_grounded_answer_audit_rejects_unpacked_citation_and_numeric_inven
     )
 
     assert not result.ok
+    assert not result.review_normalization_required
     violations = [code for codes in result.violations.values() for code in codes]
     assert any(code.startswith("EVIDENCE_NOT_IN_PACKED_CONTEXT") for code in violations)
     assert "CITATION_NOT_IN_PACKED_CONTEXT" in violations
@@ -778,6 +942,7 @@ async def test_grounded_numeric_guard_binds_explicit_sign(session):
     )
 
     assert not result.ok
+    assert not result.review_normalization_required
     assert (
         "NUMERIC_TOKEN_NOT_IN_CITATION:-10%" in result.violations[str(artifact.claims[0].claim_id)]
     )
@@ -791,6 +956,7 @@ async def test_grounded_numeric_guard_binds_amount_scale_and_currency(session):
     )
 
     assert not result.ok
+    assert not result.review_normalization_required
     # The stable external code retains the historical numeric payload, while
     # the internal comparison also binds CNY and the 万 scale.
     assert (
@@ -806,7 +972,8 @@ async def test_grounded_numeric_guard_still_runs_structural_coverage(session):
     )
 
     claim_id = artifact.claims[0].claim_id
-    assert not result.ok
+    assert result.ok
+    assert result.review_normalization_required
     assert claim_id in result.needs_human_review_claim_ids
     assert "STRUCTURAL_COVERAGE_INSUFFICIENT" in result.violations[str(claim_id)]
 
@@ -842,7 +1009,8 @@ async def test_grounded_obvious_polarity_reversal_routes_to_review(
     )
 
     claim_id = artifact.claims[0].claim_id
-    assert not result.ok
+    assert result.ok
+    assert result.review_normalization_required
     assert claim_id in result.needs_human_review_claim_ids
     assert claim_id not in result.rejected_claim_ids
     assert "POLARITY_CONFLICT_WITH_CITATION" in result.violations[str(claim_id)]
@@ -986,7 +1154,8 @@ async def test_grounded_nonnumeric_counterexample_is_forced_to_human_review(sess
     )
 
     claim_id = artifact.claims[0].claim_id
-    assert not result.ok
+    assert result.ok
+    assert result.review_normalization_required
     assert result.derived_answer_status == "NEEDS_REVIEW"
     assert result.requires_human_review
     assert result.needs_human_review_claim_ids == [claim_id]

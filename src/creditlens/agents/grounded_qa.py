@@ -18,10 +18,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from creditlens.agents.contracts import (
     AgentClaim,
+    AgentClaimCategory,
     AgentEvidenceRef,
     AnswerStatus,
     DraftAnswerClaim,
@@ -55,6 +56,21 @@ _OUTPUT_REJECTION_CODES = frozenset(
         "UNKNOWN_EVIDENCE_ID",
     }
 )
+_DEFAULT_REPAIR_HINT = "仅依据允许的 evidence 重新生成符合结构契约的 Claim。"
+_REPAIR_HINTS = {
+    "ARTIFACT_EVIDENCE_NOT_EXACTLY_CITED": "只保留被 Claim 明确引用的 allowed evidence。",
+    "CITATION_NOT_IN_PACKED_CONTEXT": "移除该引用，或改用 allowed evidence 中存在的 evidence_id。",
+    "CLAIM_LIMIT_EXCEEDED": "减少 Claim 数量，不得超过服务端给出的上限。",
+    "DIRECT_ANSWER_NOT_EXACT_CLAIM_RENDERING": "只修复 Claim；direct_answer 由服务端生成。",
+    "EMPTY_MODEL_DRAFT": "生成至少一条有证据的 Claim，或明确填写证据不足信息。",
+    "EVIDENCE_NOT_IN_PACKED_CONTEXT": "移除该引用，或改用 allowed evidence 中存在的 evidence_id。",
+    "FORBIDDEN_CREDIT_DECISION": "删除授信审批、额度或定价决定，只陈述证据支持的事实。",
+    "INVALID_MODEL_OUTPUT": "严格按照输出 Schema 重新生成，不增加未声明字段。",
+    "NUMERIC_TOKEN_NOT_IN_CITATION": "数字或日期只能来自所选 supporting evidence；否则删除或改为证据不足。",
+    "SUPPORTED_WITHOUT_EVIDENCE": "为 SUPPORTED Claim 选择 allowed supporting evidence，或修改 verdict。",
+    "UNKNOWN_EVIDENCE": "移除未知引用，或改用 allowed evidence 中存在的 evidence_id。",
+    "UNKNOWN_EVIDENCE_ID": "移除未知引用，或改用 allowed evidence 中存在的 evidence_id。",
+}
 _FORBIDDEN_DECISION_PATTERNS = tuple(
     re.compile(pattern)
     for pattern in (
@@ -88,6 +104,56 @@ class GroundedQAOutputRejected(RuntimeError):
         self.error_code = error_code
         self.trace = trace
         super().__init__(error_code)
+
+
+def grounded_qa_repair_hint(code: str) -> str:
+    """Return one fixed server-owned hint for a stable violation code."""
+    if not _SAFE_VIOLATION_CODE.fullmatch(code):
+        raise ValueError("invalid Grounded QA repair code")
+    return _REPAIR_HINTS.get(code, _DEFAULT_REPAIR_HINT)
+
+
+class GroundedQAAuditFeedback(BaseModel):
+    """Prompt-safe repair locator built only from model-visible fields."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scope: Literal["ANSWER", "CLAIM", "EVIDENCE"]
+    code: str
+    repair_hint: str
+    category: AgentClaimCategory | None = None
+    supporting_evidence_ids: list[uuid.UUID] = Field(default_factory=list)
+    opposing_evidence_ids: list[uuid.UUID] = Field(default_factory=list)
+    evidence_id: uuid.UUID | None = None
+    apply_to: Literal["MATCHING_CLAIM", "ALL_MATCHING_CLAIMS"] | None = None
+
+    @model_validator(mode="after")
+    def validate_safe_shape(self) -> "GroundedQAAuditFeedback":
+        if not _SAFE_VIOLATION_CODE.fullmatch(self.code):
+            raise ValueError("invalid Grounded QA repair code")
+        if self.repair_hint != grounded_qa_repair_hint(self.code):
+            raise ValueError("repair_hint must be server-owned")
+        if self.scope == "CLAIM":
+            if self.category is None or self.apply_to is None or self.evidence_id is not None:
+                raise ValueError("CLAIM feedback requires a safe claim locator")
+        elif self.scope == "EVIDENCE":
+            if (
+                self.evidence_id is None
+                or self.category is not None
+                or self.supporting_evidence_ids
+                or self.opposing_evidence_ids
+                or self.apply_to is not None
+            ):
+                raise ValueError("EVIDENCE feedback requires only evidence_id")
+        elif (
+            self.category is not None
+            or self.supporting_evidence_ids
+            or self.opposing_evidence_ids
+            or self.evidence_id is not None
+            or self.apply_to is not None
+        ):
+            raise ValueError("ANSWER feedback must not carry a subject locator")
+        return self
 
 
 class GroundedQAGeneration(BaseModel):
@@ -174,7 +240,7 @@ class GroundedQAAgent:
         run_id: uuid.UUID,
         as_of_date: date,
         packed: PackedContext,
-        audit_feedback: list[str] | None = None,
+        audit_feedback: list[Any] | None = None,
     ) -> GroundedQAGeneration:
         """Generate once; the service may call once more with sanitized audit codes."""
         if not question.strip():
@@ -245,7 +311,7 @@ class GroundedQAAgent:
         question: str,
         packed: PackedContext,
         refs: list[AgentEvidenceRef],
-        audit_feedback: list[str] | None,
+        audit_feedback: list[Any] | None,
     ) -> str:
         ref_by_section = {ref.section_id: ref for ref in refs}
         evidence_payload = []
@@ -279,12 +345,31 @@ class GroundedQAAgent:
         )
 
     @staticmethod
-    def _safe_audit_codes(feedback: list[str] | None) -> list[str]:
-        safe: list[str] = []
+    def _safe_audit_codes(feedback: list[Any] | None) -> list[dict[str, Any]]:
+        """Validate prompt feedback while dropping text, values and unknown fields."""
+        safe: list[dict[str, Any]] = []
+        seen: set[str] = set()
         for raw in feedback or []:
-            code = str(raw).strip()
-            if _SAFE_VIOLATION_CODE.fullmatch(code) and code not in safe:
-                safe.append(code)
+            try:
+                if isinstance(raw, GroundedQAAuditFeedback):
+                    item = raw
+                elif isinstance(raw, dict):
+                    item = GroundedQAAuditFeedback.model_validate(raw)
+                else:
+                    code = str(raw).strip()
+                    item = GroundedQAAuditFeedback(
+                        scope="ANSWER",
+                        code=code,
+                        repair_hint=grounded_qa_repair_hint(code),
+                    )
+            except (ValidationError, ValueError):
+                continue
+            payload = item.model_dump(mode="json", exclude_none=True)
+            canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+            if canonical in seen:
+                continue
+            safe.append(payload)
+            seen.add(canonical)
             if len(safe) >= 20:
                 break
         return safe

@@ -13,6 +13,7 @@ from scripts.generate_answer_predictions import (
     DEFAULT_DATASET,
     DEFAULT_GOLD,
     DEFAULT_QUERY_DATASET,
+    PREDICTION_ADAPTER_VERSION,
     AnswerQueryDataset,
     CitationMappingStats,
     _close_runtime_resources,
@@ -111,7 +112,7 @@ def test_extract_numeric_facts_keeps_local_label_value_and_unit():
     assert [(item.name, str(item.value), item.unit) for item in facts] == [
         ("2025年营业收入", "50000", "万元"),
         ("同比增长", "12.5", "%"),
-        ("贷款期限", "24", "个月"),
+        ("贷款期限上限", "24", "个月"),
     ]
 
 
@@ -124,6 +125,74 @@ def test_extract_numeric_facts_handles_q101_thousands_and_filters_calendar_years
         ("星辰微电子2025年营业收入", "18500", "万元"),
         ("同比增长", "23.3", "%"),
         ("贷款期限", "3", "年"),
+    ]
+
+
+def test_extract_numeric_facts_normalizes_restricted_chinese_numbers():
+    facts = extract_numeric_facts(
+        "资产负债率不高于百分之七十，担保覆盖率不低于百分之一百三十；"
+        "余额上限为人民币一千万元，授信上限为五亿元，期限十二个月，覆盖零点九二倍。"
+    )
+
+    assert [(item.name, str(item.value), item.unit) for item in facts] == [
+        ("资产负债率上限", "70", "%"),
+        ("担保覆盖率下限", "130", "%"),
+        ("余额上限", "1000", "万元"),
+        ("授信上限", "5", "亿元"),
+        ("期限", "12", "个月"),
+        ("覆盖", "0.92", "倍"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("question_id", "answer", "expected"),
+    [
+        (
+            "q001",
+            "借款人资产负债率不得高于百分之七十。",
+            [("借款人资产负债率上限", "70", "%")],
+        ),
+        (
+            "q003",
+            "单一小微企业借款人的流动资金贷款余额上限为人民币一千万元。",
+            [("单一小微企业借款人的流动资金贷款余额上限", "1000", "万元")],
+        ),
+        (
+            "q081",
+            "资产负债率不得高于百分之七十五。",
+            [("资产负债率上限", "75", "%")],
+        ),
+        (
+            "q101",
+            "星辰微电子2025年度营业收入为人民币1.85亿元。",
+            [("星辰微电子2025年度营业收入", "1.85", "亿元")],
+        ),
+    ],
+)
+def test_extract_numeric_facts_covers_first_run_positive_cases(
+    question_id: str,
+    answer: str,
+    expected: list[tuple[str, str, str]],
+) -> None:
+    assert question_id.startswith("q")
+    assert [(item.name, str(item.value), item.unit) for item in extract_numeric_facts(answer)] == (
+        expected
+    )
+
+
+def test_extract_numeric_facts_does_not_emit_chinese_year_or_article_number():
+    facts = extract_numeric_facts("二〇二五年修订的第十二条规定，贷款期限为十二个月。")
+
+    assert [(item.name, str(item.value), item.unit) for item in facts] == [
+        ("贷款期限", "12", "个月")
+    ]
+
+
+def test_extract_numeric_facts_keeps_non_revenue_metric_boundary():
+    facts = extract_numeric_facts("非营业收入为人民币1.85亿元。")
+
+    assert [(item.name, str(item.value), item.unit) for item in facts] == [
+        ("非营业收入", "1.85", "亿元")
     ]
 
 
@@ -281,6 +350,8 @@ def test_experiment_hash_covers_all_generation_dimensions():
         _experiment_hash(_settings(qa_max_claims=7)),
         _experiment_hash(_settings(qa_max_generation_tokens=4096)),
         _experiment_hash(_settings(qa_max_audit_repairs=2)),
+        _experiment_hash(audit_implementation_version="structural_evidence_v3"),
+        _experiment_hash(grounded_answer_contract_version="1.2"),
         _experiment_hash(orchestrator=_orchestrator(rrf_k=61)),
         _experiment_hash(orchestrator=_orchestrator(route_weights={"DENSE": 2.0, "SPARSE": 1.0})),
         _experiment_hash(
@@ -292,8 +363,21 @@ def test_experiment_hash_covers_all_generation_dimensions():
     }
 
     assert baseline not in variants
-    assert len(variants) == 21
+    assert len(variants) == 23
     assert len(_idempotency_key(baseline, "q" + "x" * 10_000)) <= 128
+
+
+def test_experiment_contract_versions_the_prediction_adapter():
+    contract = _experiment_contract(
+        query_dataset_sha256="a" * 64,
+        top_k=8,
+        prompt_version="grounded_qa_v1",
+        prompt_sha256="b" * 64,
+        settings=_settings(),
+        orchestrator=_orchestrator(),
+    )
+
+    assert contract["prediction_adapter_version"] == PREDICTION_ADAPTER_VERSION
 
 
 def test_frozen_input_is_read_once_and_hashes_the_same_bytes():

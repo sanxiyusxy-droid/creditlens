@@ -23,9 +23,21 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from creditlens.agents.auditor import EvidenceAuditor
-from creditlens.agents.contracts import GroundedAnswerArtifact, RefusalReasonCode
-from creditlens.agents.grounded_qa import GroundedQAAgent, GroundedQAOutputRejected
+from creditlens.agents.auditor import (
+    GROUNDING_AUDIT_IMPLEMENTATION_VERSION,
+    EvidenceAuditor,
+)
+from creditlens.agents.contracts import (
+    GROUNDED_ANSWER_CONTRACT_VERSION,
+    GroundedAnswerArtifact,
+    RefusalReasonCode,
+)
+from creditlens.agents.grounded_qa import (
+    GroundedQAAuditFeedback,
+    GroundedQAAgent,
+    GroundedQAOutputRejected,
+    grounded_qa_repair_hint,
+)
 from creditlens.application.snapshot_service import freeze_snapshot, load_snapshot_context
 from creditlens.application.trusted_context import (
     acl_scope_hash,
@@ -60,6 +72,19 @@ _QA_TASK_ID = "grounded_qa"
 _QA_PRODUCER = "grounded_qa"
 _SAFE_VIOLATION_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 _REPLAY_INTEGRITY_ERROR = "IDEMPOTENT_REPLAY_INTEGRITY_FAILED"
+_ANSWER_AUDIT_FAILED = "ANSWER_AUDIT_FAILED"
+_SAFE_QA_CLAIM_CATEGORIES = frozenset(
+    {
+        "ELIGIBILITY",
+        "FINANCIAL",
+        "CASH_FLOW",
+        "CONCENTRATION",
+        "RELATED_PARTY",
+        "DATA_CONFLICT",
+        "MISSING_MATERIAL",
+        "EXCEPTION",
+    }
+)
 
 
 def _canonical_persisted_payload_hash(payload: dict[str, Any]) -> str:
@@ -81,6 +106,15 @@ class QAServiceError(Exception):
         super().__init__(f"Grounded QA failed: {error_type}")
         self.run_id = run_id
         self.error_type = error_type
+
+
+class _AnswerAuditFailed(RuntimeError):
+    """Internal sentinel whose public failure type is stable and non-sensitive."""
+
+    error_type = _ANSWER_AUDIT_FAILED
+
+    def __init__(self) -> None:
+        super().__init__(self.error_type)
 
 
 class GroundedQAClaimResponse(BaseModel):
@@ -155,6 +189,8 @@ class QAService:
             / (f"{self.settings.qa_prompt_version}.yaml")
         )
         self._qa_prompt_sha256 = sha256_text(prompt_path.read_text(encoding="utf-8"))
+        self._audit_implementation_version = GROUNDING_AUDIT_IMPLEMENTATION_VERSION
+        self._grounded_answer_contract_version = GROUNDED_ANSWER_CONTRACT_VERSION
         self.agent = GroundedQAAgent(
             self.chat,
             prompt_path=prompt_path,
@@ -214,8 +250,9 @@ class QAService:
                 top_k=top_k,
             )
         except Exception as exc:
-            await self._mark_failed(reservation.run_id, type(exc).__name__)
-            raise QAServiceError(reservation.run_id, type(exc).__name__) from exc
+            error_type = _execution_error_type(exc)
+            await self._mark_failed(reservation.run_id, error_type)
+            raise QAServiceError(reservation.run_id, error_type) from exc
 
     async def _create_run(
         self,
@@ -283,7 +320,8 @@ class QAService:
                         "prompt_version": self.settings.qa_prompt_version,
                         "provider": self.settings.llm_provider,
                         "model": self.settings.llm_model or None,
-                        "audit": "structural_evidence_v1",
+                        "audit": self._audit_implementation_version,
+                        "audit_contract_version": self._grounded_answer_contract_version,
                         "semantic_entailment_verified": False,
                         "model_invocation_ids": [],
                     },
@@ -395,6 +433,8 @@ class QAService:
             "qa_max_generation_tokens": self.settings.qa_max_generation_tokens,
             "qa_max_audit_repairs": self.settings.qa_max_audit_repairs,
             "qa_allow_extractive_fallback": self.settings.qa_allow_extractive_fallback,
+            "audit_implementation_version": self._audit_implementation_version,
+            "grounded_answer_contract_version": self._grounded_answer_contract_version,
             "sparse_encoder_version": getattr(self.settings, "sparse_encoder_version", None),
             "orchestrator_runtime": {
                 "rrf_k": getattr(
@@ -522,6 +562,9 @@ class QAService:
             manifest.get("prompt_version") == artifact.prompt_version,
             manifest.get("provider") == self.settings.llm_provider,
             manifest.get("model") == expected_model,
+            manifest.get("audit") == self._audit_implementation_version,
+            manifest.get("audit_contract_version") == self._grounded_answer_contract_version,
+            artifact.contract_version == self._grounded_answer_contract_version,
             set(artifact.model_invocation_ids).issubset(manifest_ids),
             generation_mode in {"llm", "deterministic_extractive", "abstained_empty_context"},
         )
@@ -638,15 +681,16 @@ class QAService:
                 allowed_evidence_ids=allowed_ids,
                 snapshot=snapshot,
             )
+            artifact, review_normalized = _normalize_non_blocking_review(artifact, audit)
 
             audit_repair_count = 0
             while not audit.ok and audit_repair_count < self.settings.qa_max_audit_repairs:
-                audit_feedback = _violation_codes(audit.violations)
+                audit_feedback = _audit_repair_feedback(audit.violations, artifact)
                 await events.emit(
                     "ANSWER_AUDIT_REJECTED",
                     {
                         "repair_attempt": audit_repair_count + 1,
-                        "violation_codes": audit_feedback,
+                        "violation_codes": _violation_codes(audit.violations),
                     },
                 )
                 await events.transition("GENERATING")
@@ -670,6 +714,8 @@ class QAService:
                     allowed_evidence_ids=allowed_ids,
                     snapshot=snapshot,
                 )
+                artifact, normalized_after_repair = _normalize_non_blocking_review(artifact, audit)
+                review_normalized = review_normalized or normalized_after_repair
                 audit_repair_count += 1
 
             if not audit.ok:
@@ -682,7 +728,7 @@ class QAService:
                     },
                 )
                 await checkpoint_commit(session)
-                raise RuntimeError("ANSWER_AUDIT_FAILED")
+                raise _AnswerAuditFailed()
 
             await events.emit(
                 "ANSWER_AUDIT_COMPLETED",
@@ -690,6 +736,8 @@ class QAService:
                     "answer_status": audit.derived_answer_status,
                     "claim_count": len(artifact.claims),
                     "repair_count": audit_repair_count,
+                    "review_normalized": review_normalized,
+                    "violation_codes": _violation_codes(audit.violations),
                 },
             )
             await self._persist_answer(
@@ -704,6 +752,7 @@ class QAService:
                 "generation_mode": generation.generation_mode,
                 "generation_repairs": generation_repair_count,
                 "audit_repairs": audit_repair_count,
+                "review_normalized": review_normalized,
             }
             await events.emit(
                 "ANSWER_PERSISTED",
@@ -838,6 +887,8 @@ class QAService:
             raise RuntimeError("QA_ARTIFACT_PRODUCER_MISMATCH")
         if artifact.prompt_version != self.settings.qa_prompt_version:
             raise RuntimeError("QA_ARTIFACT_PROVENANCE_MISMATCH")
+        if artifact.contract_version != self._grounded_answer_contract_version:
+            raise RuntimeError("QA_ARTIFACT_CONTRACT_VERSION_MISMATCH")
 
         answer_status = getattr(artifact.answer_status, "value", artifact.answer_status)
         if (answer_status == "ABSTAINED") != (artifact.refusal_reason_code is not None):
@@ -1055,16 +1106,142 @@ def _safe_error_code(raw: Any) -> str:
     return code
 
 
+def _execution_error_type(exc: Exception) -> str:
+    """Map internal sentinels to a stable public type without exposing messages."""
+    if isinstance(exc, _AnswerAuditFailed):
+        return exc.error_type
+    return type(exc).__name__
+
+
+def _stable_violation_code(raw: Any) -> str | None:
+    for component in str(raw).split(":"):
+        if _SAFE_VIOLATION_CODE.fullmatch(component):
+            return component
+    return None
+
+
 def _violation_codes(violations: dict[str, list[str]]) -> list[str]:
     """Extract the stable CODE component, excluding ids/tokens/messages."""
     safe: set[str] = set()
     for values in violations.values():
         for violation in values:
-            for component in str(violation).split(":"):
-                if _SAFE_VIOLATION_CODE.fullmatch(component):
-                    safe.add(component)
-                    break
+            code = _stable_violation_code(violation)
+            if code is not None:
+                safe.add(code)
     return sorted(safe)
+
+
+def _audit_repair_feedback(
+    violations: dict[str, list[str]],
+    artifact: GroundedAnswerArtifact,
+) -> list[dict[str, Any]]:
+    """Build prompt-only locators from fields that were already visible to the model.
+
+    Claim statements, violation payloads and exception text are deliberately
+    dropped.  Ambiguous category/evidence locators apply to every matching
+    Claim.  RunEvent persistence continues to use ``_violation_codes``.
+    """
+    evidence_ids = {
+        str(evidence.evidence_id): evidence.evidence_id for evidence in artifact.evidence
+    }
+
+    def safe_evidence_ids(values: list[Any]) -> tuple[uuid.UUID, ...]:
+        safe: set[uuid.UUID] = set()
+        for value in values:
+            try:
+                normalized = str(uuid.UUID(str(value)))
+            except (AttributeError, TypeError, ValueError):
+                continue
+            if normalized in evidence_ids:
+                safe.add(evidence_ids[normalized])
+        return tuple(sorted(safe, key=str))
+
+    claim_locators: dict[
+        str,
+        tuple[str, tuple[uuid.UUID, ...], tuple[uuid.UUID, ...]],
+    ] = {}
+    locator_counts: dict[
+        tuple[str, tuple[uuid.UUID, ...], tuple[uuid.UUID, ...]],
+        int,
+    ] = {}
+    for claim in artifact.claims:
+        category = str(claim.category)
+        if category not in _SAFE_QA_CLAIM_CATEGORIES:
+            continue
+        locator = (
+            category,
+            safe_evidence_ids(list(claim.supporting_evidence_ids)),
+            safe_evidence_ids(list(claim.opposing_evidence_ids)),
+        )
+        claim_locators[str(claim.claim_id)] = locator
+        locator_counts[locator] = locator_counts.get(locator, 0) + 1
+
+    feedback: dict[str, dict[str, Any]] = {}
+    for subject, values in violations.items():
+        for violation in values:
+            code = _stable_violation_code(violation)
+            if code is None:
+                continue
+            locator = claim_locators.get(subject)
+            if locator is not None:
+                category, supporting_ids, opposing_ids = locator
+                item = GroundedQAAuditFeedback(
+                    scope="CLAIM",
+                    code=code,
+                    repair_hint=grounded_qa_repair_hint(code),
+                    category=category,
+                    supporting_evidence_ids=list(supporting_ids),
+                    opposing_evidence_ids=list(opposing_ids),
+                    apply_to=(
+                        "ALL_MATCHING_CLAIMS"
+                        if locator_counts[locator] > 1
+                        else "MATCHING_CLAIM"
+                    ),
+                )
+            elif subject in evidence_ids:
+                item = GroundedQAAuditFeedback(
+                    scope="EVIDENCE",
+                    code=code,
+                    repair_hint=grounded_qa_repair_hint(code),
+                    evidence_id=evidence_ids[subject],
+                )
+            else:
+                item = GroundedQAAuditFeedback(
+                    scope="ANSWER",
+                    code=code,
+                    repair_hint=grounded_qa_repair_hint(code),
+                )
+            payload = item.model_dump(mode="json", exclude_none=True)
+            canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+            feedback[canonical] = payload
+    return [feedback[key] for key in sorted(feedback)]
+
+
+def _normalize_non_blocking_review(
+    artifact: GroundedAnswerArtifact,
+    audit: Any,
+) -> tuple[GroundedAnswerArtifact, bool]:
+    """Apply the auditor-owned ANSWERED -> NEEDS_REVIEW downgrade server-side."""
+    if not (
+        getattr(audit, "review_normalization_required", False)
+        and getattr(audit, "ok", False)
+        and getattr(audit, "requires_human_review", False)
+        and getattr(audit, "derived_answer_status", None) == "NEEDS_REVIEW"
+        and getattr(artifact.answer_status, "value", artifact.answer_status) == "ANSWERED"
+        and artifact.execution_status != "FAILED"
+    ):
+        return artifact, False
+    payload = artifact.model_dump(mode="python")
+    payload.update(
+        {
+            "answer_status": "NEEDS_REVIEW",
+            "direct_answer": None,
+            "execution_status": "PARTIAL",
+            "abstention_reason": None,
+            "refusal_reason_code": None,
+        }
+    )
+    return GroundedAnswerArtifact.model_validate(payload), True
 
 
 def _build_response(

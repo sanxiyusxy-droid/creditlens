@@ -17,6 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from creditlens.formulas.engine import CalculationArtifact
 
+GROUNDED_ANSWER_CONTRACT_VERSION = "1.1"
+
 
 class AgentEvidenceRef(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -206,6 +208,10 @@ class GroundedAnswerArtifact(AgentArtifact):
 
     model_config = ConfigDict(extra="forbid")
 
+    # Kept as ``str`` so historical 1.0 artifacts remain parseable for an
+    # explicit integrity rejection; new materializations default to 1.1 and the
+    # QA service enforces that exact version before persistence/replay.
+    contract_version: str = GROUNDED_ANSWER_CONTRACT_VERSION
     answer_status: AnswerStatus
     direct_answer: str | None = None
     missing_information: list[str] = Field(default_factory=list)

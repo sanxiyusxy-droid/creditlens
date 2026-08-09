@@ -18,7 +18,14 @@ TModel = TypeVar("TModel", bound=BaseModel)
 
 
 class ModelInvocationTrace(BaseModel):
-    """Persistence-safe metadata for one structured generation call."""
+    """Persistence-safe metadata for one structured generation call.
+
+    ``request_sha256`` hashes the ordered per-attempt request digest sequence,
+    while ``response_sha256`` hashes the last HTTP response body received.
+    ``attempts`` counts requests sent and token usage aggregates every parsed
+    response. ``prompt_sha256`` remains the identity of the original structured
+    prompt; a schema-repair prompt, when needed, is covered by the request hash.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -61,8 +68,84 @@ def _sha256_text(value: str) -> str:
     return _sha256_bytes(value.encode("utf-8"))
 
 
-def _canonical_json(value: dict) -> str:
+def _canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _attempt_sequence_hash(attempt_digests: list[str]) -> str:
+    """Hash an ordered sequence without retaining request/response content."""
+    return _sha256_text(_canonical_json({"attempt_sha256": attempt_digests}))
+
+
+def _schema_property_names(schema: object) -> set[str]:
+    """Collect schema-owned field names; model-produced object keys are untrusted."""
+    names: set[str] = set()
+    if isinstance(schema, dict):
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            names.update(str(name) for name in properties)
+        for value in schema.values():
+            names.update(_schema_property_names(value))
+    elif isinstance(schema, list):
+        for value in schema:
+            names.update(_schema_property_names(value))
+    return names
+
+
+def _safe_validation_summary(
+    error: ValidationError,
+    *,
+    schema_property_names: set[str],
+) -> str:
+    """Return bounded locations/types without Pydantic messages or input values."""
+    summaries: list[dict[str, str]] = []
+    for item in error.errors(
+        include_url=False,
+        include_context=False,
+        include_input=False,
+    )[:8]:
+        location = "$"
+        raw_location = item.get("loc", ())
+        if isinstance(raw_location, (list, tuple)):
+            for part in raw_location[:6]:
+                if isinstance(part, str) and part in schema_property_names:
+                    location += f".{part}"
+                elif isinstance(part, int) and not isinstance(part, bool):
+                    location += "[]"
+                else:
+                    location += ".<unknown>"
+
+        raw_type = item.get("type")
+        error_type = raw_type if isinstance(raw_type, str) else "validation_error"
+        if (
+            not error_type
+            or len(error_type) > 64
+            or any(
+                not (character.isascii() and (character.isalnum() or character in "._-"))
+                for character in error_type
+            )
+        ):
+            error_type = "validation_error"
+        summaries.append({"loc": location, "type": error_type})
+
+    return _canonical_json({"errors": summaries, "truncated": error.error_count() > 8})
+
+
+def _validate_structured_response[TOutput: BaseModel](
+    response_payload: dict,
+    output_schema: type[TOutput],
+    *,
+    schema_property_names: set[str],
+) -> tuple[TOutput | None, str | None]:
+    """Validate provider content while containing any raw ValidationError input."""
+    content = response_payload["choices"][0]["message"]["content"]
+    try:
+        return output_schema.model_validate_json(content), None
+    except ValidationError as error:
+        return None, _safe_validation_summary(
+            error,
+            schema_property_names=schema_property_names,
+        )
 
 
 class _UsageAccumulator:
@@ -191,28 +274,37 @@ class OpenAICompatChat:
         ``LLMCallError`` with a trace containing no raw request or response.
         """
         schema_hint = json.dumps(output_schema.model_json_schema(), ensure_ascii=False)
+        schema_property_names = _schema_property_names(output_schema.model_json_schema())
         system_full = (
             f"{system}\n\n你必须只输出一个 JSON 对象，符合以下 JSON Schema，"
             f"不得输出任何其他文本：\n{schema_hint}"
         )
-        request_payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_full},
-                {"role": "user", "content": user},
-            ],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "response_format": {"type": "json_object"},
-        }
         prompt_hash = _sha256_text(system_full)
-        request_hash = _sha256_text(_canonical_json(request_payload))
+        request_digests: list[str] = []
         response_hash: str | None = None
         usage = _UsageAccumulator()
         started_at = time.perf_counter()
         attempts = 0
-        last_error: Exception | None = None
-        for _attempt in range(2):
+        repair_summary: str | None = None
+        for attempt_index in range(2):
+            repair_instruction = ""
+            if repair_summary is not None:
+                repair_instruction = (
+                    "\n\n上一次输出未通过 JSON Schema 校验。不要复述或局部修补上一次"
+                    "输出；请依据原始任务从头重新生成完整 JSON 对象。以下仅是脱敏后的"
+                    f"字段位置/错误类型摘要，不含上一次输出原文：\n{repair_summary}"
+                )
+            request_payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_full + repair_instruction},
+                    {"role": "user", "content": user},
+                ],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "response_format": {"type": "json_object"},
+            }
+            request_digests.append(_sha256_text(_canonical_json(request_payload)))
             attempts += 1
             try:
                 response = await self._client.post("/chat/completions", json=request_payload)
@@ -222,17 +314,26 @@ class OpenAICompatChat:
                 if not isinstance(response_payload, dict):
                     raise TypeError("provider response must be a JSON object")
                 usage.add(response_payload)
-                content = response_payload["choices"][0]["message"]["content"]
-                output = output_schema.model_validate_json(content)
-            except ValidationError as exc:
-                last_error = exc
-                continue
+                output, validation_summary = _validate_structured_response(
+                    response_payload,
+                    output_schema,
+                    schema_property_names=schema_property_names,
+                )
+                if output is None:
+                    # Do not carry provider content into the retry request or
+                    # terminal exception frame. Only the safe summary survives.
+                    repair_summary = validation_summary
+                    response = None
+                    response_payload = None
+                    if attempt_index == 0:
+                        continue
+                    break
             except Exception as exc:
                 trace = _build_trace(
                     model=self.model,
                     prompt_version=prompt_version,
                     prompt_sha256=prompt_hash,
-                    request_sha256=request_hash,
+                    request_sha256=_attempt_sequence_hash(request_digests),
                     response_sha256=response_hash,
                     usage=usage,
                     started_at=started_at,
@@ -245,7 +346,7 @@ class OpenAICompatChat:
                 model=self.model,
                 prompt_version=prompt_version,
                 prompt_sha256=prompt_hash,
-                request_sha256=request_hash,
+                request_sha256=_attempt_sequence_hash(request_digests),
                 response_sha256=response_hash,
                 usage=usage,
                 started_at=started_at,
@@ -258,13 +359,13 @@ class OpenAICompatChat:
             model=self.model,
             prompt_version=prompt_version,
             prompt_sha256=prompt_hash,
-            request_sha256=request_hash,
+            request_sha256=_attempt_sequence_hash(request_digests),
             response_sha256=response_hash,
             usage=usage,
             started_at=started_at,
             attempts=attempts,
             status="FAILED",
-            error_type=type(last_error).__name__ if last_error is not None else "ValidationError",
+            error_type="ValidationError",
         )
         # ValidationError may echo the invalid payload in its string form. Do
         # not retain it in the public exception or persistence-safe trace.

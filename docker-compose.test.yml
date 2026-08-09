@@ -1,3 +1,5 @@
+name: creditlens-test
+
 # 本地集成测试环境：PG + Qdrant（无 MinIO/Redis，测试用 local_fs）
 # 一条命令完成建库/迁移/RLS/授权/Seed/测试（与 CI 同序列）：
 #     powershell -ExecutionPolicy Bypass -File scripts/run_integration.ps1

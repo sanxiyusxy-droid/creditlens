@@ -1,6 +1,7 @@
 """OpenAI-compatible chat tracing stays useful without retaining model data."""
 
 import hashlib
+import json
 
 import httpx
 import pytest
@@ -35,6 +36,15 @@ def _completion(content: str, usage: dict | None = None, status: int = 200) -> h
     if usage is not None:
         payload["usage"] = usage
     return httpx.Response(status, json=payload)
+
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _attempt_sequence_hash(digests: list[str]) -> str:
+    value = _canonical_json({"attempt_sha256": digests}).encode()
+    return hashlib.sha256(value).hexdigest()
 
 
 async def test_generate_structured_traced_success_is_redacted():
@@ -82,10 +92,11 @@ async def test_generate_structured_traced_success_is_redacted():
         assert secret not in persisted
 
 
-async def test_schema_retry_aggregates_usage_and_hashes_last_response():
+async def test_schema_retry_regenerates_with_safe_summary_and_hashes_all_requests():
+    invalid_content = '{"wrong":"first invalid response must not be replayed"}'
     responses = [
         _completion(
-            '{"wrong":"first invalid response"}',
+            invalid_content,
             {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12},
         ),
         _completion(
@@ -94,9 +105,11 @@ async def test_schema_retry_aggregates_usage_and_hashes_last_response():
         ),
     ]
     calls = 0
+    requests: list[dict] = []
 
-    def handler(_request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx.Request) -> httpx.Response:
         nonlocal calls
+        requests.append(json.loads(request.content))
         response = responses[calls]
         calls += 1
         return response
@@ -118,6 +131,18 @@ async def test_schema_retry_aggregates_usage_and_hashes_last_response():
     assert result.trace.input_tokens == 21
     assert result.trace.output_tokens == 5
     assert result.trace.total_tokens == 26
+    assert requests[0] != requests[1]
+    repair_prompt = requests[1]["messages"][0]["content"]
+    assert "上一次输出未通过 JSON Schema 校验" in repair_prompt
+    assert '"loc":"$.statement"' in repair_prompt
+    assert '"type":"missing"' in repair_prompt
+    assert invalid_content not in _canonical_json(requests[1])
+    assert "first invalid response must not be replayed" not in repair_prompt
+
+    request_digests = [
+        hashlib.sha256(_canonical_json(request).encode()).hexdigest() for request in requests
+    ]
+    assert result.trace.request_sha256 == _attempt_sequence_hash(request_digests)
     assert result.trace.response_sha256 == hashlib.sha256(responses[-1].content).hexdigest()
 
 
@@ -141,13 +166,26 @@ async def test_usage_is_nullable_when_provider_omits_it():
 
 
 async def test_two_schema_failures_raise_with_redacted_failed_trace():
-    invalid_response = '{"wrong":"response body must not leak"}'
-
-    def handler(_request: httpx.Request) -> httpx.Response:
-        return _completion(
-            invalid_response,
+    invalid_responses = [
+        '{"wrong":"first response body must not leak"}',
+        '{"wrong":"second response body must not leak"}',
+    ]
+    responses = [
+        _completion(
+            content,
             {"prompt_tokens": 7, "completion_tokens": 2, "total_tokens": 9},
         )
+        for content in invalid_responses
+    ]
+    requests: list[dict] = []
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        requests.append(json.loads(request.content))
+        response = responses[calls]
+        calls += 1
+        return response
 
     chat = await _mocked_chat(handler)
     try:
@@ -169,9 +207,19 @@ async def test_two_schema_failures_raise_with_redacted_failed_trace():
     assert error.trace.input_tokens == 14
     assert error.trace.output_tokens == 4
     assert error.trace.total_tokens == 18
+    assert calls == 2
+    assert requests[0] != requests[1]
+    assert invalid_responses[0] not in _canonical_json(requests[1])
     persisted = error.trace.model_dump_json()
-    for secret in (invalid_response, "response body must not leak", "private system prompt"):
-        assert secret not in persisted
+    public_error = f"{error!s}\n{error!r}\n{error.__dict__!r}\n{persisted}"
+    for secret in (*invalid_responses, "response body must not leak", "private system prompt"):
+        assert secret not in public_error
+
+    request_digests = [
+        hashlib.sha256(_canonical_json(request).encode()).hexdigest() for request in requests
+    ]
+    assert error.trace.request_sha256 == _attempt_sequence_hash(request_digests)
+    assert error.trace.response_sha256 == hashlib.sha256(responses[-1].content).hexdigest()
 
 
 async def test_http_failure_has_single_attempt_and_no_response_body_in_trace():

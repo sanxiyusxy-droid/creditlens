@@ -477,6 +477,7 @@ async def test_get_run_exposes_supporting_and_opposing_locators_by_evidence_key(
             run_id=run.id,
             task_id="grounded_qa",
             artifact_type="GROUNDED_ANSWER",
+            contract_version=grounded.contract_version,
             producer="grounded_qa",
             lifecycle_status="VERIFIED",
             execution_status=grounded.execution_status,

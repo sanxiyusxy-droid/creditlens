@@ -42,6 +42,15 @@ from creditlens.infrastructure.postgres.models import (
 from creditlens.retrieval.contracts import TrustedRequestContext
 
 AGENT_ROLE = "evidence_auditor"
+GROUNDING_AUDIT_IMPLEMENTATION_VERSION = "structural_evidence_v2"
+
+_NON_BLOCKING_REVIEW_CODES = frozenset(
+    {
+        "POLARITY_CONFLICT_WITH_CITATION",
+        "STRUCTURAL_COVERAGE_INSUFFICIENT",
+        "THRESHOLD_DIRECTION_CONFLICT_WITH_CITATION",
+    }
+)
 
 # 核心 Agent：失败时阻断报告
 _CORE_PRODUCERS = {"policy_analyst", "financial_analyst"}
@@ -72,6 +81,10 @@ class AuditResult:
     # rejected_claim_ids 推断整体结果。
     grounded_answer_ok: bool = True
     derived_answer_status: str | None = None
+    # The auditor may downgrade an otherwise valid ANSWERED artifact when its
+    # lightweight structural checks require human review.  The service owns the
+    # corresponding state rewrite; hard integrity failures never set this flag.
+    review_normalization_required: bool = False
 
     @property
     def requires_human_review(self) -> bool:
@@ -638,6 +651,16 @@ class EvidenceAuditor:
                     "POLARITY_CONFLICT_WITH_CITATION",
                 )
 
+            if (
+                claim.verdict == "SUPPORTED"
+                and claim.claim_id not in result.rejected_claim_ids
+                and _has_threshold_direction_conflict(claim.statement, cited_texts)
+            ):
+                flag_claim_for_review(
+                    claim.claim_id,
+                    "THRESHOLD_DIRECTION_CONFLICT_WITH_CITATION",
+                )
+
             # Ambiguous cases are routed to review instead of being hard rejected.
             if (
                 claim.verdict == "SUPPORTED"
@@ -671,7 +694,24 @@ class EvidenceAuditor:
             derived_status = "ABSTAINED"
         result.derived_answer_status = derived_status
 
-        if actual_status != derived_status:
+        review_codes = {
+            code
+            for claim_id in result.needs_human_review_claim_ids
+            for code in result.violations.get(str(claim_id), [])
+        }
+        result.review_normalization_required = (
+            actual_status == "ANSWERED"
+            and derived_status == "NEEDS_REVIEW"
+            and bool(result.needs_human_review_claim_ids)
+            and bool(review_codes)
+            and review_codes.issubset(_NON_BLOCKING_REVIEW_CODES)
+            and not result.rejected_claim_ids
+            and not result.replay_failures
+            and not result.blocking_failures
+            and result.grounded_answer_ok
+        )
+
+        if actual_status != derived_status and not result.review_normalization_required:
             reject_artifact(f"ANSWER_STATUS_MISMATCH:{actual_status}:{derived_status}")
 
         expected_answer = " ".join(
@@ -683,7 +723,7 @@ class EvidenceAuditor:
             if not artifact.abstention_reason:
                 reject_artifact("ABSTENTION_REASON_REQUIRED")
         elif derived_status == "NEEDS_REVIEW":
-            if artifact.direct_answer:
+            if artifact.direct_answer and not result.review_normalization_required:
                 reject_artifact("NEEDS_REVIEW_MUST_NOT_HAVE_DIRECT_ANSWER")
         elif (artifact.direct_answer or "").strip() != expected_answer:
             reject_artifact("DIRECT_ANSWER_NOT_EXACT_CLAIM_RENDERING")
@@ -728,6 +768,38 @@ _ANSWER_NUMBER_RE = re.compile(
     r"(?![\d.])",
     re.IGNORECASE,
 )
+_CHINESE_DIGITS = {
+    "零": 0,
+    "〇": 0,
+    "○": 0,
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+}
+_CHINESE_SMALL_UNITS = {"十": 10, "百": 100, "千": 1000}
+_CHINESE_VALUE_PATTERN = r"[零〇○一二两三四五六七八九十百千]+(?:点[零〇○一二两三四五六七八九]+)?"
+_CHINESE_PERCENT_RE = re.compile(
+    rf"(?P<sign>[负正])?百分之\s*(?P<value>{_CHINESE_VALUE_PATTERN})"
+)
+_CHINESE_NUMBER_RE = re.compile(
+    r"(?P<currency_prefix>人民币|美元|港元|欧元|日元)?\s*"
+    r"(?P<sign>[负正])?\s*"
+    rf"(?P<value>{_CHINESE_VALUE_PATTERN})\s*"
+    r"(?:"
+    r"(?P<ratio_unit>个百分点|百分点|基点|%)"
+    r"|(?P<period_unit>年度|年|个月|月|季度|季|星期|周|天|日)"
+    r"|(?P<scale>万亿|千亿|百亿|亿|千万|百万|十万|万|千|百)?\s*"
+    r"(?P<currency_suffix>人民币|美元|港元|欧元|日元|元)"
+    r"|(?P<scale_only>万亿|千亿|百亿|亿|千万|百万|十万|万|千|百)"
+    r")"
+)
 _STRUCTURAL_TEXT_RE = re.compile(r"[a-z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff]+")
 _STRUCTURAL_PREFIXES = (
     "根据现有证据",
@@ -769,6 +841,8 @@ _POLARITY_PAIRS = (
     ("增加", "减少"),
     ("增长", "下降"),
 )
+_LIMIT_THRESHOLD_PHRASES = ("不得超过", "不超过", "不得高于", "不高于", "上限")
+_NON_BREACH_THRESHOLD_PHRASES = ("不得超过", "不超过", "不得高于", "不高于")
 
 
 def _canonical_decimal(raw: str) -> str:
@@ -788,16 +862,55 @@ def _canonical_currency(raw: str | None) -> str:
     return _CURRENCY_ALIASES.get(raw.casefold(), raw.casefold())
 
 
+def _canonical_chinese_number(raw: str) -> str | None:
+    """Parse a deliberately small Chinese-number grammar without guessing."""
+    if not raw or raw.count("点") > 1:
+        return None
+    integer_text, separator, fractional_text = raw.partition("点")
+    if not integer_text or (separator and not fractional_text):
+        return None
+
+    if any(character in _CHINESE_SMALL_UNITS for character in integer_text):
+        total = 0
+        pending_digit: int | None = None
+        previous_unit = 10_000
+        for character in integer_text:
+            if character in _CHINESE_DIGITS:
+                if pending_digit not in {None, 0}:
+                    return None
+                pending_digit = _CHINESE_DIGITS[character]
+                continue
+            unit = _CHINESE_SMALL_UNITS.get(character)
+            if unit is None or unit >= previous_unit:
+                return None
+            total += (1 if pending_digit is None else pending_digit) * unit
+            pending_digit = None
+            previous_unit = unit
+        integer_value = total + (pending_digit or 0)
+    else:
+        try:
+            integer_value = int("".join(str(_CHINESE_DIGITS[item]) for item in integer_text))
+        except (KeyError, ValueError):
+            return None
+
+    if not separator:
+        return str(integer_value)
+    if any(item not in _CHINESE_DIGITS for item in fractional_text):
+        return None
+    fractional_digits = "".join(str(_CHINESE_DIGITS[item]) for item in fractional_text)
+    return _canonical_decimal(f"{integer_value}.{fractional_digits}")
+
+
 def _answer_numeric_spans(statement: str) -> list[_NumericSpan]:
     """Extract comparison-safe number/date spans from model-authored text."""
     normalized = unicodedata.normalize("NFKC", statement).casefold()
-    spans: list[_NumericSpan] = []
+    positioned: list[tuple[int, _NumericSpan]] = []
     occupied: list[tuple[int, int]] = []
 
     for match in _ANSWER_DATE_RE.finditer(normalized):
         digits = tuple(str(int(item)) for item in re.findall(r"\d+", match.group(0)))
         display = re.sub(r"\s+", "", match.group(0))
-        spans.append(_NumericSpan(display=display, key=("date", *digits)))
+        positioned.append((match.start(), _NumericSpan(display=display, key=("date", *digits))))
         occupied.append(match.span())
 
     for match in _ANSWER_NUMBER_RE.finditer(normalized):
@@ -846,21 +959,112 @@ def _answer_numeric_spans(statement: str) -> list[_NumericSpan]:
             unit_key = ""
             display = f"{sign}{value}"
 
-        spans.append(
-            _NumericSpan(
-                display=display,
-                key=(kind, sign, value, unit_key),
+        positioned.append(
+            (
+                start,
+                _NumericSpan(
+                    display=display,
+                    key=(kind, sign, value, unit_key),
+                ),
             )
         )
+        occupied.append(match.span())
+
+    for match in _CHINESE_PERCENT_RE.finditer(normalized):
+        start, end = match.span()
+        if any(
+            start < occupied_end and end > occupied_start
+            for occupied_start, occupied_end in occupied
+        ):
+            continue
+        value = _canonical_chinese_number(match.group("value"))
+        if value is None:
+            continue
+        sign = "-" if match.group("sign") == "负" else "+" if match.group("sign") == "正" else ""
+        positioned.append(
+            (
+                start,
+                _NumericSpan(
+                    display=f"{sign}{value}%",
+                    key=("ratio", sign, value, "%"),
+                ),
+            )
+        )
+        occupied.append(match.span())
+
+    for match in _CHINESE_NUMBER_RE.finditer(normalized):
+        start, end = match.span()
+        if any(
+            start < occupied_end and end > occupied_start
+            for occupied_start, occupied_end in occupied
+        ):
+            continue
+        value = _canonical_chinese_number(match.group("value"))
+        if value is None:
+            continue
+        sign = "-" if match.group("sign") == "负" else "+" if match.group("sign") == "正" else ""
+        prefix_currency = _canonical_currency(match.group("currency_prefix"))
+        suffix_currency = _canonical_currency(match.group("currency_suffix"))
+        currency = prefix_currency or suffix_currency
+        if prefix_currency and suffix_currency and prefix_currency != suffix_currency:
+            currency = f"{prefix_currency}/{suffix_currency}"
+        ratio_unit = match.group("ratio_unit") or ""
+        if ratio_unit in {"百分点", "个百分点"}:
+            ratio_unit = "个百分点"
+        period_unit = match.group("period_unit") or ""
+        scale = match.group("scale") or match.group("scale_only") or ""
+        if ratio_unit:
+            span = _NumericSpan(
+                display=f"{sign}{value}{ratio_unit}",
+                key=("ratio", sign, value, ratio_unit),
+            )
+        elif period_unit:
+            span = _NumericSpan(
+                display=f"{sign}{value}{period_unit}",
+                key=("period", sign, value, period_unit),
+            )
+        else:
+            span = _NumericSpan(
+                display=f"{sign}{value}",
+                key=("amount", sign, value, f"{currency}:{scale}"),
+            )
+        positioned.append((start, span))
+        occupied.append(match.span())
 
     # Keep source order and suppress identical repeated mentions.
-    ordered = sorted(spans, key=lambda span: normalized.find(span.display.casefold()))
+    ordered = [span for _, span in sorted(positioned, key=lambda item: item[0])]
     return list(dict.fromkeys(ordered))
 
 
 def _answer_numeric_tokens(statement: str) -> list[str]:
     """Backward-compatible violation tokens for all normalized numeric spans."""
     return list(dict.fromkeys(span.display for span in _answer_numeric_spans(statement)))
+
+
+def _has_threshold_breach_assertion(text: str) -> bool:
+    compact = re.sub(r"\s+", "", unicodedata.normalize("NFKC", text).casefold())
+    for phrase in _NON_BREACH_THRESHOLD_PHRASES:
+        compact = compact.replace(phrase, "")
+    return "超过" in compact or "高于" in compact
+
+
+def _has_threshold_direction_conflict(statement: str, cited_texts: list[str]) -> bool:
+    """Detect an actual-breach assertion supported only by a policy limit."""
+    if not _has_threshold_breach_assertion(statement):
+        return False
+    statement_keys = {span.key for span in _answer_numeric_spans(statement)}
+    if not statement_keys:
+        return False
+    for cited_text in cited_texts:
+        normalized = unicodedata.normalize("NFKC", cited_text).casefold()
+        if not any(phrase in normalized for phrase in _LIMIT_THRESHOLD_PHRASES):
+            continue
+        if _has_threshold_breach_assertion(normalized):
+            continue
+        cited_keys = {span.key for span in _answer_numeric_spans(cited_text)}
+        if statement_keys & cited_keys:
+            return True
+    return False
 
 
 def _normalize_structural_text(text: str) -> str:

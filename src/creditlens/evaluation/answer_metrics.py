@@ -17,6 +17,9 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+METRIC_CONTRACT_VERSION = "2.1.0"
+LEGACY_PREDICTION_ADAPTER_VERSION = "legacy-unversioned"
+
 
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -292,8 +295,14 @@ class AnswerPredictionSet(_StrictModel):
     prediction_set_id: str
     dataset_id: str
     dataset_version: str
+    prediction_adapter_version: str = LEGACY_PREDICTION_ADAPTER_VERSION
     predictions: list[AnswerPrediction]
     metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+    @field_validator("prediction_adapter_version")
+    @classmethod
+    def validate_prediction_adapter_version(cls, value: str) -> str:
+        return _non_blank(value, field_name="prediction_adapter_version")
 
     @model_validator(mode="after")
     def validate_prediction_ids(self) -> Self:
@@ -379,15 +388,19 @@ class AnswerEvaluationReport(_StrictModel):
     dataset_id: str
     dataset_version: str
     prediction_set_id: str
+    prediction_adapter_version: str = LEGACY_PREDICTION_ADAPTER_VERSION
     dataset_sha256: str | None = None
     predictions_sha256: str | None = None
-    metric_contract_version: str = "2.0.0"
+    metric_contract_version: str = METRIC_CONTRACT_VERSION
     summary: AnswerEvaluationSummary
     questions: list[AnswerQuestionScore]
 
 
 _IGNORED_TEXT_CHARS = re.compile(r"[^\w%+./-]+", flags=re.UNICODE)
 _NEGATION_MARKERS = (
+    "没有证据表明",
+    "无法据此确认",
+    "不存在",
     "无法确认",
     "不能确认",
     "尚不能",
@@ -409,13 +422,134 @@ _EXPLICIT_NUMERIC_NAME_EQUIVALENTS = (
     ("同比增长率", "同比增幅"),
     ("同比增长", "同比增幅"),
 )
+_EXPLICIT_PHRASE_EQUIVALENTS = (
+    ("不得高于", "不高于"),
+    ("不得超过", "不高于"),
+    ("不超过", "不高于"),
+)
+_CHINESE_DIGITS = {
+    "零": 0,
+    "〇": 0,
+    "○": 0,
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+}
+_CHINESE_SMALL_UNITS = {"十": 10, "百": 100, "千": 1000}
+CHINESE_NUMERAL_PATTERN = (
+    r"[负正]?[零〇○一二两三四五六七八九十百千]+(?:点[零〇○一二两三四五六七八九]+)?"
+)
+ARABIC_NUMERAL_PATTERN = r"-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+_CHINESE_NUMERIC_EXPRESSION = re.compile(
+    rf"百分之(?P<percent>{CHINESE_NUMERAL_PATTERN})"
+    rf"|(?P<number>{CHINESE_NUMERAL_PATTERN})\s*"
+    r"(?P<unit>个百分点|亿元|万元|元|个月|月|年|天|倍|家|户)"
+)
+_CURRENCY_BEFORE_NUMBER = re.compile(r"人民币(?=-?\d+(?:\.\d+)?(?:亿元|万元|元))")
+_BRIDGE_BEFORE_NUMBER = re.compile(
+    r"为(?=-?\d+(?:\.\d+)?(?:个百分点|%|亿元|万元|元|个月|月|年|天|倍|家|户))"
+)
+_SINGLE_BORROWER_BALANCE_SCOPE = re.compile(
+    r"(?:单一小微企业借款人的流动资金贷款|单一借款人)(?=余额上限)"
+)
+
+
+def parse_restricted_chinese_number(value: str) -> Decimal | None:
+    """Parse a deliberately small Chinese-number grammar without guessing.
+
+    Supported forms contain Chinese digits, ``十/百/千`` and an optional
+    decimal ``点`` followed by digits.  Larger colloquial units and malformed
+    unit orders fail closed instead of being interpreted heuristically.
+    """
+
+    normalized = unicodedata.normalize("NFKC", value).strip()
+    sign = Decimal("1")
+    if normalized[:1] in {"负", "正"}:
+        if normalized[0] == "负":
+            sign = Decimal("-1")
+        normalized = normalized[1:]
+    if not normalized or normalized.count("点") > 1:
+        return None
+
+    integer_text, separator, fractional_text = normalized.partition("点")
+    if not integer_text or (separator and not fractional_text):
+        return None
+
+    if any(character in _CHINESE_SMALL_UNITS for character in integer_text):
+        total = 0
+        pending_digit: int | None = None
+        previous_unit = 10_000
+        for character in integer_text:
+            if character in _CHINESE_DIGITS:
+                if pending_digit not in {None, 0}:
+                    return None
+                pending_digit = _CHINESE_DIGITS[character]
+                continue
+            unit = _CHINESE_SMALL_UNITS.get(character)
+            if unit is None or unit >= previous_unit:
+                return None
+            total += (1 if pending_digit is None else pending_digit) * unit
+            pending_digit = None
+            previous_unit = unit
+        integer_value = total + (pending_digit or 0)
+    else:
+        try:
+            integer_value = int("".join(str(_CHINESE_DIGITS[item]) for item in integer_text))
+        except (KeyError, ValueError):
+            return None
+
+    if not separator:
+        return sign * Decimal(integer_value)
+    if any(item not in _CHINESE_DIGITS for item in fractional_text):
+        return None
+    fractional_digits = "".join(str(_CHINESE_DIGITS[item]) for item in fractional_text)
+    return sign * Decimal(f"{integer_value}.{fractional_digits}")
+
+
+def _canonical_decimal(value: Decimal) -> str:
+    if value == 0:
+        return "0"
+    rendered = format(value, "f")
+    return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
+
+
+def _canonicalize_chinese_numeric_expressions(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        raw_number = match.group("percent") or match.group("number")
+        parsed = parse_restricted_chinese_number(raw_number)
+        if parsed is None:
+            return match.group(0)
+        unit = "%" if match.group("percent") is not None else match.group("unit")
+        return f"{_canonical_decimal(parsed)}{unit}"
+
+    return _CHINESE_NUMERIC_EXPRESSION.sub(replace, value)
 
 
 def normalize_text(value: str) -> str:
     """Normalize Chinese/Latin text for auditable substring matching."""
 
     normalized = unicodedata.normalize("NFKC", value).casefold()
+    normalized = _canonicalize_chinese_numeric_expressions(normalized)
     return _IGNORED_TEXT_CHARS.sub("", normalized)
+
+
+def _normalize_phrase(value: str) -> str:
+    """Apply only enumerated lexical rewrites after numeric canonicalization."""
+
+    normalized = normalize_text(value)
+    normalized = _CURRENCY_BEFORE_NUMBER.sub("", normalized)
+    normalized = _BRIDGE_BEFORE_NUMBER.sub("", normalized)
+    normalized = _SINGLE_BORROWER_BALANCE_SCOPE.sub("单户", normalized)
+    for source, target in _EXPLICIT_PHRASE_EQUIVALENTS:
+        normalized = normalized.replace(source, target)
+    return normalized
 
 
 def _contains_non_negated_span(normalized_text: str, normalized_span: str) -> bool:
@@ -431,8 +565,8 @@ def _contains_non_negated_span(normalized_text: str, normalized_span: str) -> bo
 
 
 def _contains_phrase(answer: str, phrase: str) -> bool:
-    normalized_answer = normalize_text(answer)
-    normalized_phrase = normalize_text(phrase)
+    normalized_answer = _normalize_phrase(answer)
+    normalized_phrase = _normalize_phrase(phrase)
     return bool(normalized_phrase) and _contains_non_negated_span(
         normalized_answer, normalized_phrase
     )
@@ -449,7 +583,7 @@ def _f1(precision: float, recall: float) -> float:
 def _normalize_numeric_name(value: str) -> str:
     """Apply a small, explicit synonym table; never use fuzzy similarity."""
 
-    normalized = normalize_text(value)
+    normalized = _normalize_phrase(value)
     for source, target in _EXPLICIT_NUMERIC_NAME_EQUIVALENTS:
         normalized = normalized.replace(source, target)
     return normalized
@@ -728,6 +862,7 @@ def evaluate_answers(
         dataset_id=dataset.dataset_id,
         dataset_version=dataset.dataset_version,
         prediction_set_id=prediction_set.prediction_set_id,
+        prediction_adapter_version=prediction_set.prediction_adapter_version,
         dataset_sha256=dataset_sha256,
         predictions_sha256=predictions_sha256,
         summary=summary,
