@@ -28,7 +28,8 @@ TEST_DB = "creditlens_rls_test"
 TEST_DSN = f"postgresql://creditlens:creditlens@localhost:5432/{TEST_DB}"
 # 关键：验证必须用非特权业务角色——超级用户无条件绕过 RLS（文档 §6.5
 # "管理迁移账号和业务运行账号分离"的直接原因）
-APP_DSN = f"postgresql://creditlens_app:app-test-only@localhost:5432/{TEST_DB}"
+VERIFY_ROLE = "creditlens_rls_verifier"
+APP_DSN = f"postgresql://{VERIFY_ROLE}:app-test-only@localhost:5432/{TEST_DB}"
 
 TENANT_A, TENANT_B = str(uuid.uuid4()), str(uuid.uuid4())
 USER_1, USER_2 = str(uuid.uuid4()), str(uuid.uuid4())
@@ -76,30 +77,35 @@ def migrate_and_apply_rls() -> None:
         cur.execute(
             """
             DO $$ BEGIN
-              IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'creditlens_app') THEN
-                CREATE ROLE creditlens_app LOGIN PASSWORD 'app-test-only'
+              IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'creditlens_rls_verifier') THEN
+                CREATE ROLE creditlens_rls_verifier LOGIN PASSWORD 'app-test-only'
                   NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
               END IF;
             END $$;
+            ALTER ROLE creditlens_rls_verifier WITH PASSWORD 'app-test-only'
+              NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
             """
         )
-        cur.execute("GRANT USAGE ON SCHEMA public TO creditlens_app")
+        cur.execute("GRANT USAGE ON SCHEMA public TO creditlens_rls_verifier")
         cur.execute(
-            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app"
+            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public "
+            "TO creditlens_rls_verifier"
         )
         cur.execute(
             "REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, "
-            "evidence, artifacts FROM creditlens_app"
+            "evidence, artifacts FROM creditlens_rls_verifier"
         )
-        cur.execute("REVOKE UPDATE, DELETE ON claims FROM creditlens_app")
-        cur.execute("GRANT UPDATE (review_status) ON claims TO creditlens_app")
+        cur.execute("REVOKE UPDATE, DELETE ON claims FROM creditlens_rls_verifier")
+        cur.execute("GRANT UPDATE (review_status) ON claims TO creditlens_rls_verifier")
         cur.execute(
             "REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, "
             "financial_metric_definitions, search_index_versions, alembic_version "
-            "FROM creditlens_app"
+            "FROM creditlens_rls_verifier"
         )
-        cur.execute("REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_app")
-        cur.execute("REVOKE INSERT, DELETE ON credit_cases FROM creditlens_app")
+        cur.execute(
+            "REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_rls_verifier"
+        )
+        cur.execute("REVOKE INSERT, DELETE ON credit_cases FROM creditlens_rls_verifier")
     conn.close()
 
 
@@ -141,21 +147,27 @@ def seed_fixture(conn) -> None:
         )
         cur.execute(
             "INSERT INTO review_runs "
-            "(id, tenant_id, case_id, run_type, status, as_of_date, decision_cutoff_at) "
-            "VALUES (%s, %s, %s, 'FULL_REVIEW', 'HUMAN_REVIEW', '2026-06-30', now())",
+            "(id, tenant_id, case_id, run_type, status, as_of_date, decision_cutoff_at, "
+            "plan_version, state_version, model_manifest, retrieval_config, request_hash, "
+            "started_at) "
+            "VALUES (%s, %s, %s, 'FULL_REVIEW', 'HUMAN_REVIEW', '2026-06-30', now(), "
+            "1, 1, '{}', '{}', '', now())",
             (RUN_A, TENANT_A, CASE_A),
         )
         cur.execute(
             "INSERT INTO artifacts "
-            "(id, tenant_id, run_id, task_id, artifact_type, producer, payload) "
-            "VALUES (%s, %s, %s, 'rls-check', 'rls-check', 'rls-check', '{}')",
+            "(id, tenant_id, run_id, task_id, artifact_type, contract_version, producer, "
+            "lifecycle_status, execution_status, payload, input_hash, output_hash, created_at) "
+            "VALUES (%s, %s, %s, 'rls-check', 'rls-check', '1.0', 'rls-check', "
+            "'VALIDATED', 'SUCCESS', '{}', '', '', now())",
             (ARTIFACT_A, TENANT_A, RUN_A),
         )
         cur.execute(
             "INSERT INTO claims "
-            "(id, tenant_id, run_id, artifact_id, category, statement, verdict, as_of_date, payload) "
+            "(id, tenant_id, run_id, artifact_id, category, statement, verdict, severity, "
+            "confidence_level, as_of_date, review_status, payload, created_at) "
             "VALUES (%s, %s, %s, %s, 'ELIGIBILITY', 'immutable statement', "
-            "'SUPPORTED', '2026-06-30', '{}')",
+            "'SUPPORTED', 'INFO', 'MEDIUM', '2026-06-30', 'PENDING', '{}', now())",
             (CLAIM_A, TENANT_A, RUN_A, ARTIFACT_A),
         )
         cur.execute("COMMIT")
