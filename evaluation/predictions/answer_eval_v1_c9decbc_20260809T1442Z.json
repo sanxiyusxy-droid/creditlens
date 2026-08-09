@@ -1,0 +1,831 @@
+{
+  "prediction_set_id": "grounded-qa-8c76dabeecf984140fbfe95a",
+  "dataset_id": "creditlens_answer_eval_v1",
+  "dataset_version": "1.0.0",
+  "predictions": [
+    {
+      "question_id": "q169",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "1c24ba79-d2a4-4f93-8c53-4dd0f6e5e855",
+        "snapshot_id": "a6bdea12-d49d-4058-a85e-f31b9d6a2523",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "8da4c9f3-5eee-4742-ba9f-57968affd75a"
+        ],
+        "idempotent_replay": true
+      }
+    },
+    {
+      "question_id": "q081",
+      "status": "ANSWERED",
+      "answer": "资产负债率不得高于百分之七十五。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "techpol2026:art06"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "11eb8567-5309-4be0-81f8-9485c8883185",
+        "snapshot_id": "4cc8fee4-4e58-4f17-aa15-261fbd61f4e5",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "88cb1c1b-2480-42bc-8252-0e91342b8c0f"
+        ],
+        "idempotent_replay": true
+      }
+    },
+    {
+      "question_id": "q168",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "MISSING_CORPORATE_IDENTITY_DATA",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "9aee78f9-3d68-4f73-b0c3-729ad758d661",
+        "snapshot_id": "9d9516c8-37c5-4a15-9a07-80076a90c744",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "86dbf124-3c8c-4964-b8a7-c4a6f3a92665"
+        ],
+        "idempotent_replay": true
+      }
+    },
+    {
+      "question_id": "q092",
+      "status": "ANSWERED",
+      "answer": "借款人财务指标不满足第六条要求,但已获得省级以上政府科技贷款风险补偿基金担保,且担保覆盖率不低于百分之一百二十,经有权审批人批准后可以例外准入。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "techpol2026:art08"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "9ef272a5-e1b2-4af2-af3a-67d22cab5b58",
+        "snapshot_id": "935132f2-b001-48d0-abe2-16acbabb5895",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "eb9c85ff-5c74-44ba-a702-ba7b0685b1d4"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q149",
+      "status": "ANSWERED",
+      "answer": "有追索权保理融资比例上限原则上不超过应收账款金额的百分之八十。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art08"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "ba23dd6d-8a45-47c9-a535-a6d29e72b631",
+        "snapshot_id": "d8f910be-5307-478b-8bd4-9a83ba39ce53",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "3e81dcd7-a377-4e06-adf4-5a98facff740"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q007",
+      "status": "ANSWERED",
+      "answer": "银行流水应当覆盖借款人主要结算账户,期间不少于申请日前连续十二个月。 借款人申请流动资金贷款需提交近十二个月主要账户银行流水。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "policy2026:art12",
+        "policy2026:art14"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "e757dca3-e28e-45d6-9be1-2c82a9f48e9f",
+        "snapshot_id": "45c1f094-e998-464e-b16d-3f50f9b79af5",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "56e8aae9-bfa6-42b6-a453-001ed172a39d"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q061",
+      "status": "TECHNICAL_FAILURE",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": null,
+      "error_type": "RuntimeError",
+      "error_message": "Grounded QA run 2f84e8e0-5288-4549-94a1-f97163b44ebc failed.",
+      "provenance": {
+        "run_id": "2f84e8e0-5288-4549-94a1-f97163b44ebc"
+      }
+    },
+    {
+      "question_id": "q157",
+      "status": "ANSWERED",
+      "answer": "对同一债务人的保理融资余额不得超过净资产的百分之五十。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art07"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "1e3d18c6-deac-4d80-bcac-2096a1cf3f67",
+        "snapshot_id": "bd1fdbd8-1001-4969-8224-a59f707c940f",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "4a3067b9-2c40-48a6-9120-2d91fee82e39"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q009",
+      "status": "ANSWERED",
+      "answer": "流动资金贷款不得用于股权投资。 发现贷款资金被挪用于股权投资,应当立即启动贷款提前收回程序。 借款人未按约定用途使用贷款的,贷款人应当按照合同约定采取提前收回贷款、压缩授信额度等措施。 贷款人应当在借款合同中与借款人明确约定贷款用途,并约定挪用贷款的违约责任。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "policy2026:art15",
+        "reg:art07",
+        "reg:art09",
+        "reg:art15"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "b12495fd-c2fa-4bcc-a7ea-9fad9675f157",
+        "snapshot_id": "80d4deb7-4646-444b-b5c1-90ca7c05b991",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "891d8b5c-1c0a-4b29-9efd-9587f0e5929a"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q088",
+      "status": "ANSWERED",
+      "answer": "科技型企业流动资金贷款期限原则上不超过十八个月。 用于研发周期较长项目的,经审批可延长至三十六个月,但应当设置里程碑还款节点。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "techpol2026:art10"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "18c9151e-7237-4dad-a493-ed9e1981b76b",
+        "snapshot_id": "4c0f982c-ae51-4c62-8bdd-6584f28d8197",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "bcf86c0c-3ea8-4019-93a3-1e34b91c80ca"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q153",
+      "status": "ANSWERED",
+      "answer": "一般风险准备金余额不低于融资余额的百分之一。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art12"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "3fd03db4-ed80-4acf-9e44-5a70e4621f93",
+        "snapshot_id": "604aae53-0498-4447-9ca0-bd29f154be4b",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "d8e9099b-f0b4-4f69-8348-6889c4cd4b31"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q006",
+      "status": "TECHNICAL_FAILURE",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": null,
+      "error_type": "RuntimeError",
+      "error_message": "Grounded QA run d54d8f22-7d82-4af9-8927-24e0baedca34 failed.",
+      "provenance": {
+        "run_id": "d54d8f22-7d82-4af9-8927-24e0baedca34"
+      }
+    },
+    {
+      "question_id": "q152",
+      "status": "ANSWERED",
+      "answer": "应收账款逾期超过九十天的应当列入关注类,逾期超过一百八十天的应当列入可疑类。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art11"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "3eb935df-537e-4045-adb5-0e41841ae336",
+        "snapshot_id": "98de3ddb-677a-4264-a389-a621e4592633",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "77b0a353-56bf-4ddf-b265-23d06b9be9b6"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q070",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "7e0506ae-33f8-445a-ac43-6e1132bcadd4",
+        "snapshot_id": "a0bed483-1bdb-4505-bc1e-0f32c7d50148",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "4e813fda-21fb-403b-b582-e114298a2904"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q095",
+      "status": "ANSWERED",
+      "answer": "借款人核心技术人员离职超过三分之一时,应当启动风险预警。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "techpol2026:art16"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "aa37c861-b6e4-4e66-83c6-37256b48ed87",
+        "snapshot_id": "51f708c8-12a0-4fab-970a-7bf7beffb514",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "b0259a76-3cfe-483c-9846-e9e8b9c7d105"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q136",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "MISSING_MARKET_DATA",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "31d07cd1-7339-462d-9a9b-aee36dd09d1e",
+        "snapshot_id": "71065fe8-b533-4ef3-8c3e-177ecbe5cf2f",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "2163b976-e7c1-4bac-b801-99f2915f4023"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q048",
+      "status": "TECHNICAL_FAILURE",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": null,
+      "error_type": "RuntimeError",
+      "error_message": "Grounded QA run 65d21e08-fdd1-4a43-bdb8-9163158b1440 failed.",
+      "provenance": {
+        "run_id": "65d21e08-fdd1-4a43-bdb8-9163158b1440"
+      }
+    },
+    {
+      "question_id": "q134",
+      "status": "TECHNICAL_FAILURE",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": null,
+      "error_type": "LLMCallError",
+      "error_message": "Grounded QA run 4a290323-da0e-49fb-8463-d6627e156e8c failed.",
+      "provenance": {
+        "run_id": "4a290323-da0e-49fb-8463-d6627e156e8c"
+      }
+    },
+    {
+      "question_id": "q069",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "MISSING_PERSONAL_CREDIT",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "d139e95f-027a-428c-9b9f-0bfc3149c2ba",
+        "snapshot_id": "649e2303-2310-4bb8-bdaf-509e6b71e587",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "4df197f3-b6e8-46da-b96d-c1a9ab564edf"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q004",
+      "status": "ANSWERED",
+      "answer": "根据示例银行小微企业流动资金贷款管理办法第十条,流动资金贷款期限原则上不超过十二个月,但确因生产经营周期需要,经审批可延长至二十四个月,因此最长贷款期限为二十四个月。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "policy2026:art10"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "9256df2f-ff9b-426c-964d-3d85cf2ee9e5",
+        "snapshot_id": "352c5e48-04a7-4ba8-bffb-2c8b74a5729c",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "ee1e598f-9606-4d3a-b0fe-32a84a57e079"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q071",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "MISSING_BANK_STATEMENTS",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "f54c7408-e51f-49ef-b9c2-7cccd9787489",
+        "snapshot_id": "51a93a36-50f7-46ee-a25e-51c1f669a857",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "6f0e31ed-26af-4eba-af7c-ee724af73bbf"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q086",
+      "status": "ANSWERED",
+      "answer": "研发投入占营业收入比例不得低于百分之三。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "techpol2026:art06"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "7347831a-97f7-470f-b58c-8b8a5227e374",
+        "snapshot_id": "c7a9626d-fd9e-45fe-97ed-c74801232e1e",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "8ba6caae-94e3-4bce-9fd0-bfa0f15c8ed0"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q003",
+      "status": "ANSWERED",
+      "answer": "单一小微企业借款人的流动资金贷款余额上限为人民币一千万元。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "policy2026:art09"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "1cb2b133-2e2c-4954-81cb-6dd80f59b797",
+        "snapshot_id": "895a0e31-f0d6-414b-bd72-d197d9683016",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "b181a19d-48e4-40de-b038-826057c861f7"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q050",
+      "status": "TECHNICAL_FAILURE",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": null,
+      "error_type": "RuntimeError",
+      "error_message": "Grounded QA run 703aa33f-6ab2-48c0-9a50-de9028cc8368 failed.",
+      "provenance": {
+        "run_id": "703aa33f-6ab2-48c0-9a50-de9028cc8368"
+      }
+    },
+    {
+      "question_id": "q144",
+      "status": "ANSWERED",
+      "answer": "商业保理业务是指供应商将其基于真实贸易合同产生的应收账款转让给商业保理公司,由商业保理公司提供融资、应收账款管理、催收等综合性金融服务。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art02"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "1409a887-2b05-4e9c-a0c8-700af110b385",
+        "snapshot_id": "c8edae96-5c3f-4767-bada-2af6e5f0a22b",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "0d0bffcd-0c30-40c8-8102-775632630533"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q148",
+      "status": "ANSWERED",
+      "answer": "商业保理公司的融资余额不得超过其净资产的十倍。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art07"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "22fa1882-49e8-4d09-92d4-2f4ad7035a11",
+        "snapshot_id": "23d4eced-221b-49dc-a818-4f9cb437f4b1",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "eb164fe9-b2e4-4e7b-9f0e-5694efdef90e"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q072",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "57d820f8-ecd6-4ee6-a977-27c44e50033a",
+        "snapshot_id": "af3af3da-cf06-426d-b02e-a72b3674de8e",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "32914be7-2283-42c1-a5c9-f4c41b440ca8"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q145",
+      "status": "ANSWERED",
+      "answer": "商业保理公司的注册资本不低于人民币五千万元,且为一次性实缴货币资本。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art03"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "150983e0-cc39-4b79-a3b1-1dad5ade09e6",
+        "snapshot_id": "1383a952-ee0a-4717-b5a8-1de2f0361b9e",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "f3b8a8c7-7eee-4abf-902f-24bd340e181b"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q087",
+      "status": "ANSWERED",
+      "answer": "单一科技型企业借款人流动资金贷款余额上限为人民币两千万元。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "techpol2026:art09"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "1ec9b410-0ad0-4248-b52e-b74f49109661",
+        "snapshot_id": "1e9907fc-fbde-4d68-ba13-2874ce0c08ba",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "ea074520-4ee2-40cc-9de5-15bb390bd89c"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q001",
+      "status": "ANSWERED",
+      "answer": "借款人资产负债率不得高于百分之七十。 如不符合资产负债率要求,但提供本行认可的足额有效担保且担保覆盖率不低于百分之一百三十,经有权审批人批准后可例外准入。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "policy2026:art06",
+        "policy2026:art08"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "07a718e7-e0ea-403b-bd94-85fa8bc32d5c",
+        "snapshot_id": "c4bc852d-c2d2-4eca-9f53-5e16afb3ad0c",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "a5c82142-da75-42bc-8ae8-acabb1544ca4"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q133",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "MISSING_PERSONAL_ASSETS",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "347665ce-b0ce-4375-915c-d2fd8e463587",
+        "snapshot_id": "bca54a38-eebe-4874-84f1-1c3e9fed814a",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "cf441291-9c4f-4902-8dac-9f8151fba91b"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q118",
+      "status": "TECHNICAL_FAILURE",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": null,
+      "error_type": "RuntimeError",
+      "error_message": "Grounded QA run 81d1b383-95cd-4e55-bb95-5d9f75ee7f04 failed.",
+      "provenance": {
+        "run_id": "81d1b383-95cd-4e55-bb95-5d9f75ee7f04"
+      }
+    },
+    {
+      "question_id": "q150",
+      "status": "ANSWERED",
+      "answer": "无追索权保理融资比例原则上不超过应收账款金额的百分之九十。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art08"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "0dfb5ba5-c18b-4069-81f1-8a196c2f1251",
+        "snapshot_id": "c88a4503-d0d6-4d05-b11d-027d8ba6af1c",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "6df26aa8-f376-4e18-86e8-c975ab858d88"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q146",
+      "status": "ANSWERED",
+      "answer": "商业保理公司应对基础贸易合同的真实性、合法性进行审查,核实应收账款的真实性、有效性和可转让性,审查内容主要包括贸易合同、发票、物流单据、验收确认等。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art05"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "72c19d02-b70c-4021-b597-f1c03761329f",
+        "snapshot_id": "e2251bf9-70f7-4b07-8a7a-0a055a2280b5",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "55cc39f7-c316-4bc6-87cf-dc2173f073db"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q147",
+      "status": "ANSWERED",
+      "answer": "商业保理公司不得有下列行为:吸收或变相吸收公众存款;发放贷款或受托发放贷款;专门从事或受托开展催收、讨债业务;以暴力或其他非法手段进行债务追偿。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "factreg:art06"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "b57bd1c7-3ccf-4cb2-a118-66029966de89",
+        "snapshot_id": "94edf6dd-b05b-47f6-b24d-ff9b3bfcfa64",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "a4c73d8c-e78f-4770-bca6-11ecf447597f"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q135",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "MISSING_CREDIT_REPORT",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "2340bc1a-a141-4fee-ab79-9bccaf4a680b",
+        "snapshot_id": "765180c6-f2a8-4062-a555-a9adf6cd09c0",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "4bbc58d8-ba79-4f66-81f9-afe00d26a300"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q102",
+      "status": "TECHNICAL_FAILURE",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": null,
+      "error_type": "RuntimeError",
+      "error_message": "Grounded QA run 17d4562a-8440-407b-aaec-c24dab715a62 failed.",
+      "provenance": {
+        "run_id": "17d4562a-8440-407b-aaec-c24dab715a62"
+      }
+    },
+    {
+      "question_id": "q101",
+      "status": "ANSWERED",
+      "answer": "星辰微电子2025年度营业收入为人民币1.85亿元 2025年度营业收入同比增长23.3%",
+      "numeric_facts": [
+        {
+          "name": "星辰微电子2025年度营业收入为人民币",
+          "value": "1.85",
+          "unit": "亿元"
+        },
+        {
+          "name": "星辰微电子2025年度营业收入为人民币1.85亿元 2025年度营业收入同比增长",
+          "value": "23.3",
+          "unit": "%"
+        }
+      ],
+      "citation_refs": [
+        "ar_tech:sec2"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "5fe5006a-cc6a-4026-add9-4e88b261da86",
+        "snapshot_id": "d9f82f1d-ca0a-4962-9d89-10a4540ce895",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "d2617a43-3ba2-46fd-af1e-a5b0674dd620"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q018",
+      "status": "ANSWERED",
+      "answer": "根据《示例银行小微企业流动资金贷款管理办法》第十六条,借款人对单一客户销售占比超过百分之五十且该客户出现回款延迟时,应当启动风险预警。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "policy2026:art16"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "a026d5e7-575d-4ec1-b357-790674c68a8b",
+        "snapshot_id": "234c738e-e69c-431e-824f-88485244bfc7",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "56f58be4-3ee2-4c25-9102-4f73059860ed"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q082",
+      "status": "ANSWERED",
+      "answer": "科技型企业是指取得国家高新技术企业认定或省级科技型中小企业备案的企业法人。",
+      "numeric_facts": [],
+      "citation_refs": [
+        "techpol2026:art03"
+      ],
+      "refusal_reason_code": null,
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "ba84f2b7-693c-4865-adaf-09e718705b60",
+        "snapshot_id": "0ac307af-01ac-4f37-89ad-b6cd22e88bcf",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "daf4c78f-c965-40df-94b8-3972e92f61f5"
+        ],
+        "idempotent_replay": false
+      }
+    },
+    {
+      "question_id": "q137",
+      "status": "REFUSED",
+      "answer": null,
+      "numeric_facts": [],
+      "citation_refs": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE",
+      "error_type": null,
+      "error_message": null,
+      "provenance": {
+        "run_id": "c105dd18-95a7-4231-b783-c9b64b1deb0c",
+        "snapshot_id": "a6a1b809-8685-4cb9-ad96-20455a35f32c",
+        "generation_mode": "llm",
+        "model_invocation_ids": [
+          "703bd799-09fd-4453-a154-7f5bfea3f9a7"
+        ],
+        "idempotent_replay": false
+      }
+    }
+  ],
+  "metadata": {
+    "generated_at": "2026-08-09T14:53:24.062159+00:00",
+    "git_commit": "c9decbce96348f031a177d4a94981faf2be0062a",
+    "git_dirty": false,
+    "query_dataset_sha256": "8fbb20662a141ee8d743f39abddf5f92deea02c26e96db2aab61489863507b10",
+    "answer_eval_dataset_sha256": "f181e4f763da8ff01198eaedf29137dd85db3a6c6a57d68381e8c46168c4b2e2",
+    "source_gold_sha256": "d3dc24c3527b23f6fbed35eb8dafb633f9dc039cd92f658b8d75e11bfb78e7b6",
+    "experiment_sha256": "8c76dabeecf984140fbfe95aa4ed7fc73565255dae0937c48b0b96a4eea8ffbd",
+    "llm_provider": "openai_compatible",
+    "llm_model": "deepseek-v4-pro",
+    "prompt_version": "grounded_qa_v1",
+    "prompt_sha256": "d42994e31f21d6e0035042d2958f056f31ebc4f0caf842f5f89768795f4269f8",
+    "embedding_provider": "openai_compatible",
+    "embedding_version": "BAAI/bge-m3@api",
+    "rerank_provider": "http",
+    "rerank_model": "BAAI/bge-reranker-v2-m3",
+    "top_k": 8,
+    "selected_questions": 41,
+    "ambiguous_citation_sections": 0,
+    "unmapped_citation_sections": 0,
+    "cleanup_failure_count": 0,
+    "cleanup_failures": null
+  }
+}

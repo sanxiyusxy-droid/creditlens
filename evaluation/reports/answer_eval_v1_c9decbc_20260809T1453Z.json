@@ -1,0 +1,1463 @@
+{
+  "report_type": "deterministic_offline_answer_evaluation",
+  "evaluation_scope": "DETERMINISTIC_LEXICAL_AND_CITATION_SET",
+  "semantic_entailment_evaluated": false,
+  "generated_at": "2026-08-09T14:54:16.649830Z",
+  "dataset_id": "creditlens_answer_eval_v1",
+  "dataset_version": "1.0.0",
+  "prediction_set_id": "grounded-qa-8c76dabeecf984140fbfe95a",
+  "dataset_sha256": "f181e4f763da8ff01198eaedf29137dd85db3a6c6a57d68381e8c46168c4b2e2",
+  "predictions_sha256": "2be686fd523b43e26455c0fcf9fdd9a35de04679f58f20a19da1f79658856d39",
+  "metric_contract_version": "2.0.0",
+  "summary": {
+    "total_questions": 41,
+    "answerable_questions": 30,
+    "unanswerable_questions": 11,
+    "lexically_correct_answers": 0,
+    "lexical_correctness": 0.0,
+    "lexically_correct_citation_exact_answers": 0,
+    "lexically_correct_citation_exact": 0.0,
+    "matched_key_point_weight": 7.0,
+    "total_key_point_weight": 55.0,
+    "key_point_recall": 0.127273,
+    "matched_numeric_facts": 2,
+    "total_numeric_facts": 34,
+    "numeric_accuracy": 0.058824,
+    "citation_tp": 24,
+    "citation_fp": 5,
+    "citation_fn": 9,
+    "citation_precision": 0.827586,
+    "citation_recall": 0.727273,
+    "citation_f1": 0.774194,
+    "correct_refusals": 8,
+    "refusal_accuracy": 0.727273,
+    "false_refusals": 0,
+    "false_refusal_rate": 0.0,
+    "technical_failures": 7,
+    "technical_failure_rate": 0.170732,
+    "technical_failures_answerable": 6,
+    "technical_failures_unanswerable": 1,
+    "needs_review_count": 0,
+    "needs_review_rate": 0.0,
+    "missing_predictions": 0,
+    "forbidden_assertion_violations": 0,
+    "forbidden_violation_questions": 0,
+    "deterministic_outcome_pass_count": 8,
+    "deterministic_outcome_pass_rate": 0.195122
+  },
+  "questions": [
+    {
+      "question_id": "q001",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "debt_ratio_cap"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "资产负债率上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "policy2026:art06"
+      ],
+      "predicted_citation_refs": [
+        "policy2026:art06",
+        "policy2026:art08"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 1,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q003",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "single_borrower_limit"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "单户贷款余额上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "policy2026:art09"
+      ],
+      "predicted_citation_refs": [
+        "policy2026:art09"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q004",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "normal_term",
+        "extended_term"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "一般期限上限",
+        "审批后期限上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "policy2026:art10"
+      ],
+      "predicted_citation_refs": [
+        "policy2026:art10"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q006",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "TECHNICAL_FAILURE",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": true,
+      "needs_review": false,
+      "technical_failure_type": "RuntimeError",
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "guarantee_coverage",
+        "approval_required",
+        "prohibited_industry_guardrail"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "有效担保覆盖率下限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "policy2026:art06",
+        "policy2026:art08"
+      ],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 2,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q007",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "bank_statement_period"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "银行流水覆盖期"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "policy2026:art14"
+      ],
+      "predicted_citation_refs": [
+        "policy2026:art12",
+        "policy2026:art14"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 1,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q009",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "early_recovery"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [
+        "policy2026:art15"
+      ],
+      "predicted_citation_refs": [
+        "policy2026:art15",
+        "reg:art07",
+        "reg:art09",
+        "reg:art15"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 3,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q018",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "concentration_threshold",
+        "payment_delay_condition"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "单一客户销售占比预警阈值"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "policy2026:art16"
+      ],
+      "predicted_citation_refs": [
+        "policy2026:art16"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q048",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "TECHNICAL_FAILURE",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": true,
+      "needs_review": false,
+      "technical_failure_type": "RuntimeError",
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "revenue",
+        "revenue_growth"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "营业收入",
+        "营业收入同比增幅"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "ar2025:sec2"
+      ],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 1,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q050",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "TECHNICAL_FAILURE",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": true,
+      "needs_review": false,
+      "technical_failure_type": "RuntimeError",
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "operating_cash_flow",
+        "cash_flow_change"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "经营活动现金流量净额",
+        "经营现金流同比降幅"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "ar2025:sec3"
+      ],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 1,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q061",
+      "case_key": "golden_case_001",
+      "answerable": true,
+      "prediction_status": "TECHNICAL_FAILURE",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": true,
+      "needs_review": false,
+      "technical_failure_type": "RuntimeError",
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "actual_debt_ratio",
+        "policy_cap",
+        "meets_policy"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "借款人资产负债率",
+        "政策资产负债率上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "ar2025:sec3",
+        "policy2026:art06"
+      ],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 2,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q081",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "debt_ratio_cap"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "科技企业资产负债率上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "techpol2026:art06"
+      ],
+      "predicted_citation_refs": [
+        "techpol2026:art06"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q082",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [
+        "national_high_tech_path",
+        "provincial_sme_path"
+      ],
+      "key_points_missed": [
+        "either_path"
+      ],
+      "key_point_score": 0.666667,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [
+        "techpol2026:art03"
+      ],
+      "predicted_citation_refs": [
+        "techpol2026:art03"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q086",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "rd_ratio_floor"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "研发投入占比下限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "techpol2026:art06"
+      ],
+      "predicted_citation_refs": [
+        "techpol2026:art06"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q087",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "single_borrower_limit"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "科技企业单户余额上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "techpol2026:art09"
+      ],
+      "predicted_citation_refs": [
+        "techpol2026:art09"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q088",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "normal_term",
+        "rd_extended_term",
+        "milestone_plan"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "一般贷款期限上限",
+        "研发项目审批后期限上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "techpol2026:art10"
+      ],
+      "predicted_citation_refs": [
+        "techpol2026:art10"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q092",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [
+        "risk_compensation_guarantee",
+        "approval_required"
+      ],
+      "key_points_missed": [
+        "coverage_floor"
+      ],
+      "key_point_score": 0.666667,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "例外准入担保覆盖率下限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "techpol2026:art08"
+      ],
+      "predicted_citation_refs": [
+        "techpol2026:art08"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q095",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "departure_threshold"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "核心技术人员离职预警比例"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "techpol2026:art16"
+      ],
+      "predicted_citation_refs": [
+        "techpol2026:art16"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q101",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [
+        "revenue_growth"
+      ],
+      "key_points_missed": [
+        "revenue"
+      ],
+      "key_point_score": 0.5,
+      "numeric_facts_matched": [
+        "营业收入",
+        "营业收入同比增幅"
+      ],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": 1.0,
+      "expected_citation_refs": [
+        "ar_tech:sec2"
+      ],
+      "predicted_citation_refs": [
+        "ar_tech:sec2"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q102",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "TECHNICAL_FAILURE",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": true,
+      "needs_review": false,
+      "technical_failure_type": "RuntimeError",
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "debt_ratio",
+        "current_ratio"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "资产负债率",
+        "流动比率"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "ar_tech:sec3"
+      ],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 1,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q118",
+      "case_key": "golden_case_002",
+      "answerable": true,
+      "prediction_status": "TECHNICAL_FAILURE",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": true,
+      "needs_review": false,
+      "technical_failure_type": "RuntimeError",
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "actual_rd_ratio",
+        "policy_floor",
+        "meets_policy"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "实际研发投入占比",
+        "政策研发投入占比下限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "ar_tech:sec2",
+        "techpol2026:art06"
+      ],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 2,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q144",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "receivable_transfer",
+        "factoring_services"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [
+        "factreg:art02"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art02"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q145",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [
+        "paid_in_cash"
+      ],
+      "key_points_missed": [
+        "registered_capital_floor"
+      ],
+      "key_point_score": 0.5,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "注册资本下限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "factreg:art03"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art03"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q146",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [
+        "receivable_checks"
+      ],
+      "key_points_missed": [
+        "trade_documents"
+      ],
+      "key_point_score": 0.5,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [
+        "factreg:art05"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art05"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q147",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "no_deposits",
+        "no_lending",
+        "no_collection_only",
+        "no_illegal_recovery"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [
+        "factreg:art06"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art06"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q148",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "leverage_cap"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "融资余额净资产倍数上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "factreg:art07"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art07"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q149",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "recourse_ratio_cap"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "有追索权融资比例上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "factreg:art08"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art08"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q150",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "non_recourse_ratio_cap"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "无追索权融资比例上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "factreg:art08"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art08"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q152",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "watch_threshold",
+        "doubtful_threshold"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "关注类逾期阈值",
+        "可疑类逾期阈值"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "factreg:art11"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art11"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q153",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "general_reserve_floor"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "一般风险准备金比例下限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "factreg:art12"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art12"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q157",
+      "case_key": "golden_case_003",
+      "answerable": true,
+      "prediction_status": "ANSWERED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [
+        "single_debtor_cap"
+      ],
+      "key_point_score": 0.0,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [
+        "同一债务人集中度上限"
+      ],
+      "numeric_accuracy": 0.0,
+      "expected_citation_refs": [
+        "factreg:art07"
+      ],
+      "predicted_citation_refs": [
+        "factreg:art07"
+      ],
+      "citation_tp": 1,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q069",
+      "case_key": "golden_case_001",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "MISSING_PERSONAL_CREDIT"
+    },
+    {
+      "question_id": "q070",
+      "case_key": "golden_case_001",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "question_id": "q071",
+      "case_key": "golden_case_001",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "MISSING_BANK_STATEMENTS"
+    },
+    {
+      "question_id": "q072",
+      "case_key": "golden_case_001",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "question_id": "q133",
+      "case_key": "golden_case_002",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "MISSING_PERSONAL_ASSETS"
+    },
+    {
+      "question_id": "q134",
+      "case_key": "golden_case_002",
+      "answerable": false,
+      "prediction_status": "TECHNICAL_FAILURE",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": true,
+      "needs_review": false,
+      "technical_failure_type": "LLMCallError",
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": null
+    },
+    {
+      "question_id": "q135",
+      "case_key": "golden_case_002",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "MISSING_CREDIT_REPORT"
+    },
+    {
+      "question_id": "q136",
+      "case_key": "golden_case_002",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": false,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": false,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "MISSING_MARKET_DATA"
+    },
+    {
+      "question_id": "q137",
+      "case_key": "golden_case_002",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "question_id": "q168",
+      "case_key": "golden_case_003",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "MISSING_CORPORATE_IDENTITY_DATA"
+    },
+    {
+      "question_id": "q169",
+      "case_key": "golden_case_003",
+      "answerable": false,
+      "prediction_status": "REFUSED",
+      "deterministic_outcome_pass": true,
+      "lexical_correctness": false,
+      "lexically_correct_citation_exact": false,
+      "correct_refusal": true,
+      "false_refusal": false,
+      "technical_failure": false,
+      "needs_review": false,
+      "technical_failure_type": null,
+      "missing_prediction": false,
+      "key_points_matched": [],
+      "key_points_missed": [],
+      "key_point_score": null,
+      "numeric_facts_matched": [],
+      "numeric_facts_missed": [],
+      "numeric_accuracy": null,
+      "expected_citation_refs": [],
+      "predicted_citation_refs": [],
+      "citation_tp": 0,
+      "citation_fp": 0,
+      "citation_fn": 0,
+      "forbidden_assertions_found": [],
+      "refusal_reason_code": "INSUFFICIENT_EVIDENCE"
+    }
+  ]
+}
