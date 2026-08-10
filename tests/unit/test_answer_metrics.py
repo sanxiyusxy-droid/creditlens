@@ -316,6 +316,18 @@ def test_metric_2_report_without_adapter_version_is_labeled_legacy(
             ],
             ["revenue", "revenue_growth"],
         ),
+        (
+            "q086",
+            "研发投入占营业收入比例不得低于百分之三。",
+            [("研发投入占营业收入比例下限", "3", "%")],
+            ["rd_ratio_floor"],
+        ),
+        (
+            "q153",
+            "一般风险准备金余额不低于融资余额的百分之一。",
+            [("一般风险准备金余额不低于融资余额的", "1", "%")],
+            ["general_reserve_floor"],
+        ),
     ],
 )
 def test_first_run_chinese_number_answers_match_deterministically(
@@ -347,6 +359,73 @@ def test_first_run_chinese_number_answers_match_deterministically(
     assert score.key_points_missed == []
     assert score.numeric_facts_missed == []
     assert score.lexical_correctness is True
+
+
+@pytest.mark.parametrize(
+    ("question_id", "answer", "fact_name", "missed_key", "missed_fact"),
+    [
+        (
+            "q086",
+            "市场投入占营业收入比例不得低于3%。",
+            "市场投入占营业收入比例下限",
+            "rd_ratio_floor",
+            "研发投入占比下限",
+        ),
+        (
+            "q086",
+            "研发投入占营业收入比例不得高于3%。",
+            "研发投入占营业收入比例上限",
+            "rd_ratio_floor",
+            "研发投入占比下限",
+        ),
+        (
+            "q153",
+            "专项风险准备金余额不低于融资余额的1%。",
+            "专项风险准备金余额不低于融资余额的",
+            "general_reserve_floor",
+            "一般风险准备金比例下限",
+        ),
+        (
+            "q153",
+            "一般风险准备金余额不高于融资余额的1%。",
+            "一般风险准备金余额上限",
+            "general_reserve_floor",
+            "一般风险准备金比例下限",
+        ),
+    ],
+)
+def test_bounded_threshold_equivalents_do_not_match_other_metric_or_direction(
+    dataset: AnswerEvalDataset,
+    question_id: str,
+    answer: str,
+    fact_name: str,
+    missed_key: str,
+    missed_fact: str,
+) -> None:
+    predictions = _perfect_prediction_set(dataset)
+    original = next(item for item in predictions.predictions if item.question_id == question_id)
+    replacement = original.model_copy(
+        update={
+            "answer": answer,
+            "numeric_facts": [
+                PredictedNumericFact(
+                    name=fact_name, value=Decimal("3" if question_id == "q086" else "1"), unit="%"
+                )
+            ],
+        },
+        deep=True,
+    )
+
+    score = _question_score(
+        evaluate_answers(dataset, _replace_prediction(predictions, question_id, replacement)),
+        question_id,
+    )
+
+    assert score.key_points_matched == []
+    assert score.key_points_missed == [missed_key]
+    assert score.numeric_facts_matched == []
+    assert score.numeric_facts_missed == [missed_fact]
+    assert score.lexical_correctness is False
 
 
 def test_non_revenue_does_not_match_revenue_metric_or_phrase(

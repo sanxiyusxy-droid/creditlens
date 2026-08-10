@@ -528,7 +528,7 @@ async def test_real_grounded_agent_and_auditor_normalize_review_only_result(sess
     assert normalized.direct_answer is None
 
 
-async def test_real_grounded_agent_and_auditor_repair_uses_only_claim_id_and_code(session):
+async def test_real_grounded_agent_and_auditor_repair_uses_model_visible_locator(session):
     packed, parse_run_id = await _packed_world(
         session,
         text="政策规定资产负债率不得超过70%。",
@@ -591,8 +591,20 @@ async def test_real_grounded_agent_and_auditor_repair_uses_only_claim_id_and_cod
     claim_id = str(first.artifact.claims[0].claim_id)
     assert not first_audit.ok
     assert not first_audit.review_normalization_required
-    assert feedback == [f"CLAIM:{claim_id}:NUMERIC_TOKEN_NOT_IN_CITATION"]
-    assert claim_id in chat.calls[1]["user"]
+    assert feedback == [
+        {
+            "scope": "CLAIM",
+            "code": "NUMERIC_TOKEN_NOT_IN_CITATION",
+            "repair_hint": feedback[0]["repair_hint"],
+            "category": "ELIGIBILITY",
+            "supporting_evidence_ids": [str(ref_id)],
+            "opposing_evidence_ids": [],
+            "apply_to": "MATCHING_CLAIM",
+        }
+    ]
+    assert claim_id not in chat.calls[1]["user"]
+    assert str(ref_id) in chat.calls[1]["user"]
+    assert '"category": "ELIGIBILITY"' in chat.calls[1]["user"]
     assert "NUMERIC_TOKEN_NOT_IN_CITATION" in chat.calls[1]["user"]
     assert "80%" not in chat.calls[1]["user"]
     assert repaired_audit.ok

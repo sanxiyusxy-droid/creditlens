@@ -757,9 +757,7 @@ async def test_audit_repair_receives_stable_codes_and_manifest_accumulates(qa_wo
     assert all(item["supporting_evidence_ids"] for item in agent.feedback[1])
     assert all(item["opposing_evidence_ids"] == [] for item in agent.feedback[1])
     assert all(item["apply_to"] == "MATCHING_CLAIM" for item in agent.feedback[1])
-    assert {
-        item["repair_hint"] for item in agent.feedback[1]
-    } == {
+    assert {item["repair_hint"] for item in agent.feedback[1]} == {
         grounded_qa_repair_hint("NUMERIC_TOKEN_NOT_IN_CITATION"),
         grounded_qa_repair_hint("SUPPORTED_WITHOUT_EVIDENCE"),
     }

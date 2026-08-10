@@ -128,7 +128,7 @@ class GroundedQAAuditFeedback(BaseModel):
     apply_to: Literal["MATCHING_CLAIM", "ALL_MATCHING_CLAIMS"] | None = None
 
     @model_validator(mode="after")
-    def validate_safe_shape(self) -> "GroundedQAAuditFeedback":
+    def validate_safe_shape(self) -> GroundedQAAuditFeedback:
         if not _SAFE_VIOLATION_CODE.fullmatch(self.code):
             raise ValueError("invalid Grounded QA repair code")
         if self.repair_hint != grounded_qa_repair_hint(self.code):

@@ -167,6 +167,16 @@ def test_extract_numeric_facts_normalizes_restricted_chinese_numbers():
             "星辰微电子2025年度营业收入为人民币1.85亿元。",
             [("星辰微电子2025年度营业收入", "1.85", "亿元")],
         ),
+        (
+            "q086",
+            "研发投入占营业收入比例不得低于百分之三。",
+            [("研发投入占营业收入比例下限", "3", "%")],
+        ),
+        (
+            "q153",
+            "一般风险准备金余额不低于融资余额的百分之一。",
+            [("一般风险准备金余额不低于融资余额的", "1", "%")],
+        ),
     ],
 )
 def test_extract_numeric_facts_covers_first_run_positive_cases(

@@ -33,8 +33,8 @@ from creditlens.agents.contracts import (
     RefusalReasonCode,
 )
 from creditlens.agents.grounded_qa import (
-    GroundedQAAuditFeedback,
     GroundedQAAgent,
+    GroundedQAAuditFeedback,
     GroundedQAOutputRejected,
     grounded_qa_repair_hint,
 )
@@ -1193,9 +1193,7 @@ def _audit_repair_feedback(
                     supporting_evidence_ids=list(supporting_ids),
                     opposing_evidence_ids=list(opposing_ids),
                     apply_to=(
-                        "ALL_MATCHING_CLAIMS"
-                        if locator_counts[locator] > 1
-                        else "MATCHING_CLAIM"
+                        "ALL_MATCHING_CLAIMS" if locator_counts[locator] > 1 else "MATCHING_CLAIM"
                     ),
                 )
             elif subject in evidence_ids:

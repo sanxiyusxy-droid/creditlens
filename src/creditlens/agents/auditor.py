@@ -785,9 +785,7 @@ _CHINESE_DIGITS = {
 }
 _CHINESE_SMALL_UNITS = {"十": 10, "百": 100, "千": 1000}
 _CHINESE_VALUE_PATTERN = r"[零〇○一二两三四五六七八九十百千]+(?:点[零〇○一二两三四五六七八九]+)?"
-_CHINESE_PERCENT_RE = re.compile(
-    rf"(?P<sign>[负正])?百分之\s*(?P<value>{_CHINESE_VALUE_PATTERN})"
-)
+_CHINESE_PERCENT_RE = re.compile(rf"(?P<sign>[负正])?百分之\s*(?P<value>{_CHINESE_VALUE_PATTERN})")
 _CHINESE_NUMBER_RE = re.compile(
     r"(?P<currency_prefix>人民币|美元|港元|欧元|日元)?\s*"
     r"(?P<sign>[负正])?\s*"
