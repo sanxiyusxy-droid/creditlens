@@ -18,6 +18,12 @@
   与审计表追加写权限，并升级至 Alembic `0007_evidence_run_key`。三轮正式评测报告与
   离线基线均随标签发布。**报告 Manifest 记录的评测源码 commit 与承载报告/文档的
   release tag 职责不同，不能混写。**
+- **v1.3.0 发布候选**：分支 `feat/v1.3-grounded-qa`，第二轮被测提交 `c4289a1`。
+  已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
+  分流、模型调用脱敏 Trace、请求幂等与两阶段 gold 隔离评测。当前本地门禁为 Ruff 全绿、
+  **300 项 unit/security + 19 项真实 PG/Qdrant/RLS 集成**通过。41 题第二轮正式报告见
+  `evaluation/reports/answer_eval_v1_c4289a1_20260810T125108Z.json`；尚未合并 `main`
+  或发布 `v1.3.0` 标签。
 
 ## 架构概览
 
@@ -192,12 +198,22 @@ Refusal Accuracy。v1.2.0 本地发布验收为 **134 passed / 10 deselected**
 RLS 业务角色真实栈）；最终候选 GitHub CI #6 的 lint/unit/integration 三 Job 全绿
 （4m05s）。
 
-## 开发中：v1.3.0「可审计证据问答闭环」
+## 发布候选：v1.3.0「可审计证据问答闭环」
 
-v1.3.0 不再继续堆检索 Route，而是补齐当前缺失的答案层：Grounded QA 只消费已验证
-Evidence；逐句引用审计与拒答门禁；持久化最小 Model/Tool 调用 Trace；冻结
-`answer_eval_v1`（Correctness/Faithfulness/Citation/Refusal）；在 Streamlit 演示中完成
-“提问 → 答案 → 引用原文 → 审计结果”的端到端展示。完成前不宣称当前版本已有
-答案 Faithfulness、Citation Accuracy 或 Refusal Accuracy。
+v1.3.0 补齐答案层：Grounded QA 只消费已验证 Evidence，模型只生成受限 Claim 草稿；
+服务端生成权威 ID/状态并执行 Evidence 白名单、数字、阈值方向、明显极性、Locator/Hash/
+Snapshot 门禁；结果分为 `ANSWERED / ABSTAINED / NEEDS_REVIEW / TECHNICAL_FAILURE`，
+技术故障不得伪装成业务拒答。Streamlit 已支持“问题 → 答案状态 → 逐句引用 → 原文预览 →
+审计 Trace”。
+
+`answer_eval_v1` 使用 3 个合成案件、41 题（30 可答、11 不可答）。第二轮正式状态为
+**23 ANSWERED / 8 REFUSED / 6 NEEDS_REVIEW / 4 TECHNICAL_FAILURE**；确定性
+Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
+**20.59%**、Citation-set P/R/F1 **76.67%/69.70%/73.02%**、Refusal Accuracy
+**72.73%**、False Refusal **0**、Technical Failure **9.76%**。相较首轮，技术失败率
+由 17.07% 降至 9.76%，确定性通过率由 19.51% 升至 31.71%。这些是合成集上的
+`DETERMINISTIC_LEXICAL_AND_CITATION_SET` 指标，`semantic_entailment_evaluated=false`；
+**Citation F1 不是 Faithfulness，Lexical Correctness 也不是语义准确率**。剩余 4 个技术
+失败为 1 个数字引用审计失败和 3 个连续 Schema 校验失败，作为发布候选已知限制保留。
 
 
