@@ -113,6 +113,16 @@ async def test_full_review_dag(session, qdrant, with_facts):
     types = [e.event_type for e in events]
     assert "STATE_CHANGED" in types
     assert "AUDIT_COMPLETED" in types
+    tool_events = [event for event in events if event.event_type.startswith("TOOL_INVOCATION_")]
+    assert tool_events
+    assert len(tool_events) == len(_gateway.calls)
+    assert [event.sequence_no for event in events] == list(range(1, len(events) + 1))
+    persisted_invocation_ids = {event.payload_redacted["invocation_id"] for event in tool_events}
+    assert persisted_invocation_ids == {
+        str(call.invocation_id) for call in _gateway.calls if call.invocation_id is not None
+    }
+    assert all(event.tenant_id == trusted.tenant_id for event in tool_events)
+    assert all(event.case_id == trusted.case_id for event in tool_events)
     transitions = [
         (e.payload_redacted["from"], e.payload_redacted["to"])
         for e in events

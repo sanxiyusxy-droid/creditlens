@@ -1,0 +1,33 @@
+{
+  "protocol_version": "1.0.0",
+  "source_id": "replace-with-source-id",
+  "prediction_set_id": "replace-with-prediction-set-id",
+  "prediction_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "created_at": "2026-08-12T00:00:00Z",
+  "input_artifacts": [
+    {
+      "role": "prediction_set",
+      "artifact_id": "replace-with-prediction-file-name",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "role": "raw_checkpoint",
+      "artifact_id": "replace-with-raw-checkpoint-file-name",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "items": [
+    {
+      "question_id": "q-example",
+      "claim_id": "claim-example",
+      "claim": "The generated claim to assess.",
+      "evidence": [
+        {
+          "section_id": "section-example",
+          "content": "Replace this with the exact frozen evidence text.",
+          "content_sha256": "ea7e7bd2e969d1bd3299e67264155349176505693e07f2e4c637798c08e7db39"
+        }
+      ]
+    }
+  ]
+}

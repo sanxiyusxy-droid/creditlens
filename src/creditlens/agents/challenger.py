@@ -128,7 +128,11 @@ class Challenger:
                     continue
                 counter_query = f"{claim.statement[:40]} {template}"
                 result = await self._gateway.invoke(
-                    AGENT_ROLE, "search_counter_evidence", trusted=trusted, query=counter_query
+                    AGENT_ROLE,
+                    "search_counter_evidence",
+                    task_id=f"{run_id}:{task_id}",
+                    trusted=trusted,
+                    query=counter_query,
                 )
                 challenged += 1
 

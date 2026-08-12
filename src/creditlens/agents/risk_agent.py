@@ -70,6 +70,7 @@ class RiskAgent:
                 calc: CalculationArtifact = await self._gateway.invoke(
                     AGENT_ROLE,
                     "compute_metric",
+                    task_id=f"{run_id}:{task_id}",
                     trusted=trusted,
                     metric_code=metric_code,
                     formula_version="1.0",
@@ -131,7 +132,11 @@ class RiskAgent:
         for query, category, topic in _RISK_QUERIES:
             try:
                 result = await self._gateway.invoke(
-                    AGENT_ROLE, "search_risk_evidence", trusted=trusted, query=query
+                    AGENT_ROLE,
+                    "search_risk_evidence",
+                    task_id=f"{run_id}:{task_id}",
+                    trusted=trusted,
+                    query=query,
                 )
             except Exception as exc:
                 # WP3：检索工具异常同样记录降级

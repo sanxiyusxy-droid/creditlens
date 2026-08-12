@@ -51,6 +51,7 @@ class FinancialAgent:
             calc: CalculationArtifact = await self._gateway.invoke(
                 AGENT_ROLE,
                 "compute_metric",
+                task_id=f"{run_id}:{task_id}",
                 trusted=trusted,
                 metric_code=metric_code,
                 formula_version=version,

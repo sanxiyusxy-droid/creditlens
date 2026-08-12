@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hmac
 import json
 import re
@@ -70,9 +72,35 @@ _QA_TRANSITIONS: dict[str, set[str]] = {
 
 _QA_TASK_ID = "grounded_qa"
 _QA_PRODUCER = "grounded_qa"
+_QA_REQUEST_HASH_VERSION = "grounded_qa_request_v2"
 _SAFE_VIOLATION_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
+_SAFE_SCHEMA_ERROR_CODES = frozenset(
+    {
+        "ENUM_CONSTRAINT",
+        "EXTRA_FIELD",
+        "INVALID_JSON",
+        "LIST_CONSTRAINT",
+        "MISSING_FIELD",
+        "OBJECT_CONSTRAINT",
+        "STRING_CONSTRAINT",
+        "TYPE_MISMATCH",
+        "VALIDATION_OTHER",
+        "VALUE_CONSTRAINT",
+    }
+)
 _REPLAY_INTEGRITY_ERROR = "IDEMPOTENT_REPLAY_INTEGRITY_FAILED"
 _ANSWER_AUDIT_FAILED = "ANSWER_AUDIT_FAILED"
+_QA_CALL_CANCELLED = "QA_CALL_CANCELLED"
+_UNHANDLED_EXECUTION_ERROR = "UnhandledExecutionError"
+_REPLAYABLE_FAILURE_ERROR_TYPES = frozenset(
+    {
+        _ANSWER_AUDIT_FAILED,
+        _QA_CALL_CANCELLED,
+        "GroundedQAOutputRejected",
+        "LLMCallError",
+        _UNHANDLED_EXECUTION_ERROR,
+    }
+)
 _SAFE_QA_CLAIM_CATEGORIES = frozenset(
     {
         "ELIGIBILITY",
@@ -227,6 +255,14 @@ class QAService:
             as_of_date=as_of_date,
             decision_cutoff_at=decision_cutoff_at,
         )
+        legacy_request_hash = self._request_hash(
+            case_id=case_id,
+            question=normalized_question,
+            top_k=top_k,
+            as_of_date=as_of_date,
+            decision_cutoff_at=decision_cutoff_at,
+            request_hash_version=None,
+        )
         reservation = await self._create_run(
             case_id=case_id,
             question=normalized_question,
@@ -235,6 +271,7 @@ class QAService:
             decision_cutoff_at=decision_cutoff_at,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
+            legacy_request_hash=legacy_request_hash,
         )
         if not reservation.created:
             return await self._replay_completed(
@@ -249,6 +286,16 @@ class QAService:
                 question=normalized_question,
                 top_k=top_k,
             )
+        except asyncio.CancelledError:
+            # Cancellation must remain observable to the caller, but a Run that
+            # has already checkpointed RETRIEVING/GENERATING must not be left in
+            # a permanent non-terminal state when the database remains available.
+            # Shield only the bounded terminal transition. A failed best-effort
+            # cleanup must never replace the caller's cancellation control flow;
+            # crash-safe reconciliation still requires a durable worker lease.
+            with contextlib.suppress(Exception):
+                await asyncio.shield(self._mark_failed(reservation.run_id, _QA_CALL_CANCELLED))
+            raise
         except Exception as exc:
             error_type = _execution_error_type(exc)
             await self._mark_failed(reservation.run_id, error_type)
@@ -264,6 +311,7 @@ class QAService:
         decision_cutoff_at: datetime | None,
         idempotency_key: str,
         request_hash: str,
+        legacy_request_hash: str,
     ) -> _QARequestReservation:
         config = self._orchestrator_config(top_k)
         try:
@@ -279,7 +327,12 @@ class QAService:
                     )
                 )
                 if existing is not None:
-                    return self._existing_reservation(existing, request_hash)
+                    return await self._existing_reservation(
+                        session,
+                        existing,
+                        request_hash,
+                        legacy_request_hash,
+                    )
 
                 trusted = await build_trusted_context(
                     session,
@@ -317,6 +370,7 @@ class QAService:
                     retrieval_config=config.model_dump(mode="json"),
                     model_manifest={
                         "workflow": "grounded_qa_v1",
+                        "request_hash_version": _QA_REQUEST_HASH_VERSION,
                         "prompt_version": self.settings.qa_prompt_version,
                         "provider": self.settings.llm_provider,
                         "model": self.settings.llm_model or None,
@@ -343,6 +397,7 @@ class QAService:
                             "question_hash": sha256_text(question),
                             "idempotency_key_hash": sha256_text(idempotency_key),
                             "snapshot_id": str(snapshot.snapshot_id),
+                            "request_hash_version": _QA_REQUEST_HASH_VERSION,
                         },
                     )
                 )
@@ -355,14 +410,34 @@ class QAService:
             return await self._reservation_after_unique_conflict(
                 idempotency_key=idempotency_key,
                 request_hash=request_hash,
+                legacy_request_hash=legacy_request_hash,
             )
 
-    def _existing_reservation(
+    async def _existing_reservation(
         self,
+        session: AsyncSession,
         run: ReviewRun,
         request_hash: str,
+        legacy_request_hash: str,
     ) -> _QARequestReservation:
-        if run.run_type != "SIMPLE_QA" or run.request_hash != request_hash:
+        manifest = run.model_manifest if isinstance(run.model_manifest, dict) else {}
+        request_hash_version = manifest.get("request_hash_version")
+        current_request_matches = (
+            request_hash_version == _QA_REQUEST_HASH_VERSION
+            and isinstance(run.request_hash, str)
+            and hmac.compare_digest(run.request_hash, request_hash)
+        )
+        legacy_completed_candidate = (
+            run.status == "COMPLETED"
+            and request_hash_version is None
+            and isinstance(run.request_hash, str)
+            and hmac.compare_digest(run.request_hash, legacy_request_hash)
+        )
+        legacy_completed_matches = legacy_completed_candidate and await self._is_v13_run_contract(
+            session,
+            run,
+        )
+        if run.run_type != "SIMPLE_QA" or not (current_request_matches or legacy_completed_matches):
             raise IdempotencyConflictError(
                 "同一 idempotency_key 已用于不同的问答请求",
                 {"run_id": str(run.id), "status": run.status},
@@ -372,10 +447,76 @@ class QAService:
         if run.status == "COMPLETED":
             return _QARequestReservation(run.id, run.input_snapshot_id, False)
         if run.status == "FAILED":
-            raise QAServiceError(run.id, "PREVIOUS_IDEMPOTENT_REQUEST_FAILED")
+            failures = (
+                await session.scalars(
+                    select(RunEvent)
+                    .where(
+                        RunEvent.run_id == run.id,
+                        RunEvent.event_type == "QA_EXECUTION_FAILED",
+                    )
+                    .order_by(RunEvent.sequence_no)
+                )
+            ).all()
+            last_sequence = await session.scalar(
+                select(func.max(RunEvent.sequence_no)).where(RunEvent.run_id == run.id)
+            )
+            if len(failures) != 1:
+                raise QAServiceError(run.id, _REPLAY_INTEGRITY_ERROR)
+            failed = failures[0]
+            payload = failed.payload_redacted
+            failure_from = payload.get("from") if isinstance(payload, dict) else None
+            error_type = (
+                _stable_failure_error_type(payload.get("error_type"))
+                if isinstance(payload, dict)
+                else None
+            )
+            failure_event_matches = (
+                failed.tenant_id == run.tenant_id
+                and failed.case_id == run.case_id
+                and failed.sequence_no == last_sequence
+                and isinstance(payload, dict)
+                and set(payload) == {"from", "error_type"}
+                and isinstance(failure_from, str)
+                and "FAILED" in _QA_TRANSITIONS.get(failure_from, set())
+                and error_type is not None
+            )
+            if not failure_event_matches:
+                raise QAServiceError(run.id, _REPLAY_INTEGRITY_ERROR)
+            raise QAServiceError(run.id, error_type)
         raise IdempotencyConflictError(
             "同一幂等请求正在执行，请使用原 run_id 查询状态",
             {"run_id": str(run.id), "status": run.status, "retryable": True},
+        )
+
+    async def _is_v13_run_contract(self, session: AsyncSession, run: ReviewRun) -> bool:
+        """Recognize an intact v1.3 Run rather than a downgraded v2 manifest."""
+        created_events = (
+            await session.scalars(
+                select(RunEvent).where(
+                    RunEvent.run_id == run.id,
+                    RunEvent.event_type == "RUN_CREATED",
+                )
+            )
+        ).all()
+        if len(created_events) != 1:
+            return False
+        created = created_events[0]
+        payload = created.payload_redacted
+        if not isinstance(payload, dict) or set(payload) != {
+            "run_type",
+            "question_hash",
+            "idempotency_key_hash",
+            "snapshot_id",
+        }:
+            return False
+        return (
+            created.sequence_no == 1
+            and created.tenant_id == run.tenant_id
+            and created.case_id == run.case_id
+            and payload.get("run_type") == "SIMPLE_QA"
+            and payload.get("snapshot_id") == str(run.input_snapshot_id)
+            and isinstance(run.request_idempotency_key, str)
+            and payload.get("idempotency_key_hash") == sha256_text(run.request_idempotency_key)
         )
 
     async def _reservation_after_unique_conflict(
@@ -383,6 +524,7 @@ class QAService:
         *,
         idempotency_key: str,
         request_hash: str,
+        legacy_request_hash: str,
     ) -> _QARequestReservation:
         async with session_scope(
             self.session_factory,
@@ -397,7 +539,12 @@ class QAService:
             )
             if existing is None:
                 raise RuntimeError("QA_IDEMPOTENCY_RESOLUTION_FAILED")
-            return self._existing_reservation(existing, request_hash)
+            return await self._existing_reservation(
+                session,
+                existing,
+                request_hash,
+                legacy_request_hash,
+            )
 
     def _request_hash(
         self,
@@ -407,6 +554,7 @@ class QAService:
         top_k: int,
         as_of_date: date | None,
         decision_cutoff_at: datetime | None,
+        request_hash_version: str | None = _QA_REQUEST_HASH_VERSION,
     ) -> str:
         cutoff = decision_cutoff_at
         if cutoff is not None:
@@ -456,6 +604,8 @@ class QAService:
             },
             "retrieval": self._orchestrator_config(top_k).model_dump(mode="json"),
         }
+        if request_hash_version is not None:
+            payload["request_hash_version"] = request_hash_version
         return sha256_text(
             json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         )
@@ -925,8 +1075,27 @@ class QAService:
                     "attempts",
                     "status",
                     "error_type",
+                    "schema_error_fingerprint",
                 )
             }
+            raw_fingerprint = safe.get("schema_error_fingerprint")
+            if not (
+                isinstance(raw_fingerprint, str) and re.fullmatch(r"[0-9a-f]{64}", raw_fingerprint)
+            ):
+                safe["schema_error_fingerprint"] = None
+            raw_counts = payload.get("schema_error_counts")
+            safe["schema_error_counts"] = (
+                {
+                    code: count
+                    for code, count in sorted(raw_counts.items())
+                    if code in _SAFE_SCHEMA_ERROR_CODES
+                    and isinstance(count, int)
+                    and not isinstance(count, bool)
+                    and 0 < count <= 16
+                }
+                if isinstance(raw_counts, dict)
+                else {}
+            )
             await events.emit(
                 "MODEL_INVOCATION_COMPLETED"
                 if safe.get("status") == "SUCCESS"
@@ -1108,9 +1277,14 @@ def _safe_error_code(raw: Any) -> str:
 
 def _execution_error_type(exc: Exception) -> str:
     """Map internal sentinels to a stable public type without exposing messages."""
-    if isinstance(exc, _AnswerAuditFailed):
-        return exc.error_type
-    return type(exc).__name__
+    raw = exc.error_type if isinstance(exc, _AnswerAuditFailed) else type(exc).__name__
+    return _stable_failure_error_type(raw) or _UNHANDLED_EXECUTION_ERROR
+
+
+def _stable_failure_error_type(raw: Any) -> str | None:
+    """Return only an explicitly supported, stable public failure classification."""
+    value = raw if isinstance(raw, str) else ""
+    return value if value in _REPLAYABLE_FAILURE_ERROR_TYPES else None
 
 
 def _stable_violation_code(raw: Any) -> str | None:

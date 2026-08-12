@@ -1,5 +1,6 @@
 """Grounded QA service transaction, state and persistence tests."""
 
+import asyncio
 import json
 import uuid
 from datetime import UTC, date, datetime
@@ -107,6 +108,12 @@ class _FakeOrchestrator:
         )
 
 
+class _CancellingOrchestrator(_FakeOrchestrator):
+    async def retrieve(self, *_args, **_kwargs) -> OrchestratedResult:
+        self.calls.append({"cancelled": True})
+        raise asyncio.CancelledError
+
+
 class _AcceptingAuditor:
     async def verify_grounded_answer(self, _session, _trusted, artifact, **_kwargs):
         return AuditResult(
@@ -192,8 +199,13 @@ class _AbstainingAgent:
 
 
 class _FailingAgent:
+    def __init__(self, trace: ModelInvocationTrace | None = None):
+        self.calls = 0
+        self.trace = trace
+
     async def generate(self, *_args, **_kwargs):
-        trace = ModelInvocationTrace(
+        self.calls += 1
+        trace = self.trace or ModelInvocationTrace(
             provider="fake",
             model="fake-grounded-model",
             prompt_version="grounded_qa_v1",
@@ -206,6 +218,15 @@ class _FailingAgent:
             error_type="ReadTimeout",
         )
         raise LLMCallError("provider response secret must not persist", trace)
+
+
+class _UnknownFailureAgent:
+    def __init__(self):
+        self.calls = 0
+
+    async def generate(self, *_args, **_kwargs):
+        self.calls += 1
+        raise LookupError("provider response secret must not persist")
 
 
 class _SequencedChat:
@@ -621,15 +642,40 @@ async def test_answered_run_persists_complete_audited_chain(qa_world, monkeypatc
 
 
 async def test_agent_failure_commits_failed_run_and_safe_trace(qa_world):
-    service = _service(qa_world, _packed(_section()), _FailingAgent())
+    agent = _FailingAgent(
+        ModelInvocationTrace(
+            provider="fake",
+            model="fake-grounded-model",
+            prompt_version="grounded_qa_v1",
+            prompt_sha256="1" * 64,
+            request_sha256="2" * 64,
+            response_sha256="3" * 64,
+            latency_ms=3.0,
+            attempts=2,
+            status="FAILED",
+            error_type="ValidationError",
+            schema_error_fingerprint="7" * 64,
+            schema_error_counts={"MISSING_FIELD": 2},
+        )
+    )
+    service = _service(qa_world, _packed(_section()), agent)
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "provider secret question",
+        "top_k": 5,
+        "idempotency_key": "unit-provider-failure",
+    }
 
     with pytest.raises(QAServiceError) as captured:
-        await service.ask(
-            case_id=qa_world.case_id,
-            question="provider secret question",
-            top_k=5,
-            idempotency_key="unit-provider-failure",
-        )
+        await service.ask(**request)
+
+    with pytest.raises(QAServiceError) as replayed:
+        await service.ask(**request)
+
+    assert replayed.value.run_id == captured.value.run_id
+    assert replayed.value.error_type == captured.value.error_type == "LLMCallError"
+    assert "provider response secret" not in str(replayed.value)
+    assert agent.calls == 1
 
     async with qa_world.factory() as session:
         run = await session.get(ReviewRun, captured.value.run_id)
@@ -665,8 +711,247 @@ async def test_agent_failure_commits_failed_run_and_safe_trace(qa_world):
     assert "provider response secret must not persist" not in persisted_trace
     assert "provider secret question" not in persisted_trace
     assert "ABSTAINED" not in persisted_trace
+    model_failure = next(event for event in events if event.event_type == "MODEL_INVOCATION_FAILED")
+    assert model_failure.payload_redacted["schema_error_fingerprint"] == "7" * 64
+    assert model_failure.payload_redacted["schema_error_counts"] == {"MISSING_FIELD": 2}
     failure_payload = events[-1].payload_redacted
     assert failure_payload == {"from": "GENERATING", "error_type": "LLMCallError"}
+
+
+async def test_retrieval_cancellation_terminalizes_run_and_replays_stable_failure(qa_world):
+    service = _service(qa_world, _packed(_section()), _AnsweredAgent())
+    cancelling = _CancellingOrchestrator(_packed(_section()))
+    service.orchestrator = cancelling
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "cancel this grounded QA call",
+        "top_k": 5,
+        "idempotency_key": "unit-cancelled-retrieval",
+    }
+
+    with pytest.raises(asyncio.CancelledError):
+        await service.ask(**request)
+
+    async with qa_world.factory() as session:
+        run = await session.scalar(
+            select(ReviewRun).where(ReviewRun.request_idempotency_key == request["idempotency_key"])
+        )
+        events = (
+            await session.scalars(
+                select(RunEvent).where(RunEvent.run_id == run.id).order_by(RunEvent.sequence_no)
+            )
+        ).all()
+
+    assert run.status == "FAILED"
+    assert run.completed_at is not None
+    assert events[-1].event_type == "QA_EXECUTION_FAILED"
+    assert events[-1].payload_redacted == {
+        "from": "RETRIEVING",
+        "error_type": "QA_CALL_CANCELLED",
+    }
+
+    with pytest.raises(QAServiceError) as replayed:
+        await service.ask(**request)
+
+    assert replayed.value.run_id == run.id
+    assert replayed.value.error_type == "QA_CALL_CANCELLED"
+    assert len(cancelling.calls) == 1
+
+
+async def test_failed_cancellation_cleanup_does_not_replace_cancelled_error(qa_world):
+    service = _service(qa_world, _packed(_section()), _AnsweredAgent())
+    service.orchestrator = _CancellingOrchestrator(_packed(_section()))
+
+    async def unavailable_failure_cleanup(_run_id, _error_type):
+        raise RuntimeError("database unavailable during cancellation cleanup")
+
+    service._mark_failed = unavailable_failure_cleanup
+
+    with pytest.raises(asyncio.CancelledError):
+        await service.ask(
+            case_id=qa_world.case_id,
+            question="cancellation cleanup failure must not replace cancellation",
+            top_k=5,
+            idempotency_key="unit-cancel-cleanup-failure",
+        )
+
+
+async def test_failed_replay_rejects_missing_request_hash_contract_version(qa_world):
+    agent = _FailingAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "旧版失败不能按新版契约回放",
+        "top_k": 5,
+        "idempotency_key": "unit-old-failure-contract",
+    }
+    with pytest.raises(QAServiceError) as first:
+        await service.ask(**request)
+
+    legacy_hash = service._request_hash(
+        case_id=request["case_id"],
+        question=request["question"],
+        top_k=request["top_k"],
+        as_of_date=None,
+        decision_cutoff_at=None,
+        request_hash_version=None,
+    )
+    async with qa_world.factory() as session:
+        run = await session.get(ReviewRun, first.value.run_id)
+        manifest = dict(run.model_manifest)
+        manifest.pop("request_hash_version")
+        run.model_manifest = manifest
+        run.request_hash = legacy_hash
+        await session.commit()
+
+    with pytest.raises(IdempotencyConflictError):
+        await service.ask(**request)
+
+    assert agent.calls == 1
+
+
+@pytest.mark.parametrize(
+    "unsafe",
+    [
+        "ReadTimeout: provider response secret must not replay",
+        "SUCCESS",
+    ],
+)
+async def test_failed_replay_rejects_unsafe_or_unknown_failure_classification(
+    qa_world,
+    unsafe,
+):
+    agent = _FailingAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "失败分类不得携带异常消息",
+        "top_k": 5,
+        "idempotency_key": "unit-unsafe-failure-type",
+    }
+    with pytest.raises(QAServiceError) as first:
+        await service.ask(**request)
+
+    async with qa_world.factory() as session:
+        failed = await session.scalar(
+            select(RunEvent).where(
+                RunEvent.run_id == first.value.run_id,
+                RunEvent.event_type == "QA_EXECUTION_FAILED",
+            )
+        )
+        failed.payload_redacted = {**failed.payload_redacted, "error_type": unsafe}
+        await session.commit()
+
+    with pytest.raises(QAServiceError) as replayed:
+        await service.ask(**request)
+
+    assert replayed.value.error_type == "IDEMPOTENT_REPLAY_INTEGRITY_FAILED"
+    assert unsafe not in str(replayed.value)
+    assert agent.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("field_name", "tampered_value"),
+    [
+        ("tenant_id", uuid.UUID("00000000-0000-0000-0000-000000000099")),
+        ("case_id", uuid.UUID("00000000-0000-0000-0000-000000000099")),
+        ("from", "COMPLETED"),
+    ],
+)
+async def test_failed_replay_rejects_event_binding_tampering(
+    qa_world,
+    field_name,
+    tampered_value,
+):
+    agent = _FailingAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "失败事件必须绑定原租户案件与状态",
+        "top_k": 5,
+        "idempotency_key": f"unit-failure-binding-{field_name}",
+    }
+    with pytest.raises(QAServiceError) as first:
+        await service.ask(**request)
+
+    async with qa_world.factory() as session:
+        failed = await session.scalar(
+            select(RunEvent).where(
+                RunEvent.run_id == first.value.run_id,
+                RunEvent.event_type == "QA_EXECUTION_FAILED",
+            )
+        )
+        if field_name == "from":
+            failed.payload_redacted = {
+                **failed.payload_redacted,
+                "from": tampered_value,
+            }
+        else:
+            setattr(failed, field_name, tampered_value)
+        await session.commit()
+
+    with pytest.raises(QAServiceError) as replayed:
+        await service.ask(**request)
+
+    assert replayed.value.error_type == "IDEMPOTENT_REPLAY_INTEGRITY_FAILED"
+    assert agent.calls == 1
+
+
+async def test_failed_replay_rejects_duplicate_terminal_failure_event(qa_world):
+    agent = _FailingAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "重复失败终态事件不能覆盖原错误",
+        "top_k": 5,
+        "idempotency_key": "unit-duplicate-failure-event",
+    }
+    with pytest.raises(QAServiceError) as first:
+        await service.ask(**request)
+
+    async with qa_world.factory() as session:
+        run = await session.get(ReviewRun, first.value.run_id)
+        last_sequence = await session.scalar(
+            select(func.max(RunEvent.sequence_no)).where(RunEvent.run_id == run.id)
+        )
+        session.add(
+            RunEvent(
+                run_id=run.id,
+                tenant_id=run.tenant_id,
+                case_id=run.case_id,
+                sequence_no=last_sequence + 1,
+                event_type="QA_EXECUTION_FAILED",
+                payload_redacted={"from": "GENERATING", "error_type": "LLMCallError"},
+            )
+        )
+        await session.commit()
+
+    with pytest.raises(QAServiceError) as replayed:
+        await service.ask(**request)
+
+    assert replayed.value.error_type == "IDEMPOTENT_REPLAY_INTEGRITY_FAILED"
+    assert agent.calls == 1
+
+
+async def test_unknown_execution_failure_is_normalized_and_replayed_safely(qa_world):
+    agent = _UnknownFailureAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "未知异常不得扩展公开错误类型",
+        "top_k": 5,
+        "idempotency_key": "unit-unknown-failure-type",
+    }
+
+    with pytest.raises(QAServiceError) as first:
+        await service.ask(**request)
+    with pytest.raises(QAServiceError) as replayed:
+        await service.ask(**request)
+
+    assert first.value.error_type == replayed.value.error_type == "UnhandledExecutionError"
+    assert "provider response secret" not in str(first.value)
+    assert "provider response secret" not in str(replayed.value)
+    assert agent.calls == 1
 
 
 async def test_empty_packed_context_completes_as_business_abstention(qa_world):
@@ -1147,6 +1432,110 @@ async def test_completed_idempotent_request_replays_without_second_execution(qa_
             .where(ArtifactRecord.run_id == first.run_id)
         )
     assert run_count == artifact_count == 1
+
+
+async def test_v13_completed_idempotent_request_replays_with_exact_legacy_hash(qa_world):
+    agent = _AnsweredAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    kwargs = {
+        "case_id": qa_world.case_id,
+        "question": "v1.3 已完成请求升级后仍应受控重放",
+        "top_k": 5,
+        "idempotency_key": "unit-v13-completed-replay",
+    }
+    first = await service.ask(**kwargs)
+    legacy_hash = service._request_hash(
+        case_id=kwargs["case_id"],
+        question=kwargs["question"],
+        top_k=kwargs["top_k"],
+        as_of_date=None,
+        decision_cutoff_at=None,
+        request_hash_version=None,
+    )
+
+    async with qa_world.factory() as session:
+        run = await session.get(ReviewRun, first.run_id)
+        manifest = dict(run.model_manifest)
+        manifest.pop("request_hash_version")
+        run.model_manifest = manifest
+        run.request_hash = legacy_hash
+        created = await session.scalar(
+            select(RunEvent).where(
+                RunEvent.run_id == run.id,
+                RunEvent.event_type == "RUN_CREATED",
+            )
+        )
+        created.payload_redacted = {
+            key: value
+            for key, value in created.payload_redacted.items()
+            if key != "request_hash_version"
+        }
+        await session.commit()
+
+    replay = await service.ask(**kwargs)
+
+    assert replay.run_id == first.run_id
+    assert replay.answer == first.answer
+    assert replay.idempotent_replay is True
+    assert agent.calls == 1
+
+
+async def test_v13_completed_replay_rejects_non_matching_legacy_hash(qa_world):
+    agent = _AnsweredAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    kwargs = {
+        "case_id": qa_world.case_id,
+        "question": "旧契约也必须精确匹配请求内容",
+        "top_k": 5,
+        "idempotency_key": "unit-v13-hash-conflict",
+    }
+    first = await service.ask(**kwargs)
+
+    async with qa_world.factory() as session:
+        run = await session.get(ReviewRun, first.run_id)
+        manifest = dict(run.model_manifest)
+        manifest.pop("request_hash_version")
+        run.model_manifest = manifest
+        run.request_hash = "0" * 64
+        await session.commit()
+
+    with pytest.raises(IdempotencyConflictError):
+        await service.ask(**kwargs)
+
+    assert agent.calls == 1
+
+
+async def test_v2_completed_replay_rejects_manifest_version_downgrade(qa_world):
+    agent = _AnsweredAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    kwargs = {
+        "case_id": qa_world.case_id,
+        "question": "新版 Run 不能仅删除 manifest 版本伪装成旧版",
+        "top_k": 5,
+        "idempotency_key": "unit-v2-manifest-downgrade",
+    }
+    first = await service.ask(**kwargs)
+    legacy_hash = service._request_hash(
+        case_id=kwargs["case_id"],
+        question=kwargs["question"],
+        top_k=kwargs["top_k"],
+        as_of_date=None,
+        decision_cutoff_at=None,
+        request_hash_version=None,
+    )
+
+    async with qa_world.factory() as session:
+        run = await session.get(ReviewRun, first.run_id)
+        manifest = dict(run.model_manifest)
+        manifest.pop("request_hash_version")
+        run.model_manifest = manifest
+        run.request_hash = legacy_hash
+        await session.commit()
+
+    with pytest.raises(IdempotencyConflictError):
+        await service.ask(**kwargs)
+
+    assert agent.calls == 1
 
 
 async def test_replay_rejects_synchronized_answer_and_claim_payload_tampering(qa_world):

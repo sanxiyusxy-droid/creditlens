@@ -203,6 +203,10 @@ async def test_two_schema_failures_raise_with_redacted_failed_trace():
     assert str(error) == "结构化输出两次校验失败"
     assert error.trace.status == "FAILED"
     assert error.trace.error_type == "ValidationError"
+    assert error.trace.schema_error_counts == {"MISSING_FIELD": 2}
+    assert error.trace.schema_error_fingerprint is not None
+    assert len(error.trace.schema_error_fingerprint) == 64
+    int(error.trace.schema_error_fingerprint, 16)
     assert error.trace.attempts == 2
     assert error.trace.input_tokens == 14
     assert error.trace.output_tokens == 4
@@ -220,6 +224,33 @@ async def test_two_schema_failures_raise_with_redacted_failed_trace():
     ]
     assert error.trace.request_sha256 == _attempt_sequence_hash(request_digests)
     assert error.trace.response_sha256 == hashlib.sha256(responses[-1].content).hexdigest()
+
+
+async def test_schema_error_fingerprint_ignores_invalid_payload_values():
+    async def fingerprint_for(secret: str) -> str | None:
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return _completion(json.dumps({"wrong": secret}))
+
+        chat = await _mocked_chat(handler)
+        try:
+            with pytest.raises(LLMCallError) as captured:
+                await chat.generate_structured_traced(
+                    system="system",
+                    user="user",
+                    output_schema=_Answer,
+                )
+        finally:
+            await chat.aclose()
+        serialized = captured.value.trace.model_dump_json()
+        assert secret not in serialized
+        assert captured.value.trace.schema_error_counts == {"MISSING_FIELD": 2}
+        return captured.value.trace.schema_error_fingerprint
+
+    first = await fingerprint_for("first sensitive value")
+    second = await fingerprint_for("different sensitive value")
+
+    assert first is not None
+    assert first == second
 
 
 async def test_http_failure_has_single_attempt_and_no_response_body_in_trace():
@@ -242,6 +273,8 @@ async def test_http_failure_has_single_attempt_and_no_response_body_in_trace():
     trace = captured.value.trace
     assert trace.status == "FAILED"
     assert trace.error_type == "HTTPStatusError"
+    assert trace.schema_error_fingerprint is None
+    assert trace.schema_error_counts == {}
     assert trace.attempts == 1
     assert trace.response_sha256 is not None
     assert trace.input_tokens is None

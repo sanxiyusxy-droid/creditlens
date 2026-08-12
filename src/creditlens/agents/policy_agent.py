@@ -135,7 +135,11 @@ class PolicyAgent:
 
         for query, category, topic in _SUBQUERIES:
             result = await self._gateway.invoke(
-                AGENT_ROLE, "search_policy", trusted=trusted, query=query
+                AGENT_ROLE,
+                "search_policy",
+                task_id=f"{run_id}:{task_id}",
+                trusted=trusted,
+                query=query,
             )
             top = consume_evidence_sections(result, limit=2)
             if not top:

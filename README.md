@@ -9,6 +9,11 @@
 
 ## 当前版本口径
 
+- **当前本地候选**：`v1.4.0`（分支 `feat/v1.4-eval-observability`），尚未推送、合并、
+  运行 GitHub CI 或发布标签。候选补齐失败幂等重放的稳定分类、结构化输出的安全 Schema
+  指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
+  Invocation Envelope → `run_events` 持久化。本地 Ruff 全绿、**391 项非集成 +
+  19 项真实 PG/Qdrant/RLS 集成**通过。
 - **当前已发布版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
   发布文档由发布收口提交及 tag 承载；两类溯源职责不同，不能混写。
   已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
@@ -210,5 +215,28 @@ Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
 `DETERMINISTIC_LEXICAL_AND_CITATION_SET` 指标，`semantic_entailment_evaluated=false`；
 **Citation F1 不是 Faithfulness，Lexical Correctness 也不是语义准确率**。剩余 4 个技术
 失败为 1 个数字引用审计失败和 3 个连续 Schema 校验失败，作为当前已知限制保留。
+
+## v1.4.0 本地候选：失败可解释、受控语义评审与调用观测
+
+- 新请求使用版本化 `grounded_qa_request_v2`；失败幂等重放只接受唯一、最后且与
+  Run/tenant/case/状态转换一致的固定错误枚举。v1.3 已完成请求可在旧 Hash 与原始创建
+  事件同时匹配时兼容重放，旧失败和伪装降级 fail closed；执行取消会保留
+  `CancelledError` 控制流；数据库可用时以 `QA_CALL_CANCELLED` 安全终结 Run。DB 同时故障时
+  仍需生产级 lease/reconciler，当前不会用清理异常覆盖原始取消。
+- 从正式 41 题 prediction 与 gold-free checkpoint 生成可审计语义 Source：**41 Claim /
+  46 supporting evidence**，Source SHA-256 为 `b77c6d8f...6cfb5e5`。Source 含管理员
+  解盲 ID，已与盲包、mapping、submission 和报告一并排除出 Git；评审员只接收盲包，且
+  不能访问仓库、Source、raw/prediction 或 gold。双评审、裁决和 Cohen's κ 聚合工具已经
+  就绪，但**尚无人工 submission 或语义分数**。
+- ToolGateway 记录 `SUCCESS/FAILED/DENIED/CANCELLED` 统一信封，输入输出使用实例密钥
+  HMAC 指纹；同任务预算在调用前原子占位，Run 级 ContextVar 隔离并发事件。FULL_REVIEW
+  的事件已写入现有 `run_events` 并由 Trace API 查询。模型侧仍
+  走 Grounded QA 既有事件路径；成本只有在显式版本化价格表和完整 Token 下才估算，
+  不是供应商账单；尚无完整 OTel backend。
+
+执行协议与诚实边界见
+[v1.4 受控语义评审与调用观测](docs/v1.4_语义盲审与调用观测.md)。v1.3 报告仍保持
+`semantic_entailment_evaluated=false`；Citation-set F1 不能因为评测协议就绪而改称
+Faithfulness。
 
 

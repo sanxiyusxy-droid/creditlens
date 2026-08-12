@@ -70,9 +70,11 @@ class _FakeGateway:
         self.responses = responses or {}
         self.errors = errors or {}
         self.calls: list[str] = []
+        self.invocations: list[dict] = []
 
     async def invoke(self, role, tool, **kwargs):
         self.calls.append(tool)
+        self.invocations.append({"role": role, "tool": tool, **kwargs})
         if tool in self.errors:
             raise self.errors[tool]
         if tool not in self.responses:
@@ -140,9 +142,11 @@ async def test_risk_threshold_versioned_and_recorded():
         }
     )
     agent = RiskAgent(gateway)
-    artifact = await agent.run(uuid.uuid4(), "risk_review", _trusted())
+    run_id = uuid.uuid4()
+    artifact = await agent.run(run_id, "risk_review", _trusted())
     assert agent.threshold_version == "risk-thresholds-v1"
     assert {"risk_threshold_version": "risk-thresholds-v1"} in artifact.unresolved_issues
+    assert {call["task_id"] for call in gateway.invocations} == {f"{run_id}:risk_review"}
     with pytest.raises(KeyError):
         RiskAgent(gateway, threshold_version="risk-thresholds-v99")
 

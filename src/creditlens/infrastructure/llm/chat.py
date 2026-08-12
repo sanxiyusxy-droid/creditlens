@@ -9,12 +9,28 @@ import hashlib
 import json
 import time
 import uuid
+from collections import Counter
 from typing import ClassVar, Literal, TypeVar
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 TModel = TypeVar("TModel", bound=BaseModel)
+
+SchemaErrorCode = Literal[
+    "ENUM_CONSTRAINT",
+    "EXTRA_FIELD",
+    "INVALID_JSON",
+    "LIST_CONSTRAINT",
+    "MISSING_FIELD",
+    "OBJECT_CONSTRAINT",
+    "STRING_CONSTRAINT",
+    "TYPE_MISMATCH",
+    "VALIDATION_OTHER",
+    "VALUE_CONSTRAINT",
+]
+
+_SCHEMA_FINGERPRINT_VERSION = "schema_validation_v1"
 
 
 class ModelInvocationTrace(BaseModel):
@@ -43,6 +59,11 @@ class ModelInvocationTrace(BaseModel):
     attempts: int = Field(ge=1)
     status: Literal["SUCCESS", "FAILED"]
     error_type: str | None = None
+    schema_error_fingerprint: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    schema_error_counts: dict[SchemaErrorCode, int] = Field(default_factory=dict)
 
 
 class TracedStructuredResult[TOutput: BaseModel](BaseModel):
@@ -92,13 +113,44 @@ def _schema_property_names(schema: object) -> set[str]:
     return names
 
 
+def _schema_error_code(error_type: str) -> SchemaErrorCode:
+    """Map Pydantic's evolving error taxonomy into a stable small allowlist."""
+    if error_type == "missing":
+        return "MISSING_FIELD"
+    if error_type.startswith("json_"):
+        return "INVALID_JSON"
+    if error_type == "extra_forbidden":
+        return "EXTRA_FIELD"
+    if error_type in {"literal_error", "enum"}:
+        return "ENUM_CONSTRAINT"
+    if error_type.startswith("string_") or error_type in {
+        "too_short",
+        "too_long",
+    }:
+        return "STRING_CONSTRAINT"
+    if error_type.startswith(("list_", "tuple_", "set_")):
+        return "LIST_CONSTRAINT"
+    if error_type.startswith(("dict_", "mapping_", "model_")):
+        return "OBJECT_CONSTRAINT"
+    if error_type.endswith("_type"):
+        return "TYPE_MISMATCH"
+    if error_type.startswith(("value_", "greater_than", "less_than")) or error_type in {
+        "assertion_error",
+        "finite_number",
+        "multiple_of",
+    }:
+        return "VALUE_CONSTRAINT"
+    return "VALIDATION_OTHER"
+
+
 def _safe_validation_summary(
     error: ValidationError,
     *,
     schema_property_names: set[str],
-) -> str:
+) -> tuple[str, dict[SchemaErrorCode, int]]:
     """Return bounded locations/types without Pydantic messages or input values."""
     summaries: list[dict[str, str]] = []
+    counts: Counter[SchemaErrorCode] = Counter()
     for item in error.errors(
         include_url=False,
         include_context=False,
@@ -127,8 +179,24 @@ def _safe_validation_summary(
         ):
             error_type = "validation_error"
         summaries.append({"loc": location, "type": error_type})
+        counts[_schema_error_code(error_type)] += 1
 
-    return _canonical_json({"errors": summaries, "truncated": error.error_count() > 8})
+    summary = _canonical_json({"errors": summaries, "truncated": error.error_count() > 8})
+    return summary, dict(sorted(counts.items()))
+
+
+def _schema_error_fingerprint(summaries: list[str]) -> str | None:
+    """Fingerprint only normalized loc/type summaries, never provider content."""
+    if not summaries:
+        return None
+    return _sha256_text(
+        _canonical_json(
+            {
+                "version": _SCHEMA_FINGERPRINT_VERSION,
+                "attempt_summaries": summaries,
+            }
+        )
+    )
 
 
 def _validate_structured_response[TOutput: BaseModel](
@@ -136,16 +204,17 @@ def _validate_structured_response[TOutput: BaseModel](
     output_schema: type[TOutput],
     *,
     schema_property_names: set[str],
-) -> tuple[TOutput | None, str | None]:
+) -> tuple[TOutput | None, str | None, dict[SchemaErrorCode, int]]:
     """Validate provider content while containing any raw ValidationError input."""
     content = response_payload["choices"][0]["message"]["content"]
     try:
-        return output_schema.model_validate_json(content), None
+        return output_schema.model_validate_json(content), None, {}
     except ValidationError as error:
-        return None, _safe_validation_summary(
+        summary, counts = _safe_validation_summary(
             error,
             schema_property_names=schema_property_names,
         )
+        return None, summary, counts
 
 
 class _UsageAccumulator:
@@ -195,6 +264,8 @@ def _build_trace(
     attempts: int,
     status: Literal["SUCCESS", "FAILED"],
     error_type: str | None = None,
+    schema_error_fingerprint: str | None = None,
+    schema_error_counts: dict[SchemaErrorCode, int] | None = None,
 ) -> ModelInvocationTrace:
     return ModelInvocationTrace(
         provider="openai_compatible",
@@ -207,6 +278,8 @@ def _build_trace(
         attempts=attempts,
         status=status,
         error_type=error_type,
+        schema_error_fingerprint=schema_error_fingerprint,
+        schema_error_counts=schema_error_counts or {},
         **usage.values(),
     )
 
@@ -286,6 +359,8 @@ class OpenAICompatChat:
         started_at = time.perf_counter()
         attempts = 0
         repair_summary: str | None = None
+        schema_error_summaries: list[str] = []
+        schema_error_counts: Counter[SchemaErrorCode] = Counter()
         for attempt_index in range(2):
             repair_instruction = ""
             if repair_summary is not None:
@@ -314,7 +389,7 @@ class OpenAICompatChat:
                 if not isinstance(response_payload, dict):
                     raise TypeError("provider response must be a JSON object")
                 usage.add(response_payload)
-                output, validation_summary = _validate_structured_response(
+                output, validation_summary, validation_counts = _validate_structured_response(
                     response_payload,
                     output_schema,
                     schema_property_names=schema_property_names,
@@ -323,6 +398,9 @@ class OpenAICompatChat:
                     # Do not carry provider content into the retry request or
                     # terminal exception frame. Only the safe summary survives.
                     repair_summary = validation_summary
+                    if validation_summary is not None:
+                        schema_error_summaries.append(validation_summary)
+                    schema_error_counts.update(validation_counts)
                     response = None
                     response_payload = None
                     if attempt_index == 0:
@@ -340,6 +418,8 @@ class OpenAICompatChat:
                     attempts=attempts,
                     status="FAILED",
                     error_type=type(exc).__name__,
+                    schema_error_fingerprint=_schema_error_fingerprint(schema_error_summaries),
+                    schema_error_counts=dict(sorted(schema_error_counts.items())),
                 )
                 raise LLMCallError(f"结构化模型调用失败: {type(exc).__name__}", trace) from None
             trace = _build_trace(
@@ -366,6 +446,8 @@ class OpenAICompatChat:
             attempts=attempts,
             status="FAILED",
             error_type="ValidationError",
+            schema_error_fingerprint=_schema_error_fingerprint(schema_error_summaries),
+            schema_error_counts=dict(sorted(schema_error_counts.items())),
         )
         # ValidationError may echo the invalid payload in its string form. Do
         # not retain it in the public exception or persistence-safe trace.

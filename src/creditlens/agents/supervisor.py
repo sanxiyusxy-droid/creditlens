@@ -41,6 +41,7 @@ from creditlens.infrastructure.postgres.models import (
     RunEvent,
 )
 from creditlens.retrieval.contracts import TrustedRequestContext
+from creditlens.tools.gateway import ToolGateway
 
 if TYPE_CHECKING:
     from creditlens.application.snapshot_service import SnapshotContext
@@ -119,6 +120,7 @@ class Supervisor:
         auditor: EvidenceAuditor,
         risk_agent: RiskAgent | None = None,
         report_agent: ReportAgent | None = None,
+        tool_gateway: ToolGateway | None = None,
     ):
         self._policy = policy_agent
         self._financial = financial_agent
@@ -126,6 +128,7 @@ class Supervisor:
         self._auditor = auditor
         self._risk = risk_agent
         self._report = report_agent or ReportAgent()
+        self._tool_gateway = tool_gateway
 
     async def execute_full_review(
         self,
@@ -141,6 +144,7 @@ class Supervisor:
         commit_each_stage=True（P0-4）：每次状态迁移后提交事务——SSE 可见
         实时进度，且中途异常不回滚已完成阶段的 Artifact/Trace。"""
         self._commit_each_stage = commit_each_stage
+        run_was_provided = run is not None
         if run is None:
             run = ReviewRun(
                 tenant_id=trusted.tenant_id,
@@ -156,7 +160,32 @@ class Supervisor:
             await session.flush()
         elif run.status != "RECEIVED":
             raise InvalidStateTransitionError("预建 Run 必须处于 RECEIVED 状态")
-        seq = _EventWriter(session, run)
+        seq = _EventWriter(session, run, resume=run_was_provided)
+        tool_event_sink_token = None
+        if self._tool_gateway is not None:
+            tool_event_sink_token = self._tool_gateway.bind_event_sink(seq.emit)
+
+        try:
+            return await self._execute_with_event_writer(
+                session,
+                trusted,
+                snapshot,
+                run,
+                seq,
+            )
+        finally:
+            if self._tool_gateway is not None and tool_event_sink_token is not None:
+                self._tool_gateway.reset_event_sink(tool_event_sink_token)
+
+    async def _execute_with_event_writer(
+        self,
+        session: AsyncSession,
+        trusted: TrustedRequestContext,
+        snapshot: "SnapshotContext | None",
+        run: ReviewRun,
+        seq: "_EventWriter",
+    ) -> RunOutcome:
+        """Execute a run while one writer owns all RunEvent sequence numbers."""
 
         await self._transition(session, run, seq, "AUTHORIZED")
 

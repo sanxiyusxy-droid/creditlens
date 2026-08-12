@@ -114,5 +114,6 @@ def build_supervisor(
         auditor=EvidenceAuditor(registry),
         risk_agent=RiskAgent(gateway, chat=chat),
         report_agent=ReportAgent(),
+        tool_gateway=gateway,
     )
     return supervisor, gateway
