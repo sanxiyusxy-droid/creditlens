@@ -9,26 +9,44 @@ from scripts.score_entailment_review import main as score_reviews_main
 
 from creditlens.evaluation.semantic_entailment import (
     AdjudicationDecision,
-    AdjudicationEntry,
-    AdjudicationSet,
+    AdjudicationWorksheet,
+    AdjudicatorAttestationV1,
     BlindReview,
     ReviewDecision,
+    ReviewerAttestationV1,
     ReviewSubmission,
     SemanticEntailmentSource,
     SourceClaim,
     SourceEvidence,
     SourceInputArtifact,
+    build_adjudication_worksheet,
+    build_blind_adjudication_package,
     build_blind_review_package,
+    compile_adjudication_submission,
     evaluate_entailment_reviews,
     serialize_json_model,
     sha256_bytes,
 )
 
 NOW = datetime(2026, 8, 12, tzinfo=UTC)
+REVIEWER_A = "rvw_H7Lz4Jq9mN2xP8sK5cT1vW6y"
+REVIEWER_B = "rvw_Q3bR8uD2nF7kM5pX9sL4zC6a"
+ADJUDICATOR = "adj_R4tY8uI2oP6aS9dF3gH7jK1z"
 
 
 def _digest(value: str) -> str:
     return sha256_bytes(value.encode())
+
+
+def _attestation() -> ReviewerAttestationV1:
+    return ReviewerAttestationV1(
+        actor_type="HUMAN",
+        model_assistance_used=False,
+        accessed_repo_or_gold=False,
+        accessed_source_or_mapping=False,
+        coordinated_with_other_reviewers=False,
+        attested_at=NOW,
+    )
 
 
 def _source() -> tuple[SemanticEntailmentSource, str]:
@@ -80,6 +98,7 @@ def _reviewer_artifacts(source, source_hash, reviewer_id, seed, decisions):
         package_sha256=package_hash,
         reviewer_id=reviewer_id,
         submitted_at=NOW,
+        reviewer_attestation=_attestation(),
         reviews=[
             BlindReview(blind_item_id=item.blind_item_id, decision=decisions[index])
             for index, item in enumerate(package.items)
@@ -97,7 +116,7 @@ def _write_score_inputs(tmp_path):
     package, mapping, submission = _reviewer_artifacts(
         source,
         source_hash,
-        "reviewer-a",
+        REVIEWER_A,
         "seed-a",
         [ReviewDecision.ENTAILED] * len(source.items),
     )
@@ -151,14 +170,14 @@ def test_blind_packages_are_reproducible_and_keep_strict_provenance():
     package, mapping = build_blind_review_package(
         source,
         source_sha256=source_hash,
-        reviewer_id="reviewer-a",
+        reviewer_id=REVIEWER_A,
         ordering_seed="sealed-study-seed",
         generated_at=NOW,
     )
     repeated, repeated_mapping = build_blind_review_package(
         source,
         source_sha256=source_hash,
-        reviewer_id="reviewer-a",
+        reviewer_id=REVIEWER_A,
         ordering_seed="sealed-study-seed",
         generated_at=NOW,
     )
@@ -180,7 +199,7 @@ def test_aggregate_reports_macro_micro_kappa_coverage_and_adjudication():
     first = _reviewer_artifacts(
         source,
         source_hash,
-        "reviewer-a",
+        REVIEWER_A,
         "seed-a",
         [ReviewDecision.ENTAILED, ReviewDecision.CONTRADICTED, ReviewDecision.NOT_ENOUGH_INFO],
     )
@@ -192,7 +211,7 @@ def test_aggregate_reports_macro_micro_kappa_coverage_and_adjudication():
     package_b, mapping_b = build_blind_review_package(
         source,
         source_sha256=source_hash,
-        reviewer_id="reviewer-b",
+        reviewer_id=REVIEWER_B,
         ordering_seed="seed-b",
         generated_at=NOW,
     )
@@ -207,11 +226,12 @@ def test_aggregate_reports_macro_micro_kappa_coverage_and_adjudication():
         )
     package_b_hash = sha256_bytes(serialize_json_model(package_b))
     submission_b = ReviewSubmission(
-        submission_id="submission-reviewer-b",
+        submission_id="submission-b",
         package_id=package_b.package_id,
         package_sha256=package_b_hash,
-        reviewer_id="reviewer-b",
+        reviewer_id=REVIEWER_B,
         submitted_at=NOW,
+        reviewer_attestation=_attestation(),
         reviews=[
             BlindReview(blind_item_id=item.blind_item_id, decision=decision_b[index])
             for index, item in enumerate(package_b.items)
@@ -222,19 +242,42 @@ def test_aggregate_reports_macro_micro_kappa_coverage_and_adjudication():
         (mapping_b, sha256_bytes(serialize_json_model(mapping_b))),
         (submission_b, sha256_bytes(serialize_json_model(submission_b))),
     )
-    adjudication = AdjudicationSet(
-        adjudication_id="adjudication-1",
+    adjudication_package, adjudication_mapping = build_blind_adjudication_package(
+        source,
         source_sha256=source_hash,
-        adjudicator_id="senior-reviewer",
-        adjudicated_at=NOW,
-        entries=[
-            AdjudicationEntry(
-                question_id=conflict_key[0],
-                claim_id=conflict_key[1],
-                decision=AdjudicationDecision.ENTAILED,
-                rationale="Resolved after reading the same frozen evidence.",
-            )
-        ],
+        packages=[first[0], second[0]],
+        mappings=[first[1], second[1]],
+        submissions=[first[2], second[2]],
+        adjudicator_id=ADJUDICATOR,
+        ordering_seed="sealed-adjudication-seed",
+        generated_at=NOW,
+    )
+    adjudication_package_hash = sha256_bytes(serialize_json_model(adjudication_package))
+    worksheet = build_adjudication_worksheet(
+        adjudication_package,
+        package_sha256=adjudication_package_hash,
+        adjudicator_id=ADJUDICATOR,
+        created_at=NOW,
+    )
+    worksheet_payload = worksheet.model_dump(mode="json")
+    worksheet_payload["items"][0]["decision"] = AdjudicationDecision.ENTAILED.value
+    worksheet_payload["items"][0]["rationale"] = "Resolved from the frozen evidence."
+    worksheet = AdjudicationWorksheet.model_validate(worksheet_payload)
+    adjudication_submission = compile_adjudication_submission(
+        adjudication_package,
+        worksheet,
+        package_sha256=adjudication_package_hash,
+        adjudicator_id=ADJUDICATOR,
+        adjudicator_attestation=AdjudicatorAttestationV1(
+            actor_type="HUMAN",
+            model_assistance_used=False,
+            accessed_repository=False,
+            accessed_gold=False,
+            accessed_source_or_private_mapping=False,
+            accessed_raw_submissions_or_reviewer_identity=False,
+            attested_at=NOW,
+        ),
+        submitted_at=NOW,
     )
 
     report = evaluate_entailment_reviews(
@@ -243,7 +286,15 @@ def test_aggregate_reports_macro_micro_kappa_coverage_and_adjudication():
         packages=[first[0], second[0]],
         mappings=[first[1], second[1]],
         submissions=[first[2], second[2]],
-        adjudication=(adjudication, sha256_bytes(serialize_json_model(adjudication))),
+        adjudication_package=(adjudication_package, adjudication_package_hash),
+        adjudication_mapping=(
+            adjudication_mapping,
+            sha256_bytes(serialize_json_model(adjudication_mapping)),
+        ),
+        adjudication_submission=(
+            adjudication_submission,
+            sha256_bytes(serialize_json_model(adjudication_submission)),
+        ),
         generated_at=NOW,
     )
 
@@ -278,7 +329,7 @@ def test_submission_rejects_package_hash_or_reviewer_assignment_drift():
     package, mapping = build_blind_review_package(
         source,
         source_sha256=source_hash,
-        reviewer_id="reviewer-a",
+        reviewer_id=REVIEWER_A,
         ordering_seed="seed",
         generated_at=NOW,
     )
@@ -286,8 +337,9 @@ def test_submission_rejects_package_hash_or_reviewer_assignment_drift():
         submission_id="submission-a",
         package_id=package.package_id,
         package_sha256="b" * 64,
-        reviewer_id="reviewer-b",
+        reviewer_id=REVIEWER_B,
         submitted_at=NOW,
+        reviewer_attestation=_attestation(),
         reviews=[],
     )
 
@@ -316,19 +368,27 @@ def test_score_cli_rejects_output_equal_to_every_input(tmp_path, input_index):
 
 def test_score_cli_rejects_output_aliasing_adjudication_input(tmp_path):
     inputs = _write_score_inputs(tmp_path)
-    adjudication_path = tmp_path / "adjudication.json"
-    adjudication_path.write_text("do-not-touch", encoding="utf-8")
+    adjudication_package = tmp_path / "adjudication-package.json"
+    adjudication_mapping = tmp_path / "adjudication-mapping.json"
+    adjudication_submission = tmp_path / "adjudication-submission.json"
+    adjudication_package.write_text("do-not-touch", encoding="utf-8")
+    adjudication_mapping.write_text("mapping", encoding="utf-8")
+    adjudication_submission.write_text("submission", encoding="utf-8")
     arguments = [
-        *_score_arguments(inputs, adjudication_path),
-        "--adjudication",
-        str(adjudication_path),
+        *_score_arguments(inputs, adjudication_package),
+        "--adjudication-package",
+        str(adjudication_package),
+        "--adjudication-mapping",
+        str(adjudication_mapping),
+        "--adjudication-submission",
+        str(adjudication_submission),
         "--overwrite",
     ]
 
     with pytest.raises(SystemExit):
         score_reviews_main(arguments)
 
-    assert adjudication_path.read_text(encoding="utf-8") == "do-not-touch"
+    assert adjudication_package.read_text(encoding="utf-8") == "do-not-touch"
 
 
 def test_score_cli_rejects_hard_link_alias_even_with_overwrite(tmp_path):

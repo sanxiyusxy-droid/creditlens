@@ -6,6 +6,8 @@ import os
 import uuid
 
 import pytest
+import scripts.build_entailment_review_package as review_package_cli
+import scripts.build_entailment_source as source_cli
 from scripts.build_entailment_review_package import main as build_package_main
 from scripts.build_entailment_source import main as build_source_main
 
@@ -14,9 +16,37 @@ from creditlens.evaluation.semantic_entailment import (
     sha256_bytes,
 )
 
+REVIEWER_ID = "rvw_H7Lz4Jq9mN2xP8sK5cT1vW6y"
+
 
 def _json_bytes(payload: dict) -> bytes:
     return (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode()
+
+
+def _symlink_or_skip(link, target) -> None:
+    try:
+        link.symlink_to(target)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symbolic links are unavailable in this test environment: {exc}")
+
+
+@pytest.mark.parametrize("module", [source_cli, review_package_cli])
+def test_source_and_package_publish_recheck_output_reparse(tmp_path, monkeypatch, module):
+    output = tmp_path / f"{module.__name__.rsplit('.', 1)[-1]}.json"
+    checks = 0
+
+    def reject_on_publish(_path):
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            raise ValueError("simulated output reparse race")
+
+    monkeypatch.setattr(module, "_reject_output_reparse", reject_on_publish)
+    with pytest.raises(ValueError, match="reparse race"):
+        module._atomic_write(output, b"new artifact", overwrite=True)
+
+    assert checks == 2
+    assert not output.exists()
 
 
 def _artifacts():
@@ -343,6 +373,75 @@ def test_source_cli_rejects_input_output_hard_link_alias(tmp_path, capsys):
     assert output_path.read_bytes() == prediction
 
 
+def test_source_cli_rejects_output_symlink_without_touching_unrelated_victim(tmp_path, capsys):
+    prediction, raw, evidence = _artifacts()
+    prediction_path = tmp_path / "prediction.json"
+    raw_path = tmp_path / "raw.json"
+    evidence_path = tmp_path / "evidence.json"
+    victim_path = tmp_path / "unrelated-victim.json"
+    output_link = tmp_path / "source.json"
+    prediction_path.write_bytes(prediction)
+    raw_path.write_bytes(raw)
+    evidence_path.write_bytes(evidence)
+    victim_bytes = b"unrelated-victim-must-survive"
+    victim_path.write_bytes(victim_bytes)
+    _symlink_or_skip(output_link, victim_path)
+
+    with pytest.raises(SystemExit):
+        build_source_main(
+            [
+                "--prediction",
+                str(prediction_path),
+                "--raw-checkpoint",
+                str(raw_path),
+                "--evidence-checkpoint",
+                str(evidence_path),
+                "--source-id",
+                "source-1",
+                "--output",
+                str(output_link),
+                "--overwrite",
+            ]
+        )
+
+    assert "symbolic link or reparse point" in capsys.readouterr().err
+    assert victim_path.read_bytes() == victim_bytes
+    assert output_link.is_symlink()
+
+
+def test_source_cli_rejects_dangling_output_symlink(tmp_path, capsys):
+    prediction, raw, evidence = _artifacts()
+    prediction_path = tmp_path / "prediction.json"
+    raw_path = tmp_path / "raw.json"
+    evidence_path = tmp_path / "evidence.json"
+    missing_target = tmp_path / "must-not-be-created.json"
+    output_link = tmp_path / "source.json"
+    prediction_path.write_bytes(prediction)
+    raw_path.write_bytes(raw)
+    evidence_path.write_bytes(evidence)
+    _symlink_or_skip(output_link, missing_target)
+
+    with pytest.raises(SystemExit):
+        build_source_main(
+            [
+                "--prediction",
+                str(prediction_path),
+                "--raw-checkpoint",
+                str(raw_path),
+                "--evidence-checkpoint",
+                str(evidence_path),
+                "--source-id",
+                "source-1",
+                "--output",
+                str(output_link),
+            ]
+        )
+
+    assert "symbolic link or reparse point" in capsys.readouterr().err
+    assert output_link.is_symlink()
+    assert not missing_target.exists()
+
+
 def test_source_cli_rejects_hard_link_alias_between_inputs(tmp_path, capsys):
     prediction, raw, evidence = _artifacts()
     prediction_path = tmp_path / "prediction.json"
@@ -393,7 +492,7 @@ def test_package_cli_rejects_same_package_and_mapping_path(tmp_path):
                 "--source",
                 str(source_path),
                 "--reviewer-id",
-                "reviewer-a",
+                REVIEWER_ID,
                 "--ordering-seed",
                 "seed",
                 "--output",
@@ -403,6 +502,117 @@ def test_package_cli_rejects_same_package_and_mapping_path(tmp_path):
             ]
         )
     assert not same_path.exists()
+
+
+def test_package_cli_rejects_low_entropy_reviewer_identity_end_to_end(tmp_path, capsys):
+    prediction, raw, evidence = _artifacts()
+    source = build_source_from_grounded_qa_artifacts(
+        prediction_bytes=prediction,
+        raw_checkpoint_bytes=raw,
+        evidence_checkpoints=[("evidence.json", evidence)],
+        source_id="source-1",
+    )
+    source_path = tmp_path / "source.json"
+    package_path = tmp_path / "package.json"
+    mapping_path = tmp_path / "mapping.json"
+    source_path.write_text(source.model_dump_json(), encoding="utf-8")
+
+    with pytest.raises(SystemExit):
+        build_package_main(
+            [
+                "--source",
+                str(source_path),
+                "--reviewer-id",
+                "short-pseudonym",
+                "--ordering-seed",
+                "seed",
+                "--output",
+                str(package_path),
+                "--mapping-output",
+                str(mapping_path),
+            ]
+        )
+
+    assert "high-entropy pseudonym" in capsys.readouterr().err
+    assert not package_path.exists()
+    assert not mapping_path.exists()
+
+
+def test_package_cli_explicit_generated_at_makes_both_artifacts_reproducible(tmp_path):
+    prediction, raw, evidence = _artifacts()
+    source = build_source_from_grounded_qa_artifacts(
+        prediction_bytes=prediction,
+        raw_checkpoint_bytes=raw,
+        evidence_checkpoints=[("evidence.json", evidence)],
+        source_id="source-1",
+    )
+    source_path = tmp_path / "source.json"
+    source_path.write_text(source.model_dump_json(), encoding="utf-8")
+    common = [
+        "--source",
+        str(source_path),
+        "--reviewer-id",
+        REVIEWER_ID,
+        "--ordering-seed",
+        "sealed-review-seed",
+        "--generated-at",
+        "2026-08-16T09:30:00+08:00",
+    ]
+    first_package = tmp_path / "package-first.json"
+    first_mapping = tmp_path / "mapping-first.json"
+    second_package = tmp_path / "package-second.json"
+    second_mapping = tmp_path / "mapping-second.json"
+
+    assert (
+        build_package_main(
+            [
+                *common,
+                "--output",
+                str(first_package),
+                "--mapping-output",
+                str(first_mapping),
+            ]
+        )
+        == 0
+    )
+    assert (
+        build_package_main(
+            [
+                *common,
+                "--output",
+                str(second_package),
+                "--mapping-output",
+                str(second_mapping),
+            ]
+        )
+        == 0
+    )
+
+    assert first_package.read_bytes() == second_package.read_bytes()
+    assert first_mapping.read_bytes() == second_mapping.read_bytes()
+    assert json.loads(first_package.read_bytes())["generated_at"] == "2026-08-16T09:30:00+08:00"
+
+
+@pytest.mark.parametrize("generated_at", ["2026-08-16T09:30:00", "not-a-timestamp"])
+def test_package_cli_rejects_naive_or_invalid_generated_at(tmp_path, generated_at):
+    output = tmp_path / "package.json"
+    with pytest.raises(SystemExit):
+        build_package_main(
+            [
+                "--source",
+                str(tmp_path / "source.json"),
+                "--reviewer-id",
+                REVIEWER_ID,
+                "--ordering-seed",
+                "seed",
+                "--generated-at",
+                generated_at,
+                "--output",
+                str(output),
+            ]
+        )
+
+    assert not output.exists()
 
 
 @pytest.mark.parametrize(
@@ -442,7 +652,7 @@ def test_package_cli_rejects_hard_link_aliases_even_with_overwrite(tmp_path, cap
                 "--source",
                 str(source_path),
                 "--reviewer-id",
-                "reviewer-a",
+                REVIEWER_ID,
                 "--ordering-seed",
                 "seed",
                 "--output",
@@ -475,7 +685,7 @@ def test_package_cli_does_not_partially_clobber_existing_outputs(tmp_path):
         "--source",
         str(source_path),
         "--reviewer-id",
-        "reviewer-a",
+        REVIEWER_ID,
         "--ordering-seed",
         "seed",
         "--output",
@@ -496,3 +706,130 @@ def test_package_cli_does_not_partially_clobber_existing_outputs(tmp_path):
     assert json.loads(mapping_path.read_bytes())["document_type"] == (
         "semantic_entailment_blind_mapping"
     )
+
+
+def test_package_cli_rejects_output_symlink_without_touching_unrelated_victim(tmp_path, capsys):
+    prediction, raw, evidence = _artifacts()
+    source = build_source_from_grounded_qa_artifacts(
+        prediction_bytes=prediction,
+        raw_checkpoint_bytes=raw,
+        evidence_checkpoints=[("evidence.json", evidence)],
+        source_id="source-1",
+    )
+    source_path = tmp_path / "source.json"
+    package_link = tmp_path / "package.json"
+    mapping_path = tmp_path / "mapping.json"
+    victim_path = tmp_path / "unrelated-victim.json"
+    source_path.write_text(source.model_dump_json(), encoding="utf-8")
+    victim_bytes = b"unrelated-victim-must-survive"
+    victim_path.write_bytes(victim_bytes)
+    _symlink_or_skip(package_link, victim_path)
+
+    with pytest.raises(SystemExit):
+        build_package_main(
+            [
+                "--source",
+                str(source_path),
+                "--reviewer-id",
+                REVIEWER_ID,
+                "--ordering-seed",
+                "seed",
+                "--output",
+                str(package_link),
+                "--mapping-output",
+                str(mapping_path),
+                "--overwrite",
+            ]
+        )
+
+    assert "symbolic link or reparse point" in capsys.readouterr().err
+    assert victim_path.read_bytes() == victim_bytes
+    assert package_link.is_symlink()
+    assert not mapping_path.exists()
+
+
+def test_package_cli_rejects_dangling_mapping_symlink_before_writing_package(tmp_path, capsys):
+    prediction, raw, evidence = _artifacts()
+    source = build_source_from_grounded_qa_artifacts(
+        prediction_bytes=prediction,
+        raw_checkpoint_bytes=raw,
+        evidence_checkpoints=[("evidence.json", evidence)],
+        source_id="source-1",
+    )
+    source_path = tmp_path / "source.json"
+    package_path = tmp_path / "package.json"
+    mapping_link = tmp_path / "mapping.json"
+    missing_target = tmp_path / "must-not-be-created.json"
+    source_path.write_text(source.model_dump_json(), encoding="utf-8")
+    _symlink_or_skip(mapping_link, missing_target)
+
+    with pytest.raises(SystemExit):
+        build_package_main(
+            [
+                "--source",
+                str(source_path),
+                "--reviewer-id",
+                REVIEWER_ID,
+                "--ordering-seed",
+                "seed",
+                "--output",
+                str(package_path),
+                "--mapping-output",
+                str(mapping_link),
+            ]
+        )
+
+    assert "symbolic link or reparse point" in capsys.readouterr().err
+    assert mapping_link.is_symlink()
+    assert not missing_target.exists()
+    assert not package_path.exists()
+
+
+def test_package_cli_overwrite_failure_is_reported_not_silently_successful(
+    tmp_path, monkeypatch, capsys
+):
+    prediction, raw, evidence = _artifacts()
+    source = build_source_from_grounded_qa_artifacts(
+        prediction_bytes=prediction,
+        raw_checkpoint_bytes=raw,
+        evidence_checkpoints=[("evidence.json", evidence)],
+        source_id="source-1",
+    )
+    source_path = tmp_path / "source.json"
+    package_path = tmp_path / "package.json"
+    mapping_path = tmp_path / "mapping.json"
+    source_path.write_text(source.model_dump_json(), encoding="utf-8")
+    package_path.write_text("old-package", encoding="utf-8")
+    mapping_path.write_text("old-mapping", encoding="utf-8")
+    real_replace = os.replace
+    replace_calls = 0
+
+    def fail_second_replace(source_file, destination_file):
+        nonlocal replace_calls
+        replace_calls += 1
+        if replace_calls == 2:
+            raise OSError("simulated second artifact publish failure")
+        return real_replace(source_file, destination_file)
+
+    monkeypatch.setattr("scripts.build_entailment_review_package.os.replace", fail_second_replace)
+    with pytest.raises(SystemExit):
+        build_package_main(
+            [
+                "--source",
+                str(source_path),
+                "--reviewer-id",
+                REVIEWER_ID,
+                "--ordering-seed",
+                "seed",
+                "--output",
+                str(package_path),
+                "--mapping-output",
+                str(mapping_path),
+                "--overwrite",
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert "simulated second artifact publish failure" in captured.err
+    assert "package_sha256" not in captured.out
+    assert mapping_path.read_text(encoding="utf-8") == "old-mapping"

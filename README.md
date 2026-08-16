@@ -12,8 +12,10 @@
 - **当前本地候选**：`v1.4.0`（分支 `feat/v1.4-eval-observability`），尚未推送、合并、
   运行 GitHub CI 或发布标签。候选补齐失败幂等重放的稳定分类、结构化输出的安全 Schema
   指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
-  Invocation Envelope → `run_events` 持久化。本地 Ruff 全绿、**391 项非集成 +
-  19 项真实 PG/Qdrant/RLS 集成**通过。
+  Invocation Envelope → `run_events` best-effort sink。本地 Ruff check/format、
+  `uv lock --check --offline` 全绿；非集成 **433 passed / 16 skipped / 19 deselected**，其中
+  16 skip 均因本机无 symlink 权限；真实 PG/Qdrant/RLS 为 **19 passed / 22 deselected**，
+  0 skip、0 fail。GitHub CI 尚未运行。
 - **当前已发布版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
   发布文档由发布收口提交及 tag 承载；两类溯源职责不同，不能混写。
   已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
@@ -221,18 +223,36 @@ Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
 - 新请求使用版本化 `grounded_qa_request_v2`；失败幂等重放只接受唯一、最后且与
   Run/tenant/case/状态转换一致的固定错误枚举。v1.3 已完成请求可在旧 Hash 与原始创建
   事件同时匹配时兼容重放，旧失败和伪装降级 fail closed；执行取消会保留
-  `CancelledError` 控制流；数据库可用时以 `QA_CALL_CANCELLED` 安全终结 Run。DB 同时故障时
-  仍需生产级 lease/reconciler，当前不会用清理异常覆盖原始取消。
+  `CancelledError` 控制流；`shield` 只保护 best-effort 失败收口，并未设置应用层 timeout。
+  DB 可用时通常以 `QA_CALL_CANCELLED` 终结 Run；DB 同时故障时不以清理异常覆盖原取消，
+  仍需生产级 lease/reconciler 收口。
 - 从正式 41 题 prediction 与 gold-free checkpoint 生成可审计语义 Source：**41 Claim /
-  46 supporting evidence**，Source SHA-256 为 `b77c6d8f...6cfb5e5`。Source 含管理员
-  解盲 ID，已与盲包、mapping、submission 和报告一并排除出 Git；评审员只接收盲包，且
-  不能访问仓库、Source、raw/prediction 或 gold。双评审、裁决和 Cohen's κ 聚合工具已经
-  就绪，但**尚无人工 submission 或语义分数**。
+  46 supporting evidence**，Source SHA-256 为 `b77c6d8f...6cfb5e5`。完整工具链为
+  `Source → 两套高熵伪名 package/worksheet → 两名隔离真人 → compile submission →`
+  `争议项盲化 adjudication package/worksheet → 第三名隔离真人 → compile →`
+  `score --require-complete`。这里“三名真人”由私有 roster、隔离账号和人工监督保证；代码
+  只能校验两个不同 reviewer 伪名、不同于它们的 adjudicator 伪名及 HUMAN 自我声明，不能
+  证明三个不同物理真人。当前 41 Claim 的技术门禁要求 82 个 rating，且所有非严格共识项均
+  被裁决为最终标签或 `EXCLUDE`。两套 review package 显式共用同一带时区
+  `generated-at`；裁决 package 也显式冻结不早于两份 review `submitted_at` 的独立 aware
+  `generated-at`。固定各自绑定的输入、私有伪名、seed 与时间可逐字节复现产物。代码只
+  校验伪名为 22–128 位 URL-safe 字符；CSPRNG 高熵与不复用属于管理员操作协议。
+- 公开裁决包只暴露匿名随机顺序的 prior decision，不含 rationale、question/claim ID、评审
+  身份或 gold，但 package/worksheet 仍只受控分发；
+  Source、所有 package/worksheet、review/adjudication mapping、身份 roster、submission 和报告
+  均不进入 Git。真人隔离 attestation 是自我声明，不是技术证明。**当前已私有生成两套各
+  41 项的 package + blank worksheet + mapping kit，但尚无真人 label、submission 或
+  adjudication**；`formal-readiness-incomplete.json` 仅诊断当前为 INCOMPLETE、收到 0/82
+  rating，不是正式语义报告或分数，不能引用其中的零值 label rate。未来 final entailed rate
+  也只是 Claim 语义支持代理指标，不是答案正确率，更不能称为 Faithfulness。
 - ToolGateway 记录 `SUCCESS/FAILED/DENIED/CANCELLED` 统一信封，输入输出使用实例密钥
   HMAC 指纹；同任务预算在调用前原子占位，Run 级 ContextVar 隔离并发事件。FULL_REVIEW
-  的事件已写入现有 `run_events` 并由 Trace API 查询。模型侧仍
-  走 Grounded QA 既有事件路径；成本只有在显式版本化价格表和完整 Token 下才估算，
-  不是供应商账单；尚无完整 OTel backend。
+  只 best-effort 写 `run_events`：普通 sink/DB 失败不反转工具业务结果，但对应 RunEvent 可能
+  缺失，只有内存 record 的 `observability_error_codes` 留痕；sink 取消会继续传播。模型侧仍
+  直接持久化 legacy `MODEL_INVOCATION_*`；`adapt_model_invocation_trace()` 只是显式转换
+  helper，生产 QA 路径尚未自动接入统一 envelope/writer。当前也没有 durable telemetry
+  outbox/retry 或完整 OTel backend；成本只有在显式版本化价格表和完整 Token 下才估算，
+  不是供应商账单。
 
 执行协议与诚实边界见
 [v1.4 受控语义评审与调用观测](docs/v1.4_语义盲审与调用观测.md)。v1.3 报告仍保持

@@ -1,8 +1,4 @@
-"""Build a reviewer-specific, gold-free semantic-entailment review package.
-
-This is an offline file transformation. It never calls an LLM or any service.
-Keep the generated ``.mapping.json`` file away from reviewers until scoring.
-"""
+"""Build a randomized dispute-only package and a private identity mapping."""
 
 from __future__ import annotations
 
@@ -22,8 +18,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from creditlens.evaluation.semantic_entailment import (  # noqa: E402
+    BlindReviewMapping,
+    BlindReviewPackage,
+    ReviewSubmission,
     SemanticEntailmentSource,
-    build_blind_review_package,
+    build_blind_adjudication_package,
     serialize_json_model,
     sha256_bytes,
 )
@@ -42,14 +41,12 @@ def _aware_iso8601(value: str) -> datetime:
 
 
 def _lexical_absolute(path: Path) -> Path:
-    """Make a path absolute without following its final directory entry."""
-
-    return Path(os.path.abspath(os.fspath(path)))
+    return Path(os.path.abspath(path))
 
 
-def _is_reparse_point(path: Path) -> bool:
+def _is_reparse_or_symlink(path: Path) -> bool:
     try:
-        metadata = path.lstat()
+        metadata = os.lstat(path)
     except FileNotFoundError:
         return False
     attributes = getattr(metadata, "st_file_attributes", 0)
@@ -57,38 +54,36 @@ def _is_reparse_point(path: Path) -> bool:
     return stat.S_ISLNK(metadata.st_mode) or bool(attributes & reparse_flag)
 
 
-def _reject_output_reparse(path: Path) -> None:
-    if _is_reparse_point(path):
-        raise ValueError(f"output path must not be a symbolic link or reparse point: {path}")
+def _paths_alias(first: Path, second: Path) -> bool:
+    if first.resolve() == second.resolve():
+        return True
+    return first.exists() and second.exists() and first.samefile(second)
 
 
-def _distinct_paths(source: Path, output: Path, mapping_output: Path) -> tuple[Path, Path, Path]:
-    source_resolved = source.resolve()
+def _validated_paths(
+    inputs: list[Path], output: Path, mapping_output: Path
+) -> tuple[list[Path], Path, Path]:
+    resolved_inputs = [path.resolve() for path in inputs]
     outputs = (_lexical_absolute(output), _lexical_absolute(mapping_output))
-    for path in outputs:
-        _reject_output_reparse(path)
-    paths = (source, *outputs)
-    comparison_paths = (source_resolved, *(path.resolve() for path in outputs))
-    if len(set(comparison_paths)) != len(comparison_paths):
-        raise ValueError("source, output, and mapping-output paths must differ")
-    for left, right in combinations(paths, 2):
-        if left.exists() and right.exists() and left.samefile(right):
-            raise ValueError(
-                "source, output, and mapping-output paths must not refer to the "
-                "same underlying file"
-            )
-    return (source_resolved, *outputs)
+    if any(_is_reparse_or_symlink(path) for path in outputs):
+        raise ValueError("outputs must not be symbolic links or reparse points")
+    for left, right in combinations([*resolved_inputs, *outputs], 2):
+        if _paths_alias(left, right):
+            raise ValueError("all adjudication input and output paths must be distinct files")
+    return resolved_inputs, outputs[0], outputs[1]
 
 
 def _atomic_write(path: Path, payload: bytes, *, overwrite: bool) -> None:
-    _reject_output_reparse(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if _is_reparse_or_symlink(path):
+        raise ValueError("output path must not be a symbolic link or reparse point")
     if path.exists() and not overwrite:
         raise FileExistsError(f"output already exists: {path}; pass --overwrite to replace it")
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
         temporary.write_bytes(payload)
-        _reject_output_reparse(path)
+        if _is_reparse_or_symlink(path):
+            raise ValueError("output path became a symbolic link or reparse point")
         if overwrite:
             os.replace(temporary, path)
         else:
@@ -122,34 +117,28 @@ def _atomic_write_pair(
         raise
 
 
+def _read_model(path: Path, model_type):
+    content = path.read_bytes()
+    return model_type.model_validate_json(content), sha256_bytes(content)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Build a randomized human blind-review package; no model is called.",
+        description="Build a blind human adjudication package; no model is called.",
     )
     parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--package", type=Path, action="append", required=True)
+    parser.add_argument("--mapping", type=Path, action="append", required=True)
+    parser.add_argument("--submission", type=Path, action="append", required=True)
     parser.add_argument(
-        "--reviewer-id",
+        "--adjudicator-id",
         required=True,
-        help=(
-            "Unique high-entropy URL-safe pseudonym (22-128 characters) for this "
-            "assignment; never provide a real name or reuse the example value."
-        ),
+        help="Assigned 22-128 character URL-safe pseudonym; never a real name.",
     )
     parser.add_argument("--ordering-seed", required=True)
-    parser.add_argument(
-        "--generated-at",
-        type=_aware_iso8601,
-        help=(
-            "Timezone-aware ISO 8601 package timestamp for reproducible output; "
-            "defaults to current UTC time."
-        ),
-    )
+    parser.add_argument("--generated-at", type=_aware_iso8601)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument(
-        "--mapping-output",
-        type=Path,
-        help="Private identity map (default: <output>.mapping.json).",
-    )
+    parser.add_argument("--mapping-output", type=Path)
     parser.add_argument("--overwrite", action="store_true")
     return parser
 
@@ -164,15 +153,22 @@ def main(argv: list[str] | None = None) -> int:
             if args.mapping_output
             else requested_output.with_suffix(requested_output.suffix + ".mapping.json")
         )
-        source_path, output, mapping_output = _distinct_paths(
-            args.source, requested_output, requested_mapping
+        raw_inputs = [args.source, *args.package, *args.mapping, *args.submission]
+        inputs, output, mapping_output = _validated_paths(
+            raw_inputs, requested_output, requested_mapping
         )
-        source_bytes = source_path.read_bytes()
-        source = SemanticEntailmentSource.model_validate_json(source_bytes)
-        package, mapping = build_blind_review_package(
+        iterator = iter(inputs)
+        source, source_hash = _read_model(next(iterator), SemanticEntailmentSource)
+        packages = [_read_model(next(iterator), BlindReviewPackage) for _ in args.package]
+        mappings = [_read_model(next(iterator), BlindReviewMapping) for _ in args.mapping]
+        submissions = [_read_model(next(iterator), ReviewSubmission) for _ in args.submission]
+        package, mapping = build_blind_adjudication_package(
             source,
-            source_sha256=sha256_bytes(source_bytes),
-            reviewer_id=args.reviewer_id,
+            source_sha256=source_hash,
+            packages=packages,
+            mappings=mappings,
+            submissions=submissions,
+            adjudicator_id=args.adjudicator_id,
             ordering_seed=args.ordering_seed,
             generated_at=args.generated_at,
         )
@@ -201,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
                 "package_sha256": sha256_bytes(package_bytes),
                 "private_mapping": str(mapping_output),
                 "mapping_sha256": sha256_bytes(mapping_bytes),
-                "items": len(package.items),
+                "disputes": len(package.items),
                 "model_called": False,
             },
             ensure_ascii=False,

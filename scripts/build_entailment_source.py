@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import sys
 import uuid
 from datetime import datetime
@@ -23,19 +24,52 @@ from creditlens.evaluation.semantic_entailment import (  # noqa: E402
 )
 
 
+def _lexical_absolute(path: Path) -> Path:
+    """Make a path absolute without following its final directory entry."""
+
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _is_reparse_point(path: Path) -> bool:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    attributes = getattr(metadata, "st_file_attributes", 0)
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    return stat.S_ISLNK(metadata.st_mode) or bool(attributes & reparse_flag)
+
+
+def _reject_output_reparse(path: Path) -> None:
+    if _is_reparse_point(path):
+        raise ValueError(f"output path must not be a symbolic link or reparse point: {path}")
+
+
 def _distinct_paths(paths: list[Path]) -> list[Path]:
-    resolved = [path.resolve() for path in paths]
-    if len(set(resolved)) != len(resolved):
+    input_paths = paths[:-1]
+    output = _lexical_absolute(paths[-1])
+    _reject_output_reparse(output)
+    resolved_inputs = [path.resolve() for path in input_paths]
+    if len(set(resolved_inputs)) != len(resolved_inputs):
         raise ValueError(
             "prediction, checkpoint, evidence-checkpoint, and output paths must differ"
         )
-    for left, right in combinations(paths, 2):
+    for left, right in combinations(input_paths, 2):
         if left.exists() and right.exists() and left.samefile(right):
             raise ValueError(
                 "prediction, checkpoint, evidence-checkpoint, and output paths "
                 "must not refer to the same underlying file"
             )
-    return resolved
+    output_resolved = output.resolve()
+    for input_path, resolved_input in zip(input_paths, resolved_inputs, strict=True):
+        if resolved_input == output_resolved or (
+            input_path.exists() and output.exists() and input_path.samefile(output)
+        ):
+            raise ValueError(
+                "prediction, checkpoint, evidence-checkpoint, and output paths "
+                "must not refer to the same underlying file"
+            )
+    return [*resolved_inputs, output]
 
 
 def _aware_iso8601(value: str) -> datetime:
@@ -51,12 +85,14 @@ def _aware_iso8601(value: str) -> datetime:
 
 
 def _atomic_write(path: Path, payload: bytes, *, overwrite: bool) -> None:
+    _reject_output_reparse(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and not overwrite:
         raise FileExistsError(f"output already exists: {path}; pass --overwrite to replace it")
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
         temporary.write_bytes(payload)
+        _reject_output_reparse(path)
         if overwrite:
             os.replace(temporary, path)
         else:

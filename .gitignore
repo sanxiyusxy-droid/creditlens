@@ -22,12 +22,9 @@ evaluation/reports/local/
 evaluation/predictions/local/
 # Raw QA checkpoints may contain full synthetic/real evidence text and are never release artifacts.
 *.raw.checkpoint.json
-# Controlled-review Source/identities, packages, private mappings, submissions and reports stay local.
-evaluation/semantic/private/
-evaluation/semantic/packages/
-evaluation/semantic/submissions/
-evaluation/semantic/reports/
-evaluation/semantic/*.json
+# Controlled-review Source, identities, packages, worksheets, mappings, submissions and reports
+# stay local. Fail closed for future artifact names, directories and file extensions as well.
+evaluation/semantic/
 
 # --- IDE ---
 .idea/
