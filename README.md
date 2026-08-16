@@ -9,13 +9,16 @@
 
 ## 当前版本口径
 
-- **当前本地候选**：`v1.4.0`（分支 `feat/v1.4-eval-observability`），尚未推送、合并、
-  运行 GitHub CI 或发布标签。候选补齐失败幂等重放的稳定分类、结构化输出的安全 Schema
+- **当前 v1.4 候选**：分支 `feat/v1.4-eval-observability` 已将工程提交 `64a81de` 推送到
+  GitHub `https://github.com/sanxiyusxy-droid/creditlens.git`。当前 workflow 不因普通 feature
+  branch push 触发，因此尚未创建 PR、运行 v1.4 GitHub CI、合并 `main` 或创建 `v1.4.0`
+  标签；GitLab 未推送。该 branch push 不是正式发布。候选补齐失败幂等重放的稳定分类、
+  结构化输出的安全 Schema
   指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
   Invocation Envelope → `run_events` best-effort sink。本地 Ruff check/format、
   `uv lock --check --offline` 全绿；非集成 **433 passed / 16 skipped / 19 deselected**，其中
   16 skip 均因本机无 symlink 权限；真实 PG/Qdrant/RLS 为 **19 passed / 22 deselected**，
-  0 skip、0 fail。GitHub CI 尚未运行。
+  0 skip、0 fail。
 - **当前已发布版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
   发布文档由发布收口提交及 tag 承载；两类溯源职责不同，不能混写。
   已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
@@ -218,7 +221,7 @@ Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
 **Citation F1 不是 Faithfulness，Lexical Correctness 也不是语义准确率**。剩余 4 个技术
 失败为 1 个数字引用审计失败和 3 个连续 Schema 校验失败，作为当前已知限制保留。
 
-## v1.4.0 本地候选：失败可解释、受控语义评审与调用观测
+## v1.4.0 候选（GitHub feature 分支）：失败可解释、受控语义评审与调用观测
 
 - 新请求使用版本化 `grounded_qa_request_v2`；失败幂等重放只接受唯一、最后且与
   Run/tenant/case/状态转换一致的固定错误枚举。v1.3 已完成请求可在旧 Hash 与原始创建
