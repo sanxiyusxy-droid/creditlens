@@ -9,17 +9,18 @@
 
 ## 当前版本口径
 
-- **当前 v1.4 候选**：分支 `feat/v1.4-eval-observability` 的 PR #2 已创建，Head 为
-  `a9131ebc2b5c1dd3ba497de03059eccd633a2f77`；GitHub Actions run `31951749187` 的
-  lint/unit/integration 三项均成功。尚未合并 `main` 或创建 `v1.4.0` 标签，GitLab 未推送；
-  PR 与 CI 全绿仍不是正式发布，当前已发布版本仍为 `v1.3.0`。候选补齐失败幂等重放的稳定分类、
+- **当前已发布版本**：`v1.4.0`。PR #2 完成评审后，`main` 以 fast-forward 合入 Head
+  `7853bd2940e2240956883109e5a5133c2eab9045`；GitHub Actions main run `32440901382`
+  的 lint/unit/integration 三项均成功。annotated tag `v1.4.0` 承载本次发布收口提交，标签
+  推送后的 tag CI 三项全绿是最终发布门禁；此处不预填尚未产生的 tag CI run ID。GitLab
+  未推送。本版补齐失败幂等重放的稳定分类、
   结构化输出的安全 Schema
   指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
   Invocation Envelope → `run_events` best-effort sink。本地 Ruff check/format、
   `uv lock --check --offline` 全绿；非集成 **433 passed / 16 skipped / 19 deselected**，其中
   16 skip 均因本机无 symlink 权限；真实 PG/Qdrant/RLS 为 **19 passed / 22 deselected**，
   0 skip、0 fail。
-- **当前已发布版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
+- **上一发布版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
   发布文档由发布收口提交及 tag 承载；两类溯源职责不同，不能混写。
   已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
   分流、模型调用脱敏 Trace、请求幂等与两阶段 gold 隔离评测。当前本地门禁为 Ruff 全绿、
@@ -27,7 +28,7 @@
   `evaluation/reports/answer_eval_v1_c4289a1_20260810T125108Z.json`。GitHub PR #1 的
   CI run `31599090053` 与合并后 main run `31599459084` 均为 lint/unit/integration
   三阶段全绿。
-- **上一发布版本**：`v1.2.0` 的实现提交为 `58f5487` + `41742cf`，评测源码提交为
+- **更早发布版本**：`v1.2.0` 的实现提交为 `58f5487` + `41742cf`，评测源码提交为
   `9e64dbb`；其冻结检索正式指标与历史证据继续保留。
 
 ## 架构概览
@@ -221,7 +222,7 @@ Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
 **Citation F1 不是 Faithfulness，Lexical Correctness 也不是语义准确率**。剩余 4 个技术
 失败为 1 个数字引用审计失败和 3 个连续 Schema 校验失败，作为当前已知限制保留。
 
-## v1.4.0 候选（GitHub feature 分支）：失败可解释、受控语义评审与调用观测
+## v1.4.0：失败可解释、受控语义评审与调用观测
 
 - 新请求使用版本化 `grounded_qa_request_v2`；失败幂等重放只接受唯一、最后且与
   Run/tenant/case/状态转换一致的固定错误枚举。v1.3 已完成请求可在旧 Hash 与原始创建
