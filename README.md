@@ -12,7 +12,9 @@
 - **当前开发候选**：包版本已升至 `1.5.0`，本地发布门禁已通过：Ruff check/format 与
   `uv lock --check --offline` 全绿；非集成 **487 passed / 16 skipped / 20 deselected**；真实
   PostgreSQL/Qdrant/RLS 栈 **20 passed / 22 deselected，0 skip/fail**。GitHub 实现提交为 `494be48`；
-  feature PR、GitHub CI、`main` 合并与 `v1.5.0` tag 证据仍待实际取得，不预填 run ID。
+  PR #3 Head `6808b75` 的 run `32448510063` 与合并提交 `37ab216` 的 main run
+  `32448707192` 均为 lint/unit/integration 三项成功。release-closure 与 `v1.5.0` tag 仍待门禁，
+  不预填未知 run ID。
   本版将已接线的 structured Model 与 ToolGateway 四类终态统一写入
   `InvocationEnvelope v2`、追加写 `invocation_records` 和同事务 `telemetry_outbox`；新增
   at-least-once Worker（lease/reclaim/backoff/dead-letter）与 Trace 完整性复核。
@@ -307,6 +309,6 @@ Faithfulness。
 
 完整设计、故障矩阵、部署与发布前检查见
 [v1.5 持久调用账本与遥测投递](docs/v1.5_持久调用账本与遥测投递.md)。当前状态是通过
-本地门禁的发布候选；PR/CI、`main` 与 tag 证据将在实际取得后更新。
+PR 与 main CI 的发布候选；release-closure、tag 与 tag CI 证据将在实际取得后更新。
 
 
