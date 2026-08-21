@@ -16,18 +16,18 @@
   本版将已接线的 structured Model 与 ToolGateway 四类终态统一写入
   `InvocationEnvelope v2`、追加写 `invocation_records` 和同事务 `telemetry_outbox`；新增
   at-least-once Worker（lease/reclaim/backoff/dead-letter）与 Trace 完整性复核。
-- **v1.4.0 状态**：PR #2 完成评审后，`main` 以 fast-forward 合入 Head
-  `7853bd2940e2240956883109e5a5133c2eab9045`；GitHub Actions main run `32440901382`
-  的 lint/unit/integration 三项均成功；但 GitHub `v1.4.0` tag 尚未完成推送与 tag CI，
-  因此只能称“已合入 `main`、发布闭环待完成”，不能称已发布，也不预填未知 tag run ID。
-  GitLab 未推送。本版补齐失败幂等重放的稳定分类、
+- **当前已发布版本**：`v1.4.0`。PR #2 完成评审，`main` 以 fast-forward 合入 Head
+  `7853bd2940e2240956883109e5a5133c2eab9045`；发布收口提交
+  `fd44f04572ed091fd693d27cb0b31c1df5ba1347` 的 main CI run `32447310637` 与 annotated tag
+  CI run `32447459543` 均为 lint/unit/integration 三项成功。GitLab 未推送。本版补齐失败
+  幂等重放的稳定分类、
   结构化输出的安全 Schema
   指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
   Invocation Envelope → `run_events` best-effort sink。本地 Ruff check/format、
   `uv lock --check --offline` 全绿；非集成 **433 passed / 16 skipped / 19 deselected**，其中
   16 skip 均因本机无 symlink 权限；真实 PG/Qdrant/RLS 为 **19 passed / 22 deselected**，
   0 skip、0 fail。
-- **最后具有完整发布证据的版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
+- **上一评测版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
   发布文档由发布收口提交及 tag 承载；两类溯源职责不同，不能混写。
   已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
   分流、模型调用脱敏 Trace、请求幂等与两阶段 gold 隔离评测。当前本地门禁为 Ruff 全绿、
