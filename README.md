@@ -9,16 +9,21 @@
 
 ## 当前版本口径
 
-- **当前开发候选**：包版本已升至 `1.5.0`，本地发布门禁已通过：Ruff check/format 与
-  `uv lock --check --offline` 全绿；非集成 **487 passed / 16 skipped / 20 deselected**；真实
-  PostgreSQL/Qdrant/RLS 栈 **20 passed / 22 deselected，0 skip/fail**。GitHub 实现提交为 `494be48`；
-  PR #3 Head `6808b75` 的 run `32448510063` 与合并提交 `37ab216` 的 main run
-  `32448707192` 均为 lint/unit/integration 三项成功。release-closure 与 `v1.5.0` tag 仍待门禁，
-  不预填未知 run ID。
+- **当前已发布版本**：`v1.5.0`。GitHub 实现提交
+  `494be48dd0ed1456dd01fc7a0e3e86903e7a847c`；PR #3 Head
+  `6808b75fcd4d691a516b79817ae2f037abe0ed1e` 的 run `32448510063`、合并提交
+  `37ab216cb86317decadd340138585ec6b00c25a2` 的 main run `32448707192`、发布收口提交
+  `f18067485912b7a225104a1b97964edb85bd06ee` 的 main run `32449518133`，以及 annotated tag
+  `v1.5.0` 的 run `32449707187` 均为 lint/unit/integration 三项成功。tag object
+  `2db09ca6239b1b9ce64e8f564d1eb42e8f731181` 指向该发布收口提交；GitLab 未推送。本段为
+  tag 后证据回填，因此该 tag 不包含本次文档回填，尤其不可能包含随后取得的 tag CI run。
   本版将已接线的 structured Model 与 ToolGateway 四类终态统一写入
   `InvocationEnvelope v2`、追加写 `invocation_records` 和同事务 `telemetry_outbox`；新增
-  at-least-once Worker（lease/reclaim/backoff/dead-letter）与 Trace 完整性复核。
-- **当前已发布版本**：`v1.4.0`。PR #2 完成评审，`main` 以 fast-forward 合入 Head
+  at-least-once Worker（lease/reclaim/backoff/dead-letter）与 Trace 完整性复核。本地 Ruff
+  check/format、`uv lock --check --offline` 全绿；非集成
+  **487 passed / 16 skipped / 20 deselected**，真实 PostgreSQL/Qdrant/RLS 栈
+  **20 passed / 22 deselected，0 skip/fail**。
+- **上一已发布版本（历史）**：`v1.4.0`。PR #2 完成评审，`main` 以 fast-forward 合入 Head
   `7853bd2940e2240956883109e5a5133c2eab9045`；发布收口提交
   `fd44f04572ed091fd693d27cb0b31c1df5ba1347` 的 main CI run `32447310637` 与 annotated tag
   CI run `32447459543` 均为 lint/unit/integration 三项成功。GitLab 未推送。本版补齐失败
@@ -156,7 +161,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run_integration.ps1
 Sparse + Summary + Exact → RRF → Rerank → Context Packing）、中心化 Supervisor
 固定 DAG 编排六项专业职责（Policy / Financial / Risk / Challenger / Auditor /
 Report）、文档版本化、Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题，
-冻结 test 121 题）、真实栈 CI 与集成测试；v1.5 候选新增 append-only Model/Tool 调用账本、
+冻结 test 121 题）、真实栈 CI 与集成测试；v1.5.0 已发布版新增 append-only Model/Tool 调用账本、
 Transactional Telemetry Outbox 与可复核 Trace。
 **不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做容量与压力验证；
 HITL 已做行锁 + 乐观锁 + 幂等键的并发保护，但未做大规模并发压测；Telemetry Worker
@@ -270,8 +275,8 @@ Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
   只 best-effort 写 `run_events`：普通 sink/DB 失败不反转工具业务结果，但对应 RunEvent 可能
   缺失，只有内存 record 的 `observability_error_codes` 留痕；sink 取消会继续传播。模型侧仍
   直接持久化 legacy `MODEL_INVOCATION_*`；`adapt_model_invocation_trace()` 只是显式转换
-  helper，生产 QA 路径尚未自动接入统一 envelope/writer。当前也没有 durable telemetry
-  outbox/retry 或完整 OTel backend；成本只有在显式版本化价格表和完整 Token 下才估算，
+  helper；在 v1.4 中，生产 QA 路径尚未自动接入统一 envelope/writer，也没有 durable
+  telemetry outbox/retry 或完整 OTel backend；成本只有在显式版本化价格表和完整 Token 下才估算，
   不是供应商账单。
 
 执行协议与诚实边界见
@@ -279,7 +284,7 @@ Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
 `semantic_entailment_evaluated=false`；Citation-set F1 不能因为评测协议就绪而改称
 Faithfulness。
 
-## v1.5.0 候选：持久调用账本与遥测投递
+## v1.5.0：持久调用账本与遥测投递（已发布）
 
 - `InvocationEnvelope` 升级为 `invocation_v2`。Grounded QA、Policy Agent 的已接线
   structured Model 调用，以及 ToolGateway 的 `SUCCESS/FAILED/DENIED/CANCELLED`，统一
@@ -307,8 +312,9 @@ Faithfulness。
   也未提供 OTel、Prometheus、Dashboard、历史回填、Run
   lease/heartbeat/reconciler 或持久任务队列；数据库事务提交前故障仍不能保证留痕。
 
-完整设计、故障矩阵、部署与发布前检查见
-[v1.5 持久调用账本与遥测投递](docs/v1.5_持久调用账本与遥测投递.md)。当前状态是通过
-PR 与 main CI 的发布候选；release-closure、tag 与 tag CI 证据将在实际取得后更新。
+完整设计、故障矩阵、部署边界与发布证据见
+[v1.5 持久调用账本与遥测投递](docs/v1.5_持久调用账本与遥测投递.md)。`v1.5.0` 已完成
+PR、合并后 main、release-closure main 与 tag 四道 CI 门禁；发布证据是在 tag 成功后回填，
+不暗示 tag 自身包含随后产生的 tag CI run。
 
 
