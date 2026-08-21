@@ -59,6 +59,11 @@ from creditlens.infrastructure.postgres.models import (
     RunEvent,
 )
 from creditlens.infrastructure.postgres.session import checkpoint_commit, session_scope
+from creditlens.observability.writer import (
+    InvocationAuditPersistError,
+    InvocationIdentityConflict,
+    InvocationWriter,
+)
 from creditlens.retrieval.context_packing import PackedContext
 from creditlens.retrieval.orchestrator import OrchestratorConfig, RetrievalOrchestrator
 
@@ -74,28 +79,18 @@ _QA_TASK_ID = "grounded_qa"
 _QA_PRODUCER = "grounded_qa"
 _QA_REQUEST_HASH_VERSION = "grounded_qa_request_v2"
 _SAFE_VIOLATION_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
-_SAFE_SCHEMA_ERROR_CODES = frozenset(
-    {
-        "ENUM_CONSTRAINT",
-        "EXTRA_FIELD",
-        "INVALID_JSON",
-        "LIST_CONSTRAINT",
-        "MISSING_FIELD",
-        "OBJECT_CONSTRAINT",
-        "STRING_CONSTRAINT",
-        "TYPE_MISMATCH",
-        "VALIDATION_OTHER",
-        "VALUE_CONSTRAINT",
-    }
-)
 _REPLAY_INTEGRITY_ERROR = "IDEMPOTENT_REPLAY_INTEGRITY_FAILED"
 _ANSWER_AUDIT_FAILED = "ANSWER_AUDIT_FAILED"
 _QA_CALL_CANCELLED = "QA_CALL_CANCELLED"
+_INVOCATION_ID_CONFLICT = "INVOCATION_ID_CONFLICT"
+_INVOCATION_AUDIT_PERSIST_FAILED = "INVOCATION_AUDIT_PERSIST_FAILED"
 _UNHANDLED_EXECUTION_ERROR = "UnhandledExecutionError"
 _REPLAYABLE_FAILURE_ERROR_TYPES = frozenset(
     {
         _ANSWER_AUDIT_FAILED,
         _QA_CALL_CANCELLED,
+        _INVOCATION_ID_CONFLICT,
+        _INVOCATION_AUDIT_PERSIST_FAILED,
         "GroundedQAOutputRejected",
         "LLMCallError",
         _UNHANDLED_EXECUTION_ERROR,
@@ -293,8 +288,15 @@ class QAService:
             # Shield only the bounded terminal transition. A failed best-effort
             # cleanup must never replace the caller's cancellation control flow;
             # crash-safe reconciliation still requires a durable worker lease.
-            with contextlib.suppress(Exception):
-                await asyncio.shield(self._mark_failed(reservation.run_id, _QA_CALL_CANCELLED))
+            timeout = float(
+                getattr(self.settings, "invocation_cancel_persist_timeout_seconds", 2.0)
+            )
+            with contextlib.suppress(BaseException):
+                await _persist_terminal_with_cancellation_drain(
+                    self._mark_failed(reservation.run_id, _QA_CALL_CANCELLED),
+                    timeout_seconds=timeout,
+                    bound_normal_wait=True,
+                )
             raise
         except Exception as exc:
             error_type = _execution_error_type(exc)
@@ -768,7 +770,10 @@ class QAService:
             )
             snapshot = await load_snapshot_context(session, snapshot_record.id)
             events = _QAEventWriter(session, run)
-
+            run.model_manifest = {
+                **(run.model_manifest or {}),
+                "invocation_contract_version": "invocation_v2",
+            }
             await events.transition("AUTHORIZED")
             await checkpoint_commit(session)
             await events.transition("RETRIEVING")
@@ -1054,64 +1059,73 @@ class QAService:
         if any(value != artifact.prompt_version for value in trace_prompt_versions):
             raise RuntimeError("QA_ARTIFACT_PROVENANCE_MISMATCH")
 
-    async def _emit_model_events(self, events: _QAEventWriter, traces: list[Any]) -> None:
-        for trace in traces:
-            payload = trace.model_dump(mode="json") if hasattr(trace, "model_dump") else dict(trace)
-            # 契约本身只含 Hash/元数据；这里再显式白名单，防后续扩展误把原文写入事件。
-            safe = {
-                key: payload.get(key)
-                for key in (
-                    "invocation_id",
-                    "provider",
-                    "model",
-                    "prompt_version",
-                    "prompt_sha256",
-                    "request_sha256",
-                    "response_sha256",
-                    "input_tokens",
-                    "output_tokens",
-                    "total_tokens",
-                    "latency_ms",
-                    "attempts",
-                    "status",
-                    "error_type",
-                    "schema_error_fingerprint",
-                )
-            }
-            raw_fingerprint = safe.get("schema_error_fingerprint")
-            if not (
-                isinstance(raw_fingerprint, str) and re.fullmatch(r"[0-9a-f]{64}", raw_fingerprint)
-            ):
-                safe["schema_error_fingerprint"] = None
-            raw_counts = payload.get("schema_error_counts")
-            safe["schema_error_counts"] = (
-                {
-                    code: count
-                    for code, count in sorted(raw_counts.items())
-                    if code in _SAFE_SCHEMA_ERROR_CODES
-                    and isinstance(count, int)
-                    and not isinstance(count, bool)
-                    and 0 < count <= 16
-                }
-                if isinstance(raw_counts, dict)
-                else {}
-            )
-            await events.emit(
-                "MODEL_INVOCATION_COMPLETED"
-                if safe.get("status") == "SUCCESS"
-                else "MODEL_INVOCATION_FAILED",
-                safe,
-            )
+    async def _record_model_traces(
+        self,
+        run: ReviewRun,
+        traces: list[Any],
+    ) -> None:
+        if not traces:
+            return
 
-    async def _generate(self, events: _QAEventWriter, **kwargs):
+        async def persist_all() -> None:
+            for trace in traces:
+                async with session_scope(
+                    self.session_factory,
+                    tenant_id=run.tenant_id,
+                    user_id=self.user_id,
+                ) as audit_session:
+                    writer = InvocationWriter(
+                        audit_session,
+                        tenant_id=run.tenant_id,
+                        case_id=run.case_id,
+                        run_id=run.id,
+                        actor_role=_QA_PRODUCER,
+                        task_id=_QA_TASK_ID,
+                    )
+                    await writer.record_model_trace(
+                        trace,
+                        name="grounded_qa_generation",
+                        actor_role=_QA_PRODUCER,
+                        task_id=_QA_TASK_ID,
+                    )
+
+        timeout = float(getattr(self.settings, "invocation_cancel_persist_timeout_seconds", 2.0))
+        try:
+            await _persist_terminal_with_cancellation_drain(
+                persist_all(),
+                timeout_seconds=timeout,
+                bound_normal_wait=any(
+                    getattr(trace, "status", None) == "CANCELLED" for trace in traces
+                ),
+            )
+        except asyncio.CancelledError:
+            raise
+        except (InvocationIdentityConflict, InvocationAuditPersistError):
+            raise
+        except Exception:
+            # Never expose SQL/provider details and never continue a bank
+            # answer path whose invocation ledger could not be persisted.
+            raise InvocationAuditPersistError() from None
+
+    async def _generate(
+        self,
+        events: _QAEventWriter,
+        **kwargs,
+    ):
         """调用 Agent，并保证 Provider 失败 Trace 在异常返回前持久化。"""
         try:
             return await self.agent.generate(**kwargs)
+        except asyncio.CancelledError as exc:
+            trace = getattr(exc, "trace", None)
+            if trace is not None:
+                with contextlib.suppress(BaseException):
+                    await self._record_model_traces(events.run, [trace])
+            raise
         except Exception as exc:
             trace = getattr(exc, "trace", None)
             if trace is not None:
+                await self._record_model_traces(events.run, [trace])
                 self._append_model_invocations(events.run, [trace])
-                await self._emit_model_events(events, [trace])
                 await checkpoint_commit(events.session)
             raise
 
@@ -1149,8 +1163,8 @@ class QAService:
                     feedback.append(code)
                 continue
 
+            await self._record_model_traces(events.run, generation.model_traces)
             self._append_model_invocations(events.run, generation.model_traces)
-            await self._emit_model_events(events, generation.model_traces)
             return generation, repair_count
 
     @staticmethod
@@ -1249,6 +1263,39 @@ def _packed_context(raw: dict[str, Any] | None, budget: int) -> PackedContext:
     return PackedContext(sections=[], total_tokens_est=0, budget=budget)
 
 
+async def _persist_terminal_with_cancellation_drain(
+    persistence,
+    *,
+    timeout_seconds: float,
+    bound_normal_wait: bool = False,
+):
+    """Finish a started short audit transaction before propagating cancellation."""
+
+    persistence_task = asyncio.create_task(persistence)
+    persistence_task.add_done_callback(_consume_background_task_result)
+    try:
+        if bound_normal_wait:
+            return await asyncio.wait_for(
+                asyncio.shield(persistence_task),
+                timeout=timeout_seconds,
+            )
+        return await asyncio.shield(persistence_task)
+    except asyncio.CancelledError:
+        with contextlib.suppress(BaseException):
+            await asyncio.wait_for(
+                asyncio.shield(persistence_task),
+                timeout=timeout_seconds,
+            )
+        raise
+
+
+def _consume_background_task_result(task: asyncio.Task) -> None:
+    """Observe a timed-out shielded audit task without leaking its exception."""
+
+    with contextlib.suppress(BaseException):
+        task.result()
+
+
 def _trace_value(trace: Any, field_name: str) -> Any:
     if isinstance(trace, dict):
         return trace.get(field_name)
@@ -1277,8 +1324,13 @@ def _safe_error_code(raw: Any) -> str:
 
 def _execution_error_type(exc: Exception) -> str:
     """Map internal sentinels to a stable public type without exposing messages."""
-    raw = exc.error_type if isinstance(exc, _AnswerAuditFailed) else type(exc).__name__
-    return _stable_failure_error_type(raw) or _UNHANDLED_EXECUTION_ERROR
+    if isinstance(exc, _AnswerAuditFailed):
+        return _stable_failure_error_type(exc.error_type) or _UNHANDLED_EXECUTION_ERROR
+
+    safe_error_code = _stable_failure_error_type(getattr(exc, "error_code", None))
+    if safe_error_code is not None:
+        return safe_error_code
+    return _stable_failure_error_type(type(exc).__name__) or _UNHANDLED_EXECUTION_ERROR
 
 
 def _stable_failure_error_type(raw: Any) -> str | None:

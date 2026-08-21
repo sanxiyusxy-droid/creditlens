@@ -9,18 +9,25 @@
 
 ## 当前版本口径
 
-- **当前已发布版本**：`v1.4.0`。PR #2 完成评审后，`main` 以 fast-forward 合入 Head
-  `7853bd2940e2240956883109e5a5133c2eab9045`；GitHub Actions main run `32440901382`
-  的 lint/unit/integration 三项均成功。annotated tag `v1.4.0` 承载本次发布收口提交，标签
-  推送后的 tag CI 三项全绿是最终发布门禁；此处不预填尚未产生的 tag CI run ID。GitLab
-  未推送。本版补齐失败幂等重放的稳定分类、
+- **当前开发候选**：包版本已升至 `1.5.0`，本地发布门禁已通过：Ruff check/format 与
+  `uv lock --check --offline` 全绿；非集成 **487 passed / 16 skipped / 20 deselected**；真实
+  PostgreSQL/Qdrant/RLS 栈 **20 passed / 22 deselected，0 skip/fail**。GitHub 实现提交为 `494be48`；
+  feature PR、GitHub CI、`main` 合并与 `v1.5.0` tag 证据仍待实际取得，不预填 run ID。
+  本版将已接线的 structured Model 与 ToolGateway 四类终态统一写入
+  `InvocationEnvelope v2`、追加写 `invocation_records` 和同事务 `telemetry_outbox`；新增
+  at-least-once Worker（lease/reclaim/backoff/dead-letter）与 Trace 完整性复核。
+- **当前已发布版本**：`v1.4.0`。PR #2 完成评审，`main` 以 fast-forward 合入 Head
+  `7853bd2940e2240956883109e5a5133c2eab9045`；发布收口提交
+  `fd44f04572ed091fd693d27cb0b31c1df5ba1347` 的 main CI run `32447310637` 与 annotated tag
+  CI run `32447459543` 均为 lint/unit/integration 三项成功。GitLab 未推送。本版补齐失败
+  幂等重放的稳定分类、
   结构化输出的安全 Schema
   指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
   Invocation Envelope → `run_events` best-effort sink。本地 Ruff check/format、
   `uv lock --check --offline` 全绿；非集成 **433 passed / 16 skipped / 19 deselected**，其中
   16 skip 均因本机无 symlink 权限；真实 PG/Qdrant/RLS 为 **19 passed / 22 deselected**，
   0 skip、0 fail。
-- **上一发布版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
+- **上一评测版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
   发布文档由发布收口提交及 tag 承载；两类溯源职责不同，不能混写。
   已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
   分流、模型调用脱敏 Trace、请求幂等与两阶段 gold 隔离评测。当前本地门禁为 Ruff 全绿、
@@ -38,6 +45,7 @@
 - **MinIO**：不可变原始文件与解析产物
 - **FastAPI + SQLAlchemy 2 + Alembic**：API 与迁移
 - **Transactional Outbox + Index Worker**：双库一致性
+- **Invocation Ledger + Telemetry Outbox**：Model/Tool 脱敏调用事实、可靠投递与 Trace 完整性
 - 详细设计见 [CreditLens_技术实现文档.md](./CreditLens_技术实现文档.md)
 - 交付进度、文档符合性对比与评测结果见 [docs/进度报告.md](./docs/进度报告.md)（每版本同步更新）
 
@@ -95,6 +103,7 @@ src/creditlens/
   evidence/         EvidenceRef -> 原始 PDF 页 Preview
   evaluation/       GoldQuestion Schema、Recall@K/NDCG/Precision/MRR、Retrieved Evidence P/R（Refusal/Agent 指标预留答案层，不计入报告）
   agents/           Policy/Financial/Risk/Report Agent + Challenger + Auditor + Supervisor DAG
+  observability/    InvocationEnvelope v2、追加写调用账本、Telemetry Outbox Worker
 migrations/         Alembic
 evaluation/datasets 冻结评测集（稳定 gold_evidence_key 锚点）
 scripts/            种子数据与评测脚本
@@ -108,7 +117,9 @@ data/synthetic/     合成政策等演示数据（不含真实数据）
 3. 时点优先：政策适用性由 `as_of_date` 决定，材料可用性由 `decision_cutoff_at` 决定；
 4. 硬过滤（租户/ACL/时点/质量）在召回前执行，不允许改为降权；
 5. Qdrant 命中必须回 PostgreSQL 复核，失败候选带 `rejection_reason`；
-6. 评测锚点使用稳定 `gold_evidence_key`，不绑定解析生成的 UUID。
+6. 评测锚点使用稳定 `gold_evidence_key`，不绑定解析生成的 UUID；
+7. 已接线 Model/Tool 调用先提交脱敏事实与投递意图，外部导出采用 at-least-once，
+   不宣称 exactly-once。
 
 ## 评测
 
@@ -143,9 +154,12 @@ powershell -ExecutionPolicy Bypass -File scripts\run_integration.ps1
 Sparse + Summary + Exact → RRF → Rerank → Context Packing）、中心化 Supervisor
 固定 DAG 编排六项专业职责（Policy / Financial / Risk / Challenger / Auditor /
 Report）、文档版本化、Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题，
-冻结 test 121 题）、真实栈 CI 与集成测试。
+冻结 test 121 题）、真实栈 CI 与集成测试；v1.5 候选新增 append-only Model/Tool 调用账本、
+Transactional Telemetry Outbox 与可复核 Trace。
 **不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做容量与压力验证；
-HITL 已做行锁 + 乐观锁 + 幂等键的并发保护，但未做大规模并发压测。
+HITL 已做行锁 + 乐观锁 + 幂等键的并发保护，但未做大规模并发压测；Telemetry Worker
+默认关闭，专用生产 Worker role 尚未实现；正式部署仍需专用 Exporter/Worker 身份、指标
+平台和告警闭环。
 
 ## 演示（8–12 分钟）
 
@@ -262,5 +276,37 @@ Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
 [v1.4 受控语义评审与调用观测](docs/v1.4_语义盲审与调用观测.md)。v1.3 报告仍保持
 `semantic_entailment_evaluated=false`；Citation-set F1 不能因为评测协议就绪而改称
 Faithfulness。
+
+## v1.5.0 候选：持久调用账本与遥测投递
+
+- `InvocationEnvelope` 升级为 `invocation_v2`。Grounded QA、Policy Agent 的已接线
+  structured Model 调用，以及 ToolGateway 的 `SUCCESS/FAILED/DENIED/CANCELLED`，统一
+  进入独立短审计事务；`invocation_records` 与 `telemetry_outbox` 同事务提交。v2 sink
+  取代对应 legacy 调用事件，不双写；`generate_text` 等自由文本调用仍不在覆盖范围。
+  v1.5 的取消 timeout 只限制调用方等待 shield 事务的时间，不是 DB deadline；等待超时后
+  底层事务仍可能稍后提交或失败。v1.4 的历史取消路径没有这项调用方 timeout。
+- `invocation_records` 是 append-only 调用事实；同 Invocation UUID、同 Hash、同父绑定可
+  幂等重放，冲突内容或缺失 Outbox fail closed。Tool 参数/结果只保存实例密钥 HMAC 指纹，
+  不保存 Prompt、原始参数、模型原文、异常正文或 traceback。
+- Outbox Worker 使用 at-least-once 投递、Invocation UUID 幂等键、PostgreSQL
+  `SKIP LOCKED`、lease/reclaim、指数退避和 `DEAD`。Exporter 取消留下的过期 lease 在次数
+  耗尽后转 `DEAD`，不会无限重试。`TelemetryDelivery` 显式携带
+  tenant/case/run/invocation/topic。
+- `GET /runs/{id}/trace` 返回 invocations 与投递汇总，并复核 payload、Hash、关系列投影、
+  Outbox 和 `review_runs` 绑定；汇总明确区分 `PENDING/COMPLETE/DEGRADED/EMPTY`，历史未
+  回填 Run 为 `LEGACY_UNAVAILABLE`。`MISSING` 是合法 InvocationRecord 缺对应 Outbox；
+  `INVALID` 是 payload/Hash/投影/绑定损坏；无效持久 payload 不回显。`COMPLETE` 只证明
+  当前持久 Invocation 集合有效且均已投递，不证明所有实际调用都已入账。`EMPTY` 既可能是
+  合法零调用，也可能是提交前丢失；没有 expected-invocation set/reservation/count 时无法区分。
+- Worker 默认 disabled；内置 Noop Exporter fail closed，且只允许 local/dev/test 的显式
+  单租户生命周期验证。当前列级 Outbox `UPDATE` 仍由 API/内置 Worker 共用的
+  `creditlens_app` 持有，数据库不能区分二者；专用生产 Worker role 尚未实现。生产需要专用
+  幂等 Exporter、独立 Worker 和 service role/tenant shard 身份。本版不是 exactly-once，
+  也未提供 OTel、Prometheus、Dashboard、历史回填、Run
+  lease/heartbeat/reconciler 或持久任务队列；数据库事务提交前故障仍不能保证留痕。
+
+完整设计、故障矩阵、部署与发布前检查见
+[v1.5 持久调用账本与遥测投递](docs/v1.5_持久调用账本与遥测投递.md)。当前状态是通过
+本地门禁的发布候选；PR/CI、`main` 与 tag 证据将在实际取得后更新。
 
 

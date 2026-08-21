@@ -34,10 +34,13 @@ APP_DSN = f"postgresql://{VERIFY_ROLE}:app-test-only@localhost:5432/{TEST_DB}"
 TENANT_A, TENANT_B = str(uuid.uuid4()), str(uuid.uuid4())
 USER_1, USER_2 = str(uuid.uuid4()), str(uuid.uuid4())
 CASE_A = str(uuid.uuid4())
+CASE_A_2 = str(uuid.uuid4())
 ENTITY_A = str(uuid.uuid4())
 RUN_A = str(uuid.uuid4())
 ARTIFACT_A = str(uuid.uuid4())
 CLAIM_A = str(uuid.uuid4())
+INVOCATION_A = str(uuid.uuid4())
+OUTBOX_A = str(uuid.uuid4())
 
 results: list[tuple[str, bool, str]] = []
 
@@ -93,7 +96,18 @@ def migrate_and_apply_rls() -> None:
         )
         cur.execute(
             "REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, "
-            "evidence, artifacts FROM creditlens_rls_verifier"
+            "evidence, artifacts, invocation_records FROM creditlens_rls_verifier"
+        )
+        cur.execute("REVOKE UPDATE, DELETE ON telemetry_outbox FROM creditlens_rls_verifier")
+        cur.execute(
+            "GRANT UPDATE (status, attempts, available_at, locked_at, locked_until, "
+            "last_error_code, delivered_at, dead_at) ON telemetry_outbox "
+            "TO creditlens_rls_verifier"
+        )
+        cur.execute("REVOKE UPDATE, DELETE ON review_runs FROM creditlens_rls_verifier")
+        cur.execute(
+            "GRANT UPDATE (status, state_version, model_manifest, completed_at) "
+            "ON review_runs TO creditlens_rls_verifier"
         )
         cur.execute("REVOKE UPDATE, DELETE ON claims FROM creditlens_rls_verifier")
         cur.execute("GRANT UPDATE (review_status) ON claims TO creditlens_rls_verifier")
@@ -141,9 +155,17 @@ def seed_fixture(conn) -> None:
             (CASE_A, TENANT_A, ENTITY_A),
         )
         cur.execute(
+            "INSERT INTO credit_cases (id, tenant_id, case_number, borrower_entity_id,"
+            " product_code, requested_amount, currency, application_date, as_of_date,"
+            " decision_cutoff_at, status, created_at, updated_at, version)"
+            " VALUES (%s, %s, 'rls-002', %s, 'working_capital', 1000000, 'CNY',"
+            " '2026-06-30', '2026-06-30', now(), 'DRAFT', now(), now(), 1)",
+            (CASE_A_2, TENANT_A, ENTITY_A),
+        )
+        cur.execute(
             "INSERT INTO case_memberships (case_id, user_id, case_role, granted_at)"
-            " VALUES (%s, %s, 'ANALYST', now())",
-            (CASE_A, USER_1),
+            " VALUES (%s, %s, 'ANALYST', now()), (%s, %s, 'ANALYST', now())",
+            (CASE_A, USER_1, CASE_A_2, USER_1),
         )
         cur.execute(
             "INSERT INTO review_runs "
@@ -153,6 +175,22 @@ def seed_fixture(conn) -> None:
             "VALUES (%s, %s, %s, 'FULL_REVIEW', 'HUMAN_REVIEW', '2026-06-30', now(), "
             "1, 1, '{}', '{}', '', now())",
             (RUN_A, TENANT_A, CASE_A),
+        )
+        cur.execute(
+            "INSERT INTO invocation_records "
+            "(invocation_id, tenant_id, case_id, run_id, contract_version, kind, name, "
+            "status, ended_at, payload_redacted, payload_sha256, created_at) "
+            "VALUES (%s, %s, %s, %s, 'invocation_v2', 'MODEL', 'rls_check', "
+            "'SUCCESS', now(), '{}', %s, now())",
+            (INVOCATION_A, TENANT_A, CASE_A, RUN_A, "a" * 64),
+        )
+        cur.execute(
+            "INSERT INTO telemetry_outbox "
+            "(id, tenant_id, case_id, run_id, invocation_id, topic, status, attempts, "
+            "available_at, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, 'INVOCATION_TERMINATED', 'PENDING', 0, "
+            "now(), now())",
+            (OUTBOX_A, TENANT_A, CASE_A, RUN_A, INVOCATION_A),
         )
         cur.execute(
             "INSERT INTO artifacts "
@@ -224,7 +262,7 @@ def main() -> None:
 
     print("[3/3] 验证场景：")
     check("未设置 Session Context 时不可见任何案件", count_cases(conn, None, None) == 0)
-    check("正确租户 + 有 Membership 可见案件", count_cases(conn, TENANT_A, USER_1) == 1)
+    check("正确租户 + 有 Membership 可见案件", count_cases(conn, TENANT_A, USER_1) == 2)
     check("正确租户 + 无 Membership 不可见案件", count_cases(conn, TENANT_A, USER_2) == 0)
     check("错误租户（B）不可见 A 的案件", count_cases(conn, TENANT_B, USER_1) == 0)
 
@@ -278,6 +316,88 @@ def main() -> None:
     )
 
     with conn.cursor() as cur:
+        cur.execute(
+            "SELECT "
+            "has_table_privilege(current_user, 'public.review_runs', 'SELECT'), "
+            "has_table_privilege(current_user, 'public.review_runs', 'INSERT'), "
+            "has_table_privilege(current_user, 'public.review_runs', 'UPDATE'), "
+            "has_table_privilege(current_user, 'public.review_runs', 'DELETE'), "
+            "has_column_privilege(current_user, 'public.review_runs', 'status', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.review_runs', 'state_version', "
+            "'UPDATE'), "
+            "has_column_privilege(current_user, 'public.review_runs', 'model_manifest', "
+            "'UPDATE'), "
+            "has_column_privilege(current_user, 'public.review_runs', 'completed_at', "
+            "'UPDATE'), "
+            "has_column_privilege(current_user, 'public.review_runs', 'tenant_id', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.review_runs', 'case_id', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.review_runs', 'input_snapshot_id', "
+            "'UPDATE')"
+        )
+        run_privileges = cur.fetchone()
+    check(
+        "Review Run grants only workflow-state UPDATE",
+        run_privileges == (True, True, False, False, True, True, True, True, False, False, False),
+    )
+
+    with conn.cursor() as cur:
+        cur.execute("BEGIN")
+        cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
+        cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
+        cur.execute("UPDATE review_runs SET status = status WHERE id = %s", (RUN_A,))
+        run_state_updated = cur.rowcount
+        cur.execute("COMMIT")
+    check("business workflow can update Review Run status", run_state_updated == 1)
+
+    denied = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("BEGIN")
+            cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
+            cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
+            cur.execute("UPDATE review_runs SET case_id = %s WHERE id = %s", (CASE_A_2, RUN_A))
+            cur.execute("COMMIT")
+    except psycopg2.errors.InsufficientPrivilege:
+        conn.rollback()
+        denied = True
+    check("business role cannot rebind Review Run to another authorized case", denied)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT "
+            "has_table_privilege(current_user, 'public.invocation_records', 'SELECT'), "
+            "has_table_privilege(current_user, 'public.invocation_records', 'INSERT'), "
+            "has_table_privilege(current_user, 'public.invocation_records', 'UPDATE'), "
+            "has_table_privilege(current_user, 'public.invocation_records', 'DELETE')"
+        )
+        invocation_privileges = cur.fetchone()
+    check(
+        "Invocation records are append-only",
+        invocation_privileges == (True, True, False, False),
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT "
+            "has_table_privilege(current_user, 'public.telemetry_outbox', 'SELECT'), "
+            "has_table_privilege(current_user, 'public.telemetry_outbox', 'INSERT'), "
+            "has_table_privilege(current_user, 'public.telemetry_outbox', 'UPDATE'), "
+            "has_table_privilege(current_user, 'public.telemetry_outbox', 'DELETE'), "
+            "has_column_privilege(current_user, 'public.telemetry_outbox', 'status', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.telemetry_outbox', 'attempts', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.telemetry_outbox', 'locked_until', "
+            "'UPDATE'), "
+            "has_column_privilege(current_user, 'public.telemetry_outbox', 'run_id', 'UPDATE'), "
+            "has_column_privilege(current_user, 'public.telemetry_outbox', 'invocation_id', "
+            "'UPDATE')"
+        )
+        outbox_privileges = cur.fetchone()
+    check(
+        "Telemetry Outbox grants only delivery-column UPDATE",
+        outbox_privileges == (True, True, False, False, True, True, True, False, False),
+    )
+
+    with conn.cursor() as cur:
         cur.execute("BEGIN")
         cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
         cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
@@ -285,6 +405,52 @@ def main() -> None:
         updated = cur.rowcount
         cur.execute("COMMIT")
     check("business role can update Claim.review_status", updated == 1)
+
+    with conn.cursor() as cur:
+        cur.execute("BEGIN")
+        cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
+        cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
+        cur.execute(
+            "UPDATE telemetry_outbox SET status = 'PROCESSING', attempts = 1, "
+            "locked_at = now(), locked_until = now() + interval '30 seconds' "
+            "WHERE id = %s",
+            (OUTBOX_A,),
+        )
+        outbox_updated = cur.rowcount
+        cur.execute("COMMIT")
+    check("business worker can claim an authorized Outbox row", outbox_updated == 1)
+
+    denied = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("BEGIN")
+            cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
+            cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
+            cur.execute(
+                "UPDATE telemetry_outbox SET run_id = %s WHERE id = %s",
+                (RUN_A, OUTBOX_A),
+            )
+            cur.execute("COMMIT")
+    except psycopg2.errors.InsufficientPrivilege:
+        conn.rollback()
+        denied = True
+    check("business worker cannot mutate Outbox identity binding", denied)
+
+    denied = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("BEGIN")
+            cur.execute("SET LOCAL app.tenant_id = %s", (TENANT_A,))
+            cur.execute("SET LOCAL app.user_id = %s", (USER_1,))
+            cur.execute(
+                "UPDATE invocation_records SET status = 'FAILED' WHERE invocation_id = %s",
+                (INVOCATION_A,),
+            )
+            cur.execute("COMMIT")
+    except psycopg2.errors.InsufficientPrivilege:
+        conn.rollback()
+        denied = True
+    check("business role cannot update Invocation records", denied)
 
     for column, value in (
         ("statement", "tampered"),
@@ -322,8 +488,9 @@ def main() -> None:
     admin_conn = psycopg2.connect(TEST_DSN)
     with admin_conn.cursor() as cur:
         cur.execute(
-            "UPDATE case_memberships SET revoked_at = now() WHERE case_id = %s AND user_id = %s",
-            (CASE_A, USER_1),
+            "UPDATE case_memberships SET revoked_at = now() "
+            "WHERE case_id IN (%s, %s) AND user_id = %s",
+            (CASE_A, CASE_A_2, USER_1),
         )
         admin_conn.commit()
     admin_conn.close()

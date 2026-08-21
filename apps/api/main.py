@@ -5,6 +5,9 @@
 PostgreSQL / Qdrant / MinIO。注意：内存 Qdrant 进程重启后需重跑种子脚本。
 """
 
+import asyncio
+import contextlib
+import hmac
 import inspect
 import logging
 import sys
@@ -25,6 +28,7 @@ from sqlalchemy import func, select  # noqa: E402
 
 from creditlens import __version__  # noqa: E402
 from creditlens.application.qa_service import QAService, QAServiceError  # noqa: E402
+from creditlens.common.clock import utc_now  # noqa: E402
 from creditlens.common.config import get_settings  # noqa: E402
 from creditlens.common.errors import CreditLensError  # noqa: E402
 from creditlens.evidence.preview import EvidencePreviewService  # noqa: E402
@@ -41,8 +45,10 @@ from creditlens.infrastructure.postgres.models import (  # noqa: E402
     ClaimRecord,
     CreditCase,
     EvidenceRecord,
+    InvocationRecord,
     ReviewRun,
     RunEvent,
+    TelemetryOutbox,
 )
 from creditlens.infrastructure.postgres.session import (  # noqa: E402
     create_engine,
@@ -50,6 +56,15 @@ from creditlens.infrastructure.postgres.session import (  # noqa: E402
     session_scope,
 )
 from creditlens.infrastructure.qdrant.collections import build_qdrant_client  # noqa: E402
+from creditlens.observability.invocation import (  # noqa: E402
+    InvocationEnvelope,
+    hash_invocation_envelope,
+    invocation_run_event_payload,
+)
+from creditlens.observability.outbox_worker import (  # noqa: E402
+    NoopTelemetryExporter,
+    TelemetryOutboxWorker,
+)
 from creditlens.retrieval.contracts import EvidenceRef  # noqa: E402
 from creditlens.retrieval.orchestrator import RetrievalOrchestrator  # noqa: E402
 from creditlens.retrieval.rerank import build_reranker  # noqa: E402
@@ -80,6 +95,13 @@ class APIIdentity:
 
     tenant_id: uuid.UUID
     user_id: uuid.UUID
+
+
+@dataclass(frozen=True, slots=True)
+class _InvocationIntegrity:
+    valid: bool
+    envelope: InvocationEnvelope | None = None
+    error_code: str | None = None
 
 
 _REQUEST_IDENTITY: ContextVar[APIIdentity | None] = ContextVar(
@@ -166,6 +188,117 @@ async def _close_resources_best_effort(
     return failures
 
 
+def _build_api_telemetry_worker() -> TelemetryOutboxWorker | None:
+    """Build only the explicitly enabled local tenant-shard worker.
+
+    A normal RLS application factory must never be treated as a cross-tenant
+    worker identity.  Production deployments run a separate exporter service
+    with a dedicated service role or one worker per tenant shard.
+    """
+
+    # Minimal protocol tests and older embedded settings objects predate this
+    # optional worker; absence must preserve the secure disabled default.
+    if not getattr(settings, "telemetry_outbox_worker_enabled", False):
+        return None
+    backend = str(settings.telemetry_exporter_backend).strip().lower()
+    if backend != "noop":
+        raise RuntimeError("TELEMETRY_EXPORTER_NOT_CONFIGURED")
+    if str(settings.app_env).strip().lower() not in {"local", "development", "dev", "test"}:
+        raise RuntimeError("API_TELEMETRY_WORKER_FORBIDDEN")
+    poll_seconds = float(settings.telemetry_export_poll_seconds)
+    if poll_seconds <= 0:
+        raise RuntimeError("TELEMETRY_EXPORT_POLL_SECONDS_INVALID")
+    batch_size = int(settings.telemetry_export_batch_size)
+    if not 1 <= batch_size <= 1_000:
+        raise RuntimeError("TELEMETRY_EXPORT_BATCH_SIZE_INVALID")
+    return TelemetryOutboxWorker(
+        session_factory,
+        NoopTelemetryExporter(),
+        max_attempts=settings.telemetry_export_max_attempts,
+        lease_seconds=settings.telemetry_export_lease_seconds,
+        base_backoff_seconds=settings.telemetry_export_base_backoff_seconds,
+        max_backoff_seconds=settings.telemetry_export_max_backoff_seconds,
+        tenant_id=DEFAULT_TENANT_ID,
+        user_id=DEMO_USER_ID,
+    )
+
+
+async def _run_telemetry_worker(
+    worker: TelemetryOutboxWorker,
+    stop: asyncio.Event,
+) -> None:
+    poll_seconds = float(settings.telemetry_export_poll_seconds)
+    if poll_seconds <= 0:
+        raise RuntimeError("TELEMETRY_EXPORT_POLL_SECONDS_INVALID")
+    while not stop.is_set():
+        try:
+            await worker.process_batch(batch_size=settings.telemetry_export_batch_size)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            # Never log exporter/database exception text: it may contain a URL,
+            # SQL fragment or provider detail.  The outbox owns bounded delivery
+            # error codes; a loop-level failure is only classified here.
+            logger.warning("telemetry worker cycle failed: %s", type(error).__name__)
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=poll_seconds)
+
+
+async def _stop_telemetry_worker(
+    task: asyncio.Task | None,
+    stop: asyncio.Event | None,
+) -> None:
+    if task is None:
+        return
+    if stop is not None:
+        stop.set()
+    try:
+        await asyncio.wait_for(task, timeout=5)
+    except TimeoutError:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    except asyncio.CancelledError:
+        if not task.cancelled():
+            raise
+    except Exception as error:
+        # Consume an already-terminated worker failure so shutdown can still
+        # close every resource. Never log exception text or provider details.
+        logger.warning("telemetry worker stopped unexpectedly: %s", type(error).__name__)
+
+
+async def _mark_background_run_failed(
+    run_id: uuid.UUID,
+    identity: APIIdentity,
+    *,
+    event_type: str,
+    error_type: str,
+) -> None:
+    async with session_scope(
+        session_factory,
+        tenant_id=identity.tenant_id,
+        user_id=identity.user_id,
+    ) as session:
+        await _mark_run_failed_with_trace(session, run_id, event_type, error_type)
+
+
+async def _run_bounded_cancellation_cleanup(cleanup, *, timeout_seconds: float) -> None:
+    """Best-effort cleanup that cannot indefinitely delay caller cancellation."""
+
+    cleanup_task = asyncio.create_task(cleanup)
+
+    def consume_result(task: asyncio.Task) -> None:
+        with contextlib.suppress(BaseException):
+            task.result()
+
+    cleanup_task.add_done_callback(consume_result)
+    with contextlib.suppress(BaseException):
+        await asyncio.wait_for(
+            asyncio.shield(cleanup_task),
+            timeout=timeout_seconds,
+        )
+
+
 async def _mark_run_failed_with_trace(
     session, run_id: uuid.UUID, event_type: str, error_type: str
 ) -> bool:
@@ -180,6 +313,7 @@ async def _mark_run_failed_with_trace(
         return False
     run.status = "FAILED"
     run.state_version += 1
+    run.completed_at = utc_now()
     last_sequence = await session.scalar(
         select(func.max(RunEvent.sequence_no)).where(RunEvent.run_id == run.id)
     )
@@ -197,25 +331,155 @@ async def _mark_run_failed_with_trace(
     return True
 
 
+def _validate_persisted_invocation(
+    record: InvocationRecord,
+    outbox: TelemetryOutbox | None,
+    run: ReviewRun,
+) -> _InvocationIntegrity:
+    """Validate the append-only projection before exposing it through Trace."""
+
+    try:
+        envelope = InvocationEnvelope.model_validate(record.payload_redacted)
+        projected = invocation_run_event_payload(envelope)
+        payload_hash_matches = hmac.compare_digest(
+            hash_invocation_envelope(envelope),
+            record.payload_sha256,
+        )
+        record_matches = (
+            isinstance(record.payload_redacted, dict)
+            and projected == record.payload_redacted
+            and envelope.invocation_id == record.invocation_id
+            and envelope.contract_version == record.contract_version
+            and envelope.kind.value == record.kind
+            and envelope.name == record.name
+            and envelope.provider == record.provider
+            and envelope.model == record.model
+            and envelope.version == record.version
+            and envelope.actor_role == record.actor_role
+            and envelope.task_id == record.task_id
+            and envelope.status.value == record.status
+            and envelope.ended_at == record.ended_at
+            and record.tenant_id == run.tenant_id
+            and record.case_id == run.case_id
+            and record.run_id == run.id
+            and payload_hash_matches
+        )
+        outbox_matches = outbox is None or (
+            outbox.tenant_id == record.tenant_id
+            and outbox.case_id == record.case_id
+            and outbox.run_id == record.run_id
+            and outbox.invocation_id == record.invocation_id
+            and outbox.topic == "INVOCATION_TERMINATED"
+            and outbox.status in {"PENDING", "PROCESSING", "DELIVERED", "DEAD"}
+        )
+    except Exception:
+        return _InvocationIntegrity(False, error_code="INVOCATION_INTEGRITY_FAILED")
+    if not record_matches or not outbox_matches:
+        return _InvocationIntegrity(False, error_code="INVOCATION_INTEGRITY_FAILED")
+    return _InvocationIntegrity(True, envelope=envelope)
+
+
+def _trace_invocation_response(
+    record: InvocationRecord,
+    outbox: TelemetryOutbox | None,
+    integrity: _InvocationIntegrity,
+) -> dict:
+    """Project only a revalidated envelope; invalid storage never gets echoed."""
+
+    if not integrity.valid or integrity.envelope is None:
+        return {
+            "invocation_id": str(record.invocation_id),
+            "contract_version": None,
+            "kind": None,
+            "name": None,
+            "status": None,
+            "payload_sha256": None,
+            "envelope": None,
+            "integrity": {
+                "status": "DEGRADED",
+                "valid": False,
+                "error_code": integrity.error_code or "INVOCATION_INTEGRITY_FAILED",
+            },
+            "delivery": {
+                "status": "INVALID",
+                "error_code": "INVOCATION_INTEGRITY_FAILED",
+            },
+        }
+
+    envelope = integrity.envelope
+    if outbox is None:
+        delivery = {
+            "status": "MISSING",
+            "attempts": 0,
+            "last_error_code": None,
+            "available_at": None,
+            "delivered_at": None,
+            "dead_at": None,
+        }
+    else:
+        delivery = {
+            "status": outbox.status,
+            "attempts": outbox.attempts,
+            "last_error_code": outbox.last_error_code,
+            "available_at": outbox.available_at.isoformat(),
+            "delivered_at": (
+                outbox.delivered_at.isoformat() if outbox.delivered_at is not None else None
+            ),
+            "dead_at": outbox.dead_at.isoformat() if outbox.dead_at is not None else None,
+        }
+    return {
+        "invocation_id": str(envelope.invocation_id),
+        "contract_version": envelope.contract_version,
+        "kind": envelope.kind.value,
+        "name": envelope.name,
+        "status": envelope.status.value,
+        "payload_sha256": record.payload_sha256,
+        "envelope": invocation_run_event_payload(envelope),
+        "integrity": {"status": "VALID", "valid": True, "error_code": None},
+        "delivery": delivery,
+    }
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _assert_demo_identity_is_safe(settings)
+    telemetry_task: asyncio.Task | None = None
+    telemetry_stop: asyncio.Event | None = None
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        telemetry_worker = _build_api_telemetry_worker()
+        if telemetry_worker is not None:
+            telemetry_stop = asyncio.Event()
+            telemetry_task = asyncio.create_task(
+                _run_telemetry_worker(telemetry_worker, telemetry_stop),
+                name="creditlens-telemetry-outbox",
+            )
+            # Give an immediately failing task one scheduling turn. Invalid
+            # configuration and startup failures must fail lifespan before the
+            # application reports readiness.
+            await asyncio.sleep(0)
+            if telemetry_task.done():
+                with contextlib.suppress(BaseException):
+                    telemetry_task.result()
+                raise RuntimeError("TELEMETRY_WORKER_START_FAILED")
+        app.state.telemetry_worker_enabled = telemetry_task is not None
         # 没有 lease/heartbeat 协议时，启动过程不根据 started_at 推断非终态 Run 已失活。
         # 真实后台 task 的异常仍由 _execute_review_background 当场收口为 FAILED。
         yield
     finally:
-        await _close_resources_best_effort(
-            [
-                ("chat", chat_provider, ("aclose", "close")),
-                ("embedding", embedder, ("aclose", "close")),
-                ("reranker", reranker, ("aclose", "close")),
-                ("qdrant", qdrant, ("aclose", "close")),
-                ("engine", engine, ("dispose", "aclose", "close")),
-            ]
-        )
+        try:
+            await _stop_telemetry_worker(telemetry_task, telemetry_stop)
+        finally:
+            await _close_resources_best_effort(
+                [
+                    ("chat", chat_provider, ("aclose", "close")),
+                    ("embedding", embedder, ("aclose", "close")),
+                    ("reranker", reranker, ("aclose", "close")),
+                    ("qdrant", qdrant, ("aclose", "close")),
+                    ("engine", engine, ("dispose", "aclose", "close")),
+                ]
+            )
 
 
 app = FastAPI(title="CreditLens API", version=__version__, lifespan=lifespan)
@@ -413,19 +677,39 @@ async def _execute_review_background(
                 chat=chat_provider,
                 reranker=reranker,
                 rrf_k=settings.rrf_k,
+                invocation_fingerprint_secret=settings.invocation_fingerprint_secret,
+                invocation_fingerprint_key_version=settings.invocation_fingerprint_key_version,
+                invocation_session_factory=session_factory,
+                invocation_cancel_persist_timeout_seconds=(
+                    settings.invocation_cancel_persist_timeout_seconds
+                ),
             )
             await supervisor.execute_full_review(
                 session, trusted, snapshot, run=run, commit_each_stage=True
             )
+    except asyncio.CancelledError:
+        # Preserve cancellation control flow, but do not leave a checkpointed
+        # run in EXECUTING. The invocation itself was persisted through the
+        # Supervisor's independent cancellation writer.
+        await _run_bounded_cancellation_cleanup(
+            _mark_background_run_failed(
+                run_id,
+                identity,
+                event_type="BACKGROUND_CANCELLED",
+                error_type="FULL_REVIEW_CANCELLED",
+            ),
+            timeout_seconds=settings.invocation_cancel_persist_timeout_seconds,
+        )
+        raise
     except Exception as exc:
         # 失败不得假成功：Run 置 FAILED 并保留已写入的 Trace（文档 §13）；
         # 记录异常类型便于排查（v1.0 演示踩坑教训）
-        async with session_scope(
-            session_factory, tenant_id=identity.tenant_id, user_id=identity.user_id
-        ) as session:
-            await _mark_run_failed_with_trace(
-                session, run_id, "BACKGROUND_FAILED", type(exc).__name__
-            )
+        await _mark_background_run_failed(
+            run_id,
+            identity,
+            event_type="BACKGROUND_FAILED",
+            error_type=getattr(exc, "error_code", type(exc).__name__),
+        )
 
 
 @app.post("/api/v1/cases/{case_id}/runs", status_code=202)
@@ -779,8 +1063,81 @@ async def get_run_trace(run_id: uuid.UUID):
                 select(RunEvent).where(RunEvent.run_id == run_id).order_by(RunEvent.sequence_no)
             )
         ).all()
-        if not events:
+        invocations = (
+            await session.scalars(
+                select(InvocationRecord)
+                .where(InvocationRecord.run_id == run_id)
+                .order_by(InvocationRecord.ended_at, InvocationRecord.invocation_id)
+            )
+        ).all()
+        delivery_rows = (
+            await session.scalars(
+                select(TelemetryOutbox)
+                .where(TelemetryOutbox.run_id == run_id)
+                .order_by(TelemetryOutbox.created_at, TelemetryOutbox.id)
+            )
+        ).all()
+        if not events and not invocations and not delivery_rows:
             raise HTTPException(404, "RUN_NOT_FOUND")
+        delivery_by_invocation = {row.invocation_id: row for row in delivery_rows}
+        counts = {
+            status: 0
+            for status in (
+                "PENDING",
+                "PROCESSING",
+                "DELIVERED",
+                "DEAD",
+                "MISSING",
+                "INVALID",
+            )
+        }
+        integrity_by_invocation: dict[uuid.UUID, _InvocationIntegrity] = {}
+        for invocation in invocations:
+            delivery = delivery_by_invocation.get(invocation.invocation_id)
+            integrity = _validate_persisted_invocation(invocation, delivery, run)
+            integrity_by_invocation[invocation.invocation_id] = integrity
+            if not integrity.valid:
+                counts["INVALID"] += 1
+            else:
+                counts[delivery.status if delivery is not None else "MISSING"] += 1
+
+        invocation_ids = {record.invocation_id for record in invocations}
+        orphan_delivery_count = sum(
+            row.invocation_id not in invocation_ids for row in delivery_rows
+        )
+        integrity_invalid_count = counts["INVALID"] + orphan_delivery_count
+
+        is_v2_run = (run.model_manifest or {}).get("invocation_contract_version") == "invocation_v2"
+        if integrity_invalid_count:
+            delivery_status = "DEGRADED"
+            delivery_complete = False
+        elif not invocations and not is_v2_run:
+            delivery_status = "LEGACY_UNAVAILABLE"
+            delivery_complete: bool | None = None
+        elif not invocations:
+            delivery_status = "EMPTY"
+            delivery_complete = False
+        elif counts["DEAD"] or counts["MISSING"]:
+            delivery_status = "DEGRADED"
+            delivery_complete = False
+        elif counts["PENDING"] or counts["PROCESSING"]:
+            delivery_status = "PENDING"
+            delivery_complete = False
+        else:
+            delivery_status = "COMPLETE"
+            delivery_complete = True
+        if not invocations and not delivery_rows and not is_v2_run:
+            integrity_status = "LEGACY_UNAVAILABLE"
+            integrity_valid: bool | None = None
+        elif integrity_invalid_count:
+            integrity_status = "DEGRADED"
+            integrity_valid = False
+        elif not invocations:
+            integrity_status = "EMPTY"
+            integrity_valid = False
+        else:
+            integrity_status = "VALID"
+            integrity_valid = True
         return {
             "run_id": str(run_id),
             "events": [
@@ -794,4 +1151,26 @@ async def get_run_trace(run_id: uuid.UUID):
                 }
                 for e in events
             ],
+            "invocations": [
+                _trace_invocation_response(
+                    record,
+                    delivery_by_invocation.get(record.invocation_id),
+                    integrity_by_invocation[record.invocation_id],
+                )
+                for record in invocations
+            ],
+            "integrity": {
+                "status": integrity_status,
+                "valid": integrity_valid,
+                "invalid_count": integrity_invalid_count,
+            },
+            "delivery": {
+                "contract_version": (
+                    "invocation_v2" if is_v2_run or invocations or delivery_rows else None
+                ),
+                "status": delivery_status,
+                "complete": delivery_complete,
+                "total": len(invocations),
+                "counts": counts,
+            },
         }

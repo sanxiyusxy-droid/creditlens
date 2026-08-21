@@ -23,9 +23,11 @@ from creditlens.infrastructure.postgres.models import (
     CreditCase,
     FinancialFact,
     HumanDecision,
+    InvocationRecord,
     ReportVersion,
     ReviewRun,
     RunEvent,
+    TelemetryOutbox,
 )
 from creditlens.tools.gateway import ToolCallDeniedError
 from tests.e2e.test_ingest_retrieve_e2e import TENANT_ID, seeded  # noqa: F401  复用夹具
@@ -114,15 +116,29 @@ async def test_full_review_dag(session, qdrant, with_facts):
     assert "STATE_CHANGED" in types
     assert "AUDIT_COMPLETED" in types
     tool_events = [event for event in events if event.event_type.startswith("TOOL_INVOCATION_")]
-    assert tool_events
-    assert len(tool_events) == len(_gateway.calls)
+    invocations = (
+        await session.scalars(
+            select(InvocationRecord)
+            .where(InvocationRecord.run_id == outcome.run_id)
+            .order_by(InvocationRecord.ended_at, InvocationRecord.invocation_id)
+        )
+    ).all()
+    deliveries = (
+        await session.scalars(
+            select(TelemetryOutbox).where(TelemetryOutbox.run_id == outcome.run_id)
+        )
+    ).all()
+    assert tool_events == [], "v2 production path must not dual-write legacy RunEvents"
+    assert len(invocations) == len(_gateway.calls)
+    assert len(deliveries) == len(invocations)
     assert [event.sequence_no for event in events] == list(range(1, len(events) + 1))
-    persisted_invocation_ids = {event.payload_redacted["invocation_id"] for event in tool_events}
+    persisted_invocation_ids = {str(record.invocation_id) for record in invocations}
     assert persisted_invocation_ids == {
         str(call.invocation_id) for call in _gateway.calls if call.invocation_id is not None
     }
-    assert all(event.tenant_id == trusted.tenant_id for event in tool_events)
-    assert all(event.case_id == trusted.case_id for event in tool_events)
+    assert all(record.tenant_id == trusted.tenant_id for record in invocations)
+    assert all(record.case_id == trusted.case_id for record in invocations)
+    assert {delivery.status for delivery in deliveries} == {"PENDING"}
     transitions = [
         (e.payload_redacted["from"], e.payload_redacted["to"])
         for e in events

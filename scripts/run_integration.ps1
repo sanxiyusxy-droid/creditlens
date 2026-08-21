@@ -153,7 +153,11 @@ try {
 GRANT USAGE ON SCHEMA public TO creditlens_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app;
-REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts FROM creditlens_app;
+REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts, invocation_records FROM creditlens_app;
+REVOKE UPDATE, DELETE ON telemetry_outbox FROM creditlens_app;
+GRANT UPDATE (status, attempts, available_at, locked_at, locked_until, last_error_code, delivered_at, dead_at) ON telemetry_outbox TO creditlens_app;
+REVOKE UPDATE, DELETE ON review_runs FROM creditlens_app;
+GRANT UPDATE (status, state_version, model_manifest, completed_at) ON review_runs TO creditlens_app;
 REVOKE UPDATE, DELETE ON claims FROM creditlens_app;
 GRANT UPDATE (review_status) ON claims TO creditlens_app;
 REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, financial_metric_definitions, search_index_versions, alembic_version FROM creditlens_app;

@@ -1,9 +1,11 @@
 """API 协议边界：SSE 续传/停止语义与错误码映射。"""
 
+import asyncio
+import time
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 
 import httpx
 import pytest
@@ -20,11 +22,19 @@ from creditlens.infrastructure.postgres.models import (
     CreditCase,
     Entity,
     EvidenceRecord,
+    InvocationRecord,
     ReviewRun,
     RunEvent,
+    TelemetryOutbox,
     Tenant,
 )
 from creditlens.infrastructure.postgres.session import create_session_factory
+from creditlens.observability.invocation import (
+    InvocationEnvelope,
+    InvocationKind,
+    InvocationStatus,
+)
+from creditlens.observability.writer import InvocationWriter
 
 
 def test_fixed_demo_identity_is_fail_closed_outside_local_environment():
@@ -194,10 +204,131 @@ async def test_lifespan_does_not_infer_stale_runs_at_startup(monkeypatch):
     monkeypatch.setattr(api_main, "reranker", None)
     monkeypatch.setattr(api_main, "qdrant", object())
 
-    async with api_main.lifespan(SimpleNamespace()):
+    async with api_main.lifespan(SimpleNamespace(state=SimpleNamespace())):
         calls.append("serving")
 
     assert calls == ["create_all", "serving", "engine_disposed"]
+
+
+async def test_telemetry_worker_loop_is_explicit_and_stops_cleanly(monkeypatch):
+    from apps.api import main as api_main
+
+    stop = asyncio.Event()
+    batches: list[int] = []
+
+    class Worker:
+        async def process_batch(self, *, batch_size: int):
+            batches.append(batch_size)
+            stop.set()
+
+    monkeypatch.setattr(
+        api_main,
+        "settings",
+        SimpleNamespace(
+            telemetry_export_poll_seconds=0.01,
+            telemetry_export_batch_size=7,
+        ),
+    )
+    await api_main._run_telemetry_worker(Worker(), stop)
+
+    assert batches == [7]
+
+
+@pytest.mark.parametrize(
+    ("poll_seconds", "batch_size", "error_code"),
+    [
+        (0, 32, "TELEMETRY_EXPORT_POLL_SECONDS_INVALID"),
+        (1, 0, "TELEMETRY_EXPORT_BATCH_SIZE_INVALID"),
+        (1, 1001, "TELEMETRY_EXPORT_BATCH_SIZE_INVALID"),
+    ],
+)
+def test_telemetry_worker_config_is_rejected_before_background_start(
+    monkeypatch,
+    poll_seconds,
+    batch_size,
+    error_code,
+):
+    from apps.api import main as api_main
+
+    monkeypatch.setattr(
+        api_main,
+        "settings",
+        SimpleNamespace(
+            telemetry_outbox_worker_enabled=True,
+            telemetry_exporter_backend="noop",
+            app_env="test",
+            telemetry_export_poll_seconds=poll_seconds,
+            telemetry_export_batch_size=batch_size,
+            telemetry_export_max_attempts=3,
+            telemetry_export_lease_seconds=10,
+            telemetry_export_base_backoff_seconds=1,
+            telemetry_export_max_backoff_seconds=10,
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match=error_code):
+        api_main._build_api_telemetry_worker()
+
+
+async def test_immediate_telemetry_start_failure_still_closes_every_resource(monkeypatch):
+    from apps.api import main as api_main
+
+    closed: list[str] = []
+
+    class Connection:
+        async def run_sync(self, _operation):
+            return None
+
+    class BeginContext:
+        async def __aenter__(self):
+            return Connection()
+
+        async def __aexit__(self, _exc_type, _exc, _traceback):
+            return False
+
+    class Engine:
+        def begin(self):
+            return BeginContext()
+
+        async def dispose(self):
+            closed.append("engine")
+
+    class AsyncResource:
+        def __init__(self, name: str):
+            self.name = name
+
+        async def aclose(self):
+            closed.append(self.name)
+
+    class SyncResource:
+        def close(self):
+            closed.append("qdrant")
+
+    async def fail_immediately(_worker, _stop):
+        raise RuntimeError("private exporter startup detail")
+
+    monkeypatch.setattr(
+        api_main,
+        "settings",
+        SimpleNamespace(
+            api_identity_mode="demo",
+            allow_insecure_demo_identity=True,
+            app_env="test",
+        ),
+    )
+    monkeypatch.setattr(api_main, "engine", Engine())
+    monkeypatch.setattr(api_main, "chat_provider", AsyncResource("chat"))
+    monkeypatch.setattr(api_main, "embedder", AsyncResource("embedding"))
+    monkeypatch.setattr(api_main, "reranker", None)
+    monkeypatch.setattr(api_main, "qdrant", SyncResource())
+    monkeypatch.setattr(api_main, "_build_api_telemetry_worker", lambda: object())
+    monkeypatch.setattr(api_main, "_run_telemetry_worker", fail_immediately)
+
+    with pytest.raises(RuntimeError, match="TELEMETRY_WORKER_START_FAILED"):
+        async with api_main.lifespan(SimpleNamespace(state=SimpleNamespace())):
+            raise AssertionError("failed worker must not reach serving state")
+
+    assert closed == ["chat", "embedding", "qdrant", "engine"]
 
 
 async def test_shutdown_closes_every_resource_when_one_close_fails():
@@ -366,6 +497,383 @@ async def test_sse_rejects_negative_resume_cursor(protocol_client):
 
     assert query_response.status_code == 422
     assert header_response.status_code == 422
+
+
+async def test_cancelled_full_review_persists_fresh_invocation_and_terminates_run(
+    protocol_client,
+    monkeypatch,
+):
+    from apps.api import main as api_main
+
+    from creditlens.agents import wiring as wiring_module
+    from creditlens.agents.supervisor import Supervisor
+    from creditlens.application import snapshot_service, trusted_context
+    from creditlens.tools.gateway import ToolGateway
+
+    _, factory, _, case_id = protocol_client
+    async with factory() as session:
+        run = ReviewRun(
+            tenant_id=api_main.DEFAULT_TENANT_ID,
+            case_id=case_id,
+            run_type="FULL_REVIEW",
+            status="RECEIVED",
+            as_of_date=date(2026, 5, 1),
+            decision_cutoff_at=datetime(2026, 5, 1, tzinfo=UTC),
+        )
+        session.add(run)
+        await session.commit()
+        run_id = run.id
+
+    gateway = ToolGateway()
+    cancellation_started = asyncio.Event()
+    never_release = asyncio.Event()
+
+    async def successful_tool():
+        return "ok"
+
+    async def cancelled_tool():
+        cancellation_started.set()
+        await never_release.wait()
+
+    gateway.register("successful_tool", successful_tool)
+    gateway.register("cancelled_tool", cancelled_tool)
+    gateway.grant("analyst", ["successful_tool", "cancelled_tool"])
+
+    async def execute_stub(self, session, _trusted, _snapshot, run, events):
+        for status in ("AUTHORIZED", "VALIDATING_CASE", "PLANNING", "EXECUTING"):
+            await self._transition(session, run, events, status)
+        await gateway.invoke(
+            "analyst",
+            "successful_tool",
+            task_id=f"{run.id}:successful-task",
+        )
+        await gateway.invoke(
+            "analyst",
+            "cancelled_tool",
+            task_id=f"{run.id}:cancelled-task",
+        )
+
+    def build_stub(
+        _session,
+        _qdrant,
+        _embedder,
+        _snapshot,
+        *,
+        invocation_session_factory,
+        **_kwargs,
+    ):
+        assert invocation_session_factory is factory
+        supervisor = Supervisor(
+            policy_agent=object(),
+            financial_agent=object(),
+            challenger=object(),
+            auditor=object(),
+            tool_gateway=gateway,
+            invocation_session_factory=invocation_session_factory,
+        )
+        supervisor._execute_with_event_writer = MethodType(execute_stub, supervisor)
+        return supervisor, gateway
+
+    trusted = SimpleNamespace(
+        tenant_id=api_main.DEFAULT_TENANT_ID,
+        user_id=api_main.DEMO_USER_ID,
+        case_id=case_id,
+    )
+
+    async def trusted_stub(*_args, **_kwargs):
+        return trusted
+
+    async def snapshot_stub(*_args, **_kwargs):
+        return SimpleNamespace()
+
+    monkeypatch.setattr(wiring_module, "build_supervisor", build_stub)
+    monkeypatch.setattr(trusted_context, "build_trusted_context", trusted_stub)
+    monkeypatch.setattr(snapshot_service, "load_snapshot_context", snapshot_stub)
+
+    identity = api_main.APIIdentity(
+        tenant_id=api_main.DEFAULT_TENANT_ID,
+        user_id=api_main.DEMO_USER_ID,
+    )
+    background = asyncio.create_task(api_main._execute_review_background(run_id, case_id, identity))
+    await asyncio.wait_for(cancellation_started.wait(), timeout=2)
+    started_at = time.perf_counter()
+    background.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await background
+    elapsed = time.perf_counter() - started_at
+
+    async with factory() as session:
+        persisted_run = await session.get(ReviewRun, run_id)
+        invocations = (
+            await session.scalars(select(InvocationRecord).where(InvocationRecord.run_id == run_id))
+        ).all()
+        deliveries = (
+            await session.scalars(select(TelemetryOutbox).where(TelemetryOutbox.run_id == run_id))
+        ).all()
+        events = (
+            await session.scalars(
+                select(RunEvent).where(RunEvent.run_id == run_id).order_by(RunEvent.sequence_no)
+            )
+        ).all()
+
+    assert persisted_run.status == "FAILED"
+    assert persisted_run.completed_at is not None
+    assert elapsed < 5
+    assert {(record.kind, record.name, record.status) for record in invocations} == {
+        ("TOOL", "successful_tool", "SUCCESS"),
+        ("TOOL", "cancelled_tool", "CANCELLED"),
+    }
+    assert [delivery.status for delivery in deliveries] == ["PENDING", "PENDING"]
+    assert events[-1].event_type == "BACKGROUND_CANCELLED"
+    assert events[-1].payload_redacted == {"error_type": "FULL_REVIEW_CANCELLED"}
+
+
+async def test_background_cleanup_failure_does_not_replace_original_cancellation():
+    from apps.api import main as api_main
+
+    async def failing_cleanup():
+        raise RuntimeError("private cleanup failure")
+
+    async def cancellation_boundary():
+        try:
+            raise asyncio.CancelledError("original background cancellation")
+        except asyncio.CancelledError:
+            await api_main._run_bounded_cancellation_cleanup(
+                failing_cleanup(),
+                timeout_seconds=0.1,
+            )
+            raise
+
+    with pytest.raises(asyncio.CancelledError) as captured:
+        await cancellation_boundary()
+    assert captured.value.args == ("original background cancellation",)
+
+
+async def test_background_cleanup_timeout_is_bounded_and_preserves_cancellation():
+    from apps.api import main as api_main
+
+    cleanup_started = asyncio.Event()
+    cleanup_release = asyncio.Event()
+    cleanup_finished = asyncio.Event()
+
+    async def blocked_cleanup():
+        cleanup_started.set()
+        try:
+            await cleanup_release.wait()
+        finally:
+            cleanup_finished.set()
+
+    async def cancellation_boundary():
+        try:
+            raise asyncio.CancelledError("original background timeout cancellation")
+        except asyncio.CancelledError:
+            await api_main._run_bounded_cancellation_cleanup(
+                blocked_cleanup(),
+                timeout_seconds=0.05,
+            )
+            raise
+
+    caller = asyncio.create_task(cancellation_boundary())
+    await asyncio.wait_for(cleanup_started.wait(), timeout=2)
+    started_at = time.perf_counter()
+    with pytest.raises(asyncio.CancelledError) as captured:
+        await asyncio.wait_for(caller, timeout=1)
+    elapsed = time.perf_counter() - started_at
+
+    assert captured.value.args == ("original background timeout cancellation",)
+    assert elapsed < 0.5
+    cleanup_release.set()
+    await asyncio.wait_for(cleanup_finished.wait(), timeout=2)
+
+
+async def test_trace_marks_legacy_runs_without_invocations_as_unavailable(protocol_client):
+    client, _, run_id, _ = protocol_client
+
+    response = await client.get(f"/api/v1/runs/{run_id}/trace")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["invocations"] == []
+    assert body["delivery"] == {
+        "contract_version": None,
+        "status": "LEGACY_UNAVAILABLE",
+        "complete": None,
+        "total": 0,
+        "counts": {
+            "PENDING": 0,
+            "PROCESSING": 0,
+            "DELIVERED": 0,
+            "DEAD": 0,
+            "MISSING": 0,
+            "INVALID": 0,
+        },
+    }
+
+
+async def test_trace_marks_v2_run_without_invocations_as_empty_and_incomplete(protocol_client):
+    client, factory, run_id, _ = protocol_client
+    async with factory() as session:
+        run = await session.get(ReviewRun, run_id)
+        run.model_manifest = {"invocation_contract_version": "invocation_v2"}
+        await session.commit()
+
+    response = await client.get(f"/api/v1/runs/{run_id}/trace")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["invocations"] == []
+    assert body["integrity"] == {"status": "EMPTY", "valid": False, "invalid_count": 0}
+    assert body["delivery"]["contract_version"] == "invocation_v2"
+    assert body["delivery"]["status"] == "EMPTY"
+    assert body["delivery"]["complete"] is False
+    assert body["delivery"]["total"] == 0
+
+
+async def test_trace_exposes_v2_invocations_and_delivery_lifecycle(protocol_client):
+    client, factory, run_id, _ = protocol_client
+    observed_at = datetime(2026, 5, 1, 1, tzinfo=UTC)
+    async with factory() as session:
+        run = await session.get(ReviewRun, run_id)
+        run.model_manifest = {"invocation_contract_version": "invocation_v2"}
+        writer = InvocationWriter(
+            session,
+            tenant_id=run.tenant_id,
+            case_id=run.case_id,
+            run_id=run.id,
+        )
+        result = await writer.record(
+            InvocationEnvelope(
+                kind=InvocationKind.MODEL,
+                name="grounded_qa_generation",
+                provider="openai_compatible",
+                model="interview-model",
+                actor_role="grounded_qa",
+                task_id="answer_generation",
+                started_at=observed_at,
+                ended_at=observed_at,
+                latency_ms=0,
+                status=InvocationStatus.SUCCESS,
+                request_sha256="a" * 64,
+                response_sha256="b" * 64,
+            )
+        )
+        invocation_id = result.record.invocation_id
+        await session.commit()
+
+    pending = await client.get(f"/api/v1/runs/{run_id}/trace")
+    assert pending.status_code == 200
+    body = pending.json()
+    assert body["delivery"]["status"] == "PENDING"
+    assert body["delivery"]["complete"] is False
+    assert body["delivery"]["counts"]["PENDING"] == 1
+    assert body["invocations"][0]["invocation_id"] == str(invocation_id)
+    assert body["invocations"][0]["envelope"]["kind"] == "MODEL"
+    assert body["invocations"][0]["integrity"]["valid"] is True
+    assert body["invocations"][0]["delivery"]["status"] == "PENDING"
+    assert body["integrity"] == {"status": "VALID", "valid": True, "invalid_count": 0}
+
+    async with factory() as session:
+        delivery = await session.scalar(
+            select(TelemetryOutbox).where(TelemetryOutbox.invocation_id == invocation_id)
+        )
+        delivery.status = "DELIVERED"
+        delivery.attempts = 1
+        delivery.delivered_at = observed_at
+        await session.commit()
+
+    delivered = await client.get(f"/api/v1/runs/{run_id}/trace")
+    assert delivered.status_code == 200
+    assert delivered.json()["delivery"]["status"] == "COMPLETE"
+    assert delivered.json()["delivery"]["complete"] is True
+
+    async with factory() as session:
+        record = await session.get(InvocationRecord, invocation_id)
+        original_payload = dict(record.payload_redacted)
+        tampered_payload = dict(original_payload)
+        tampered_payload["name"] = "forged private administrator payload"
+        record.payload_redacted = tampered_payload
+        await session.commit()
+
+    tampered = await client.get(f"/api/v1/runs/{run_id}/trace")
+    assert tampered.status_code == 200
+    tampered_body = tampered.json()
+    assert tampered_body["delivery"]["status"] == "DEGRADED"
+    assert tampered_body["delivery"]["complete"] is False
+    assert tampered_body["integrity"] == {
+        "status": "DEGRADED",
+        "valid": False,
+        "invalid_count": 1,
+    }
+    assert tampered_body["invocations"][0]["envelope"] is None
+    assert tampered_body["invocations"][0]["integrity"]["error_code"] == (
+        "INVOCATION_INTEGRITY_FAILED"
+    )
+    assert "forged private administrator payload" not in tampered.text
+
+    async with factory() as session:
+        record = await session.get(InvocationRecord, invocation_id)
+        record.payload_redacted = original_payload
+        await session.commit()
+
+    async with factory() as session:
+        delivery = await session.scalar(
+            select(TelemetryOutbox).where(TelemetryOutbox.invocation_id == invocation_id)
+        )
+        delivery.status = "DEAD"
+        delivery.attempts = 2
+        delivery.delivered_at = None
+        delivery.dead_at = observed_at
+        delivery.last_error_code = "EXPORT_FAILED"
+        await session.commit()
+
+    dead = await client.get(f"/api/v1/runs/{run_id}/trace")
+    assert dead.status_code == 200
+    assert dead.json()["delivery"]["status"] == "DEGRADED"
+    assert dead.json()["delivery"]["complete"] is False
+
+
+async def test_trace_classifies_valid_record_without_outbox_as_missing(protocol_client):
+    client, factory, run_id, _ = protocol_client
+    observed_at = datetime(2026, 5, 1, 2, tzinfo=UTC)
+    async with factory() as session:
+        run = await session.get(ReviewRun, run_id)
+        run.model_manifest = {"invocation_contract_version": "invocation_v2"}
+        result = await InvocationWriter(
+            session,
+            tenant_id=run.tenant_id,
+            case_id=run.case_id,
+            run_id=run.id,
+        ).record(
+            InvocationEnvelope(
+                kind=InvocationKind.TOOL,
+                name="missing_delivery_tool",
+                actor_role="analyst",
+                task_id="missing-delivery",
+                started_at=observed_at,
+                ended_at=observed_at,
+                latency_ms=0,
+                status=InvocationStatus.SUCCESS,
+                request_sha256="c" * 64,
+                response_sha256="d" * 64,
+            )
+        )
+        invocation_id = result.record.invocation_id
+        await session.delete(result.outbox)
+        await session.commit()
+
+    response = await client.get(f"/api/v1/runs/{run_id}/trace")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["integrity"] == {"status": "VALID", "valid": True, "invalid_count": 0}
+    assert body["delivery"]["status"] == "DEGRADED"
+    assert body["delivery"]["complete"] is False
+    assert body["delivery"]["counts"]["MISSING"] == 1
+    assert body["delivery"]["counts"]["INVALID"] == 0
+    assert body["invocations"][0]["invocation_id"] == str(invocation_id)
+    assert body["invocations"][0]["envelope"]["name"] == "missing_delivery_tool"
+    assert body["invocations"][0]["integrity"]["valid"] is True
+    assert body["invocations"][0]["delivery"]["status"] == "MISSING"
 
 
 async def test_idempotency_conflict_maps_to_409():

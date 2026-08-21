@@ -1,7 +1,7 @@
 """Multi-Agent 装配：注册工具、授权 Allowlist、组装 Supervisor。"""
 
 from qdrant_client import QdrantClient
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from creditlens.agents.auditor import EvidenceAuditor
 from creditlens.agents.challenger import Challenger
@@ -29,6 +29,10 @@ def build_supervisor(
     chat=None,
     reranker: RerankProvider | None = None,
     rrf_k: int = 60,
+    invocation_fingerprint_secret: str = "",
+    invocation_fingerprint_key_version: str = "runtime-ephemeral-v1",
+    invocation_session_factory: async_sessionmaker[AsyncSession] | None = None,
+    invocation_cancel_persist_timeout_seconds: float = 2.0,
 ) -> tuple[Supervisor, ToolGateway]:
     """组装工具与 Agent。检索工具绑定 Snapshot 冻结的物理 Collection 与
     Parse Run 集合（文档 §6.4：Run 不读"当前 Active"）。session 由调用方管理事务。
@@ -42,7 +46,10 @@ def build_supervisor(
     orchestrator = RetrievalOrchestrator(
         qdrant=qdrant, embedder=embedder, reranker=reranker, rrf_k=rrf_k
     )
-    gateway = ToolGateway()
+    gateway_options = {"_fingerprint_key_version": invocation_fingerprint_key_version}
+    if invocation_fingerprint_secret:
+        gateway_options["_fingerprint_secret"] = invocation_fingerprint_secret.encode("utf-8")
+    gateway = ToolGateway(**gateway_options)
     chunks_collection = snapshot.chunks_collection
     summaries_collection = snapshot.summaries_collection
 
@@ -115,5 +122,7 @@ def build_supervisor(
         risk_agent=RiskAgent(gateway, chat=chat),
         report_agent=ReportAgent(),
         tool_gateway=gateway,
+        invocation_session_factory=invocation_session_factory,
+        invocation_cancel_persist_timeout_seconds=invocation_cancel_persist_timeout_seconds,
     )
     return supervisor, gateway

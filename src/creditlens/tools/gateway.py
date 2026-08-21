@@ -6,6 +6,7 @@
 """
 
 import asyncio
+import contextlib
 import contextvars
 import inspect
 import secrets
@@ -30,8 +31,13 @@ from creditlens.observability.invocation import (
     invocation_run_event_payload,
     safe_error_code,
 )
+from creditlens.observability.writer import (
+    InvocationAuditPersistError,
+    InvocationIdentityConflict,
+)
 
 InvocationEventSink = Callable[[str, dict[str, Any]], Awaitable[None] | None]
+InvocationSink = Callable[[InvocationEnvelope], Awaitable[Any] | Any]
 
 
 class ToolCallDeniedError(CreditLensError):
@@ -58,6 +64,12 @@ class ToolCallRecord:
         return self.invocation.invocation_id if self.invocation is not None else None
 
 
+@dataclass(frozen=True, slots=True)
+class InvocationSinkToken:
+    sink: contextvars.Token
+    fail_closed: contextvars.Token
+
+
 @dataclass
 class ToolGateway:
     _tools: dict[str, Callable[..., Awaitable[Any]]] = field(default_factory=dict)
@@ -65,6 +77,21 @@ class ToolGateway:
     _tool_providers: dict[str, str | None] = field(default_factory=dict)
     _tool_versions: dict[str, str | None] = field(default_factory=dict)
     _fingerprint_secret: bytes = field(default_factory=lambda: secrets.token_bytes(32), repr=False)
+    _fingerprint_key_version: str = "runtime-ephemeral-v1"
+    _invocation_sink: contextvars.ContextVar[InvocationSink | None] = field(
+        default_factory=lambda: contextvars.ContextVar(
+            f"creditlens_tool_invocation_sink_{uuid.uuid4().hex}",
+            default=None,
+        ),
+        repr=False,
+    )
+    _invocation_fail_closed: contextvars.ContextVar[bool] = field(
+        default_factory=lambda: contextvars.ContextVar(
+            f"creditlens_tool_invocation_fail_closed_{uuid.uuid4().hex}",
+            default=False,
+        ),
+        repr=False,
+    )
     _event_sink: contextvars.ContextVar[InvocationEventSink | None] = field(
         default_factory=lambda: contextvars.ContextVar(
             f"creditlens_tool_event_sink_{uuid.uuid4().hex}",
@@ -101,7 +128,67 @@ class ToolGateway:
 
         self._event_sink.reset(token)
 
+    def bind_invocation_sink(
+        self,
+        sink: InvocationSink | None,
+        *,
+        fail_closed: bool = False,
+    ) -> InvocationSinkToken:
+        """Bind the durable v2 writer for the current task context.
+
+        A v2 sink takes precedence over the legacy RunEvent sink so a terminal
+        invocation can never be written through both paths.  Production bank
+        workflows bind it with ``fail_closed=True``; tests and non-critical
+        callers may retain best-effort behavior explicitly.
+        """
+
+        return InvocationSinkToken(
+            sink=self._invocation_sink.set(sink),
+            fail_closed=self._invocation_fail_closed.set(fail_closed),
+        )
+
+    def reset_invocation_sink(self, token: InvocationSinkToken) -> None:
+        self._invocation_fail_closed.reset(token.fail_closed)
+        self._invocation_sink.reset(token.sink)
+
+    @staticmethod
+    def _add_observability_error(record: ToolCallRecord, code: str) -> None:
+        record.observability_error_codes = tuple(
+            dict.fromkeys((*record.observability_error_codes, code))
+        )
+        if record.invocation is not None:
+            record.invocation = record.invocation.model_copy(
+                update={"observability_error_codes": record.observability_error_codes}
+            )
+
     async def _emit_invocation_event(self, record: ToolCallRecord) -> None:
+        invocation_sink = self._invocation_sink.get()
+        if invocation_sink is not None:
+            if record.invocation is None:
+                self._add_observability_error(record, "INVOCATION_AUDIT_PERSIST_FAILED")
+                if self._invocation_fail_closed.get():
+                    raise InvocationAuditPersistError()
+                return
+            try:
+                result = invocation_sink(record.invocation)
+                if inspect.isawaitable(result):
+                    await result
+            except asyncio.CancelledError:
+                raise
+            except InvocationIdentityConflict as error:
+                self._add_observability_error(record, error.error_code)
+                if self._invocation_fail_closed.get():
+                    raise
+            except InvocationAuditPersistError as error:
+                self._add_observability_error(record, error.error_code)
+                if self._invocation_fail_closed.get():
+                    raise
+            except Exception:
+                self._add_observability_error(record, "INVOCATION_AUDIT_PERSIST_FAILED")
+                if self._invocation_fail_closed.get():
+                    raise InvocationAuditPersistError() from None
+            return
+
         sink = self._event_sink.get()
         if sink is None or record.invocation is None:
             return
@@ -119,12 +206,7 @@ class ToolGateway:
             raise
         except Exception as error:
             code = safe_error_code(error, fallback="INVOCATION_EVENT_SINK_FAILED")
-            record.observability_error_codes = tuple(
-                dict.fromkeys((*record.observability_error_codes, code))
-            )
-            record.invocation = record.invocation.model_copy(
-                update={"observability_error_codes": record.observability_error_codes}
-            )
+            self._add_observability_error(record, code)
 
     async def invoke(
         self,
@@ -204,6 +286,7 @@ class ToolGateway:
                     response_sha256=response_sha256,
                     attempts=1,
                     fingerprint_scheme=FingerprintScheme.HMAC_SHA256_V1,
+                    fingerprint_key_version=self._fingerprint_key_version,
                     canonicalization_version=CANONICALIZATION_VERSION,
                     request_fingerprint_available=request_available,
                     response_fingerprint_available=response_available,
@@ -253,7 +336,11 @@ class ToolGateway:
             result = await self._tools[tool_name](**kwargs)
         except asyncio.CancelledError:
             finish(InvocationStatus.CANCELLED, error_code="TOOL_CALL_CANCELLED")
-            await self._emit_invocation_event(record)
+            with contextlib.suppress(InvocationAuditPersistError, InvocationIdentityConflict):
+                await self._emit_invocation_event(record)
+            # Cancellation remains control flow even when its terminal audit
+            # record could not be persisted.  The in-memory record retains the
+            # safe observability error code.
             raise
         except Exception as error:
             finish(

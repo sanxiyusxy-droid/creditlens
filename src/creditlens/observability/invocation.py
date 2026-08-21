@@ -25,11 +25,27 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
+_SAFE_KEY_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 _CAMEL_BOUNDARY_RE = re.compile(r"(?<!^)(?=[A-Z])")
 CANONICALIZATION_VERSION = "invocation_typed_json_v1"
+INVOCATION_CONTRACT_VERSION = "invocation_v2"
 _MAX_CANONICAL_DEPTH = 64
 _MAX_CANONICAL_NODES = 10_000
 _MAX_SCALAR_BYTES = 1_000_000
+_SAFE_SCHEMA_ERROR_CODES = frozenset(
+    {
+        "ENUM_CONSTRAINT",
+        "EXTRA_FIELD",
+        "INVALID_JSON",
+        "LIST_CONSTRAINT",
+        "MISSING_FIELD",
+        "OBJECT_CONSTRAINT",
+        "STRING_CONSTRAINT",
+        "TYPE_MISMATCH",
+        "VALIDATION_OTHER",
+        "VALUE_CONSTRAINT",
+    }
+)
 
 
 class InvocationKind(StrEnum):
@@ -121,6 +137,46 @@ class CostEstimate(BaseModel):
     estimated: Literal[True] = True
 
 
+class SchemaDiagnostics(BaseModel):
+    """Bounded, schema-owned diagnostics safe for durable persistence.
+
+    Provider output, validation messages, rejected values and arbitrary model
+    keys are deliberately not representable by this contract.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    error_fingerprint: str | None = None
+    error_counts: dict[str, int] = Field(default_factory=dict)
+
+    @field_validator("error_fingerprint")
+    @classmethod
+    def require_error_fingerprint(cls, value: str | None) -> str | None:
+        if value is not None and not _SHA256_RE.fullmatch(value):
+            raise ValueError("schema error fingerprint must be a lowercase SHA-256 digest")
+        return value
+
+    @field_validator("error_counts")
+    @classmethod
+    def require_bounded_schema_counts(cls, value: dict[str, int]) -> dict[str, int]:
+        if len(value) > len(_SAFE_SCHEMA_ERROR_CODES):
+            raise ValueError("too many schema error categories")
+        normalized: dict[str, int] = {}
+        for code, count in sorted(value.items()):
+            if code not in _SAFE_SCHEMA_ERROR_CODES:
+                raise ValueError("unsupported schema error category")
+            if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 16:
+                raise ValueError("schema error count must be an integer between 1 and 16")
+            normalized[code] = count
+        return normalized
+
+    @model_validator(mode="after")
+    def reject_empty_diagnostics(self) -> SchemaDiagnostics:
+        if self.error_fingerprint is None and not self.error_counts:
+            raise ValueError("schema diagnostics cannot be empty")
+        return self
+
+
 class InvocationAggregate(BaseModel):
     """Aggregate comparable model invocations without inventing missing usage/cost."""
 
@@ -142,6 +198,7 @@ class InvocationEnvelope(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    contract_version: Literal["invocation_v2"] = INVOCATION_CONTRACT_VERSION
     invocation_id: uuid.UUID = Field(default_factory=uuid.uuid4)
     kind: InvocationKind
     name: str = Field(min_length=1, max_length=128)
@@ -164,8 +221,10 @@ class InvocationEnvelope(BaseModel):
     cost: CostEstimate | None = None
     fingerprint_scheme: FingerprintScheme = FingerprintScheme.LEGACY_SHA256
     canonicalization_version: str | None = Field(default=None, max_length=64)
+    fingerprint_key_version: str | None = Field(default=None, max_length=64)
     request_fingerprint_available: bool = True
     response_fingerprint_available: bool | None = None
+    schema_diagnostics: SchemaDiagnostics | None = None
     observability_error_codes: tuple[str, ...] = ()
 
     @field_validator("started_at", "ended_at")
@@ -194,6 +253,13 @@ class InvocationEnvelope(BaseModel):
     def require_safe_observability_codes(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         if any(not _SAFE_CODE_RE.fullmatch(code) for code in value):
             raise ValueError("observability codes must be bounded stable codes")
+        return tuple(dict.fromkeys(value))
+
+    @field_validator("fingerprint_key_version")
+    @classmethod
+    def require_safe_key_version(cls, value: str | None) -> str | None:
+        if value is not None and not _SAFE_KEY_VERSION_RE.fullmatch(value):
+            raise ValueError("fingerprint key version must be a bounded stable identifier")
         return value
 
     @field_validator("latency_ms")
@@ -212,14 +278,21 @@ class InvocationEnvelope(BaseModel):
         if self.status != InvocationStatus.SUCCESS and self.error_code is None:
             raise ValueError("non-successful invocation requires an error_code")
         if self.kind != InvocationKind.MODEL and (
-            self.model is not None or self.token_usage is not None or self.cost is not None
+            self.model is not None
+            or self.token_usage is not None
+            or self.cost is not None
+            or self.schema_diagnostics is not None
         ):
-            raise ValueError("model, token usage and cost are MODEL-only fields")
-        if (
-            self.fingerprint_scheme == FingerprintScheme.HMAC_SHA256_V1
-            and self.canonicalization_version != CANONICALIZATION_VERSION
-        ):
-            raise ValueError("HMAC fingerprints require the current canonicalization version")
+            raise ValueError(
+                "model, token usage, cost and schema diagnostics are MODEL-only fields"
+            )
+        if self.fingerprint_scheme == FingerprintScheme.HMAC_SHA256_V1:
+            if self.canonicalization_version != CANONICALIZATION_VERSION:
+                raise ValueError("HMAC fingerprints require the current canonicalization version")
+            if self.fingerprint_key_version is None:
+                raise ValueError("HMAC fingerprints require a fingerprint key version")
+        elif self.fingerprint_key_version is not None:
+            raise ValueError("fingerprint key version is HMAC-only")
         if self.response_fingerprint_available is True and self.response_sha256 is None:
             raise ValueError("available response fingerprint requires a digest")
         return self
@@ -495,10 +568,40 @@ def _legacy_error_code(value: Any) -> str | None:
     return "MODEL_INVOCATION_FAILED"
 
 
+def _legacy_schema_diagnostics(trace: object) -> SchemaDiagnostics | None:
+    """Adapt only the allow-listed, schema-owned portion of legacy diagnostics."""
+
+    raw_fingerprint = _legacy_value(trace, "schema_error_fingerprint")
+    fingerprint = (
+        raw_fingerprint
+        if isinstance(raw_fingerprint, str) and _SHA256_RE.fullmatch(raw_fingerprint)
+        else None
+    )
+    raw_counts = _legacy_value(trace, "schema_error_counts")
+    counts = (
+        {
+            str(code): count
+            for code, count in sorted(raw_counts.items(), key=lambda item: str(item[0]))
+            if isinstance(code, str)
+            and code in _SAFE_SCHEMA_ERROR_CODES
+            and isinstance(count, int)
+            and not isinstance(count, bool)
+            and 1 <= count <= 16
+        }
+        if isinstance(raw_counts, Mapping)
+        else {}
+    )
+    if fingerprint is None and not counts:
+        return None
+    return SchemaDiagnostics(error_fingerprint=fingerprint, error_counts=counts)
+
+
 def adapt_model_invocation_trace(
     trace: object,
     *,
     name: str = "structured_generation",
+    actor_role: str | None = None,
+    task_id: str | None = None,
     ended_at: datetime | None = None,
     pricing: PricingCatalog | None = None,
 ) -> InvocationEnvelope:
@@ -534,6 +637,8 @@ def adapt_model_invocation_trace(
         provider=provider,
         model=model,
         version=_legacy_value(trace, "prompt_version"),
+        actor_role=actor_role,
+        task_id=task_id,
         started_at=started,
         ended_at=ended,
         latency_ms=latency_ms,
@@ -546,6 +651,7 @@ def adapt_model_invocation_trace(
         attempts=_legacy_value(trace, "attempts"),
         prompt_sha256=_legacy_value(trace, "prompt_sha256"),
         cost=cost,
+        schema_diagnostics=_legacy_schema_diagnostics(trace),
     )
 
 
@@ -559,3 +665,18 @@ def invocation_run_event_payload(envelope: InvocationEnvelope) -> dict[str, Any]
     """Build a JSON-safe RunEvent/API payload containing metadata only."""
 
     return envelope.model_dump(mode="json", exclude_none=True)
+
+
+def hash_invocation_envelope(envelope: InvocationEnvelope) -> str:
+    """Hash the complete redacted v2 envelope using typed canonical JSON.
+
+    This is a tamper/idempotency digest, not anonymization.  Sensitive request
+    or response content is intentionally absent from ``InvocationEnvelope``.
+    """
+
+    return hash_invocation_payload(
+        {
+            "domain": "invocation_envelope",
+            "envelope": envelope,
+        }
+    )

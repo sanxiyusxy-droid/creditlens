@@ -9,12 +9,14 @@
 - Supervisor 自身不生成业务结论。
 """
 
+import asyncio
+import contextlib
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from creditlens.agents.auditor import AuditResult, EvidenceAuditor
 from creditlens.agents.challenger import Challenger
@@ -39,6 +41,13 @@ from creditlens.infrastructure.postgres.models import (
     HumanDecision,
     ReviewRun,
     RunEvent,
+)
+from creditlens.infrastructure.postgres.session import session_scope
+from creditlens.observability.invocation import InvocationEnvelope, InvocationStatus
+from creditlens.observability.writer import (
+    InvocationAuditPersistError,
+    InvocationIdentityConflict,
+    InvocationWriter,
 )
 from creditlens.retrieval.contracts import TrustedRequestContext
 from creditlens.tools.gateway import ToolGateway
@@ -121,7 +130,11 @@ class Supervisor:
         risk_agent: RiskAgent | None = None,
         report_agent: ReportAgent | None = None,
         tool_gateway: ToolGateway | None = None,
+        invocation_session_factory: async_sessionmaker[AsyncSession] | None = None,
+        invocation_cancel_persist_timeout_seconds: float = 2.0,
     ):
+        if invocation_cancel_persist_timeout_seconds <= 0:
+            raise ValueError("invocation cancellation persistence timeout must be positive")
         self._policy = policy_agent
         self._financial = financial_agent
         self._challenger = challenger
@@ -129,6 +142,8 @@ class Supervisor:
         self._risk = risk_agent
         self._report = report_agent or ReportAgent()
         self._tool_gateway = tool_gateway
+        self._invocation_session_factory = invocation_session_factory
+        self._invocation_cancel_persist_timeout_seconds = invocation_cancel_persist_timeout_seconds
 
     async def execute_full_review(
         self,
@@ -161,8 +176,44 @@ class Supervisor:
         elif run.status != "RECEIVED":
             raise InvalidStateTransitionError("预建 Run 必须处于 RECEIVED 状态")
         seq = _EventWriter(session, run, resume=run_was_provided)
+        run.model_manifest = {
+            **(run.model_manifest or {}),
+            "invocation_contract_version": "invocation_v2",
+        }
+        invocation_writer = InvocationWriter(
+            session,
+            tenant_id=run.tenant_id,
+            case_id=run.case_id,
+            run_id=run.id,
+        )
+        tool_invocation_sink_token = None
         tool_event_sink_token = None
-        if self._tool_gateway is not None:
+        policy_model_sink_token = None
+        bind_policy_model_sink = getattr(self._policy, "bind_model_trace_sink", None)
+        if callable(bind_policy_model_sink):
+            policy_model_sink_token = bind_policy_model_sink(
+                self._model_invocation_sink(
+                    invocation_writer,
+                    tenant_id=run.tenant_id,
+                    case_id=run.case_id,
+                    run_id=run.id,
+                    user_id=trusted.user_id,
+                )
+            )
+        if self._tool_gateway is not None and isinstance(session, AsyncSession):
+            tool_invocation_sink_token = self._tool_gateway.bind_invocation_sink(
+                self._tool_invocation_sink(
+                    invocation_writer,
+                    tenant_id=run.tenant_id,
+                    case_id=run.case_id,
+                    run_id=run.id,
+                    user_id=trusted.user_id,
+                ),
+                fail_closed=True,
+            )
+        elif self._tool_gateway is not None:
+            # Lightweight protocol-test sessions cannot host the durable v2
+            # writer. Keep their legacy sink isolated without ever dual-writing.
             tool_event_sink_token = self._tool_gateway.bind_event_sink(seq.emit)
 
         try:
@@ -174,6 +225,11 @@ class Supervisor:
                 seq,
             )
         finally:
+            reset_policy_model_sink = getattr(self._policy, "reset_model_trace_sink", None)
+            if policy_model_sink_token is not None and callable(reset_policy_model_sink):
+                reset_policy_model_sink(policy_model_sink_token)
+            if self._tool_gateway is not None and tool_invocation_sink_token is not None:
+                self._tool_gateway.reset_invocation_sink(tool_invocation_sink_token)
             if self._tool_gateway is not None and tool_event_sink_token is not None:
                 self._tool_gateway.reset_event_sink(tool_event_sink_token)
 
@@ -219,8 +275,10 @@ class Supervisor:
             agent_tasks.append(("risk", self._risk, "risk_analysis", "risk_analyst"))
         degraded_agents: list[str] = []
         for name, agent, task_key, producer in agent_tasks:
+            tool_call_cursor = self._tool_call_cursor()
             try:
                 result = await agent.run(run.id, task_key, trusted)
+                self._raise_if_invocation_audit_failed(tool_call_cursor, run.id)
                 professional.append(result)
                 # 每个 Agent 一完成就落库。这样后续核心 Agent 异常时，已经成功的
                 # 阶段不会出现“有 TASK_COMPLETED 事件但没有 Artifact”的断链。
@@ -240,6 +298,7 @@ class Supervisor:
                         "degraded": True,
                     }
                     await session.flush()
+                    await self._checkpoint_if_configured(session)
                     continue
                 await seq.emit("TASK_COMPLETED", {"task": name, "claims": len(result.claims)})
                 # P1：Agent 产出但工具部分失败（execution_status=DEGRADED）时，
@@ -272,6 +331,11 @@ class Supervisor:
                         }
                         await session.flush()
             except Exception as exc:
+                if isinstance(exc, (InvocationIdentityConflict, InvocationAuditPersistError)):
+                    # The current transaction may be invalid after a persistence
+                    # failure.  Let the application boundary roll it back and
+                    # mark the Run FAILED from a fresh session.
+                    raise
                 # WP1：Agent 异常必须生成 FAILED Artifact 并持久化，不能只写事件后继续
                 failed = AgentArtifact(
                     run_id=run.id,
@@ -295,6 +359,7 @@ class Supervisor:
                         "degraded": True,
                     }
                     await session.flush()
+            await self._checkpoint_if_configured(session)
         if not professional:
             await self._transition(session, run, seq, "FAILED", force=True)
             return RunOutcome(run.id, run.status)
@@ -305,9 +370,17 @@ class Supervisor:
         # P1：Challenger 异常同样必须落 FAILED Artifact + RunEvent，不允许整个 Run
         # 以未捕获异常方式中断（否则 Trace 里看不到发生了什么）。反证缺失不阻断
         # 报告，但 Run 必须标记 DEGRADED——审查员需知道本次未经过反证检验。
+        tool_call_cursor = self._tool_call_cursor()
         try:
             challenge = await self._challenger.run(run.id, "challenger", trusted, professional)
+            self._raise_if_invocation_audit_failed(tool_call_cursor, run.id)
         except Exception as exc:
+            if isinstance(exc, (InvocationIdentityConflict, InvocationAuditPersistError)):
+                # A challenger tool result without its immutable invocation
+                # ledger is an audit-path failure, not a degradable absence of
+                # counter-evidence. The application boundary performs rollback
+                # and writes the safe terminal failure from a fresh session.
+                raise
             challenge = AgentArtifact(
                 run_id=run.id,
                 task_id="challenger",
@@ -371,6 +444,123 @@ class Supervisor:
         await self._transition(session, run, seq, "COMPLETED")
         run.completed_at = utc_now()
         return RunOutcome(run.id, run.status, all_artifacts, audit)
+
+    def _tool_call_cursor(self) -> int:
+        return len(self._tool_gateway.calls) if self._tool_gateway is not None else 0
+
+    def _tool_invocation_sink(
+        self,
+        current_writer: InvocationWriter,
+        *,
+        tenant_id: uuid.UUID,
+        case_id: uuid.UUID,
+        run_id: uuid.UUID,
+        user_id: uuid.UUID | None,
+    ):
+        async def record(envelope: InvocationEnvelope):
+            if self._invocation_session_factory is None:
+                return await current_writer.record(envelope)
+
+            async def persist_independently():
+                async with session_scope(
+                    self._invocation_session_factory,
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                ) as audit_session:
+                    writer = InvocationWriter(
+                        audit_session,
+                        tenant_id=tenant_id,
+                        case_id=case_id,
+                        run_id=run_id,
+                    )
+                    return await writer.record(envelope)
+
+            # Never hold invocation writes in the long workflow transaction:
+            # every terminal fact and its outbox intent commit together in a
+            # short transaction. Every terminal status uses a shielded task so
+            # cancellation arriving after the write starts cannot tear down the
+            # record/outbox commit window. A terminal CANCELLED fact is already
+            # on cancellation control flow, so its ordinary wait is bounded too.
+            try:
+                return await _persist_terminal_with_cancellation_drain(
+                    persist_independently(),
+                    timeout_seconds=self._invocation_cancel_persist_timeout_seconds,
+                    bound_normal_wait=envelope.status == InvocationStatus.CANCELLED,
+                )
+            except asyncio.CancelledError:
+                raise
+            except (InvocationIdentityConflict, InvocationAuditPersistError):
+                raise
+            except Exception:
+                raise InvocationAuditPersistError() from None
+
+        return record
+
+    def _model_invocation_sink(
+        self,
+        current_writer: InvocationWriter,
+        *,
+        tenant_id: uuid.UUID,
+        case_id: uuid.UUID,
+        run_id: uuid.UUID,
+        user_id: uuid.UUID | None,
+    ):
+        if self._invocation_session_factory is None:
+            return _fail_closed_model_trace_sink(current_writer)
+
+        async def record(trace, **kwargs):
+            async def persist_independently():
+                async with session_scope(
+                    self._invocation_session_factory,
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                ) as audit_session:
+                    writer = InvocationWriter(
+                        audit_session,
+                        tenant_id=tenant_id,
+                        case_id=case_id,
+                        run_id=run_id,
+                    )
+                    return await writer.record_model_trace(trace, **kwargs)
+
+            try:
+                return await _persist_terminal_with_cancellation_drain(
+                    persist_independently(),
+                    timeout_seconds=self._invocation_cancel_persist_timeout_seconds,
+                    bound_normal_wait=getattr(trace, "status", None) == "CANCELLED",
+                )
+            except asyncio.CancelledError:
+                raise
+            except (InvocationIdentityConflict, InvocationAuditPersistError):
+                raise
+            except Exception:
+                raise InvocationAuditPersistError() from None
+
+        return record
+
+    async def _checkpoint_if_configured(self, session: AsyncSession) -> None:
+        """Release workflow writes before the next agent opens short audit txns."""
+
+        if not getattr(self, "_commit_each_stage", False):
+            return
+        from creditlens.infrastructure.postgres.session import checkpoint_commit
+
+        await checkpoint_commit(session)
+
+    def _raise_if_invocation_audit_failed(self, cursor: int, run_id: uuid.UUID) -> None:
+        """Detect agents that caught a fail-closed Gateway exception internally."""
+
+        if self._tool_gateway is None:
+            return
+        task_prefix = f"{run_id}:"
+        for call in self._tool_gateway.calls[cursor:]:
+            if not call.task_id.startswith(task_prefix):
+                continue
+            codes = set(call.observability_error_codes)
+            if "INVOCATION_ID_CONFLICT" in codes:
+                raise InvocationIdentityConflict()
+            if "INVOCATION_AUDIT_PERSIST_FAILED" in codes:
+                raise InvocationAuditPersistError()
 
     async def resume_after_human_review(
         self,
@@ -560,6 +750,57 @@ class _EventWriter:
             )
         )
         self._next_seq += 1
+
+
+def _fail_closed_model_trace_sink(writer: InvocationWriter):
+    async def record(trace, **kwargs):
+        try:
+            return await writer.record_model_trace(trace, **kwargs)
+        except (InvocationIdentityConflict, InvocationAuditPersistError):
+            raise
+        except Exception:
+            raise InvocationAuditPersistError() from None
+
+    return record
+
+
+async def _persist_terminal_with_cancellation_drain(
+    persistence,
+    *,
+    timeout_seconds: float,
+    bound_normal_wait: bool = False,
+):
+    """Let an already-started terminal ledger transaction finish on cancellation.
+
+    The caller's cancellation is always re-raised unchanged. Persistence
+    failure or timeout during the bounded drain is observed by the callback but
+    cannot replace that control-flow exception. Outside cancellation, the
+    original persistence result/error remains visible to the fail-closed sink.
+    """
+
+    persistence_task = asyncio.create_task(persistence)
+    persistence_task.add_done_callback(_consume_background_task_result)
+    try:
+        if bound_normal_wait:
+            return await asyncio.wait_for(
+                asyncio.shield(persistence_task),
+                timeout=timeout_seconds,
+            )
+        return await asyncio.shield(persistence_task)
+    except asyncio.CancelledError:
+        with contextlib.suppress(BaseException):
+            await asyncio.wait_for(
+                asyncio.shield(persistence_task),
+                timeout=timeout_seconds,
+            )
+        raise
+
+
+def _consume_background_task_result(task: asyncio.Task) -> None:
+    """Observe a timed-out shielded audit task without leaking its exception."""
+
+    with contextlib.suppress(BaseException):
+        task.result()
 
 
 async def _transition_run(

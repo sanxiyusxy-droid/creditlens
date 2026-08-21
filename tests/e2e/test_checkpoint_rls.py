@@ -31,11 +31,13 @@ pytestmark = [
 
 SEEDED_TENANT = uuid.UUID("00000000-0000-0000-0000-000000000001")
 SEEDED_CASE = uuid.UUID("00000000-0000-0000-0000-000000000201")
+SECOND_SEEDED_CASE = uuid.UUID("00000000-0000-0000-0000-000000000202")
 SEEDED_MEMBER = uuid.UUID("00000000-0000-0000-0000-000000000301")
 TENANT_A = SEEDED_TENANT
 USER_A = SEEDED_MEMBER
 TENANT_B = uuid.UUID("00000000-0000-0000-0000-0000000000c1")
 USER_B = uuid.UUID("00000000-0000-0000-0000-0000000000c4")
+CASE_B = uuid.UUID("00000000-0000-0000-0000-0000000000c2")
 
 
 def _assert_policy_or_privilege_denied(error: Exception) -> None:
@@ -48,7 +50,14 @@ def _assert_policy_or_privilege_denied(error: Exception) -> None:
 
 async def test_business_role_cannot_mutate_append_only_audit_tables(pg_engine):
     """业务角色对审计/证据链表只有 SELECT+INSERT，没有 UPDATE/DELETE。"""
-    protected = ["run_events", "human_decisions", "report_versions", "evidence", "artifacts"]
+    protected = [
+        "run_events",
+        "human_decisions",
+        "report_versions",
+        "evidence",
+        "artifacts",
+        "invocation_records",
+    ]
     async with pg_engine.connect() as connection:
         current_user = await connection.scalar(text("SELECT current_user"))
         assert current_user == "creditlens_app"
@@ -70,6 +79,305 @@ async def test_business_role_cannot_mutate_append_only_audit_tables(pg_engine):
                 text("SELECT has_table_privilege(current_user, :table, 'DELETE')"),
                 {"table": qualified},
             )
+
+
+async def test_invocation_outbox_privileges_and_parent_binding(pg_engine):
+    """Invocation facts stay immutable; Outbox can mutate delivery state only."""
+    from datetime import timedelta
+
+    from creditlens.common.clock import utc_now
+    from creditlens.infrastructure.postgres.models import (
+        InvocationRecord,
+        ReviewRun,
+        TelemetryOutbox,
+    )
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    async with pg_engine.connect() as connection:
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.review_runs', 'SELECT')")
+        )
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.review_runs', 'INSERT')")
+        )
+        assert not await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.review_runs', 'UPDATE')")
+        )
+        assert not await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.review_runs', 'DELETE')")
+        )
+        for column in ("status", "state_version", "model_manifest", "completed_at"):
+            assert await connection.scalar(
+                text(
+                    "SELECT has_column_privilege(current_user, 'public.review_runs', "
+                    ":column, 'UPDATE')"
+                ),
+                {"column": column},
+            )
+        for column in (
+            "id",
+            "tenant_id",
+            "case_id",
+            "run_type",
+            "as_of_date",
+            "decision_cutoff_at",
+            "input_snapshot_id",
+            "plan_version",
+            "retrieval_config",
+            "request_idempotency_key",
+            "request_hash",
+            "started_at",
+            "created_by",
+        ):
+            assert not await connection.scalar(
+                text(
+                    "SELECT has_column_privilege(current_user, 'public.review_runs', "
+                    ":column, 'UPDATE')"
+                ),
+                {"column": column},
+            )
+
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.invocation_records', 'SELECT')")
+        )
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.invocation_records', 'INSERT')")
+        )
+        for privilege in ("UPDATE", "DELETE"):
+            assert not await connection.scalar(
+                text(
+                    "SELECT has_table_privilege(current_user, "
+                    "'public.invocation_records', :privilege)"
+                ),
+                {"privilege": privilege},
+            )
+
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.telemetry_outbox', 'SELECT')")
+        )
+        assert await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.telemetry_outbox', 'INSERT')")
+        )
+        assert not await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.telemetry_outbox', 'UPDATE')")
+        )
+        assert not await connection.scalar(
+            text("SELECT has_table_privilege(current_user, 'public.telemetry_outbox', 'DELETE')")
+        )
+        for column in (
+            "status",
+            "attempts",
+            "available_at",
+            "locked_at",
+            "locked_until",
+            "last_error_code",
+            "delivered_at",
+            "dead_at",
+        ):
+            assert await connection.scalar(
+                text(
+                    "SELECT has_column_privilege(current_user, 'public.telemetry_outbox', "
+                    ":column, 'UPDATE')"
+                ),
+                {"column": column},
+            )
+        for column in ("tenant_id", "case_id", "run_id", "invocation_id", "topic"):
+            assert not await connection.scalar(
+                text(
+                    "SELECT has_column_privilege(current_user, 'public.telemetry_outbox', "
+                    ":column, 'UPDATE')"
+                ),
+                {"column": column},
+            )
+
+    factory = create_session_factory(pg_engine)
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        run_a = ReviewRun(
+            tenant_id=TENANT_A,
+            case_id=SEEDED_CASE,
+            status="RECEIVED",
+            as_of_date=date(2026, 6, 30),
+            decision_cutoff_at=datetime(2026, 6, 30, 15, 59, 59, tzinfo=UTC),
+        )
+        session.add(run_a)
+        await session.flush()
+        invocation = InvocationRecord(
+            tenant_id=TENANT_A,
+            case_id=SEEDED_CASE,
+            run_id=run_a.id,
+            kind="MODEL",
+            name="rls_test",
+            status="SUCCESS",
+            ended_at=utc_now(),
+            payload_redacted={},
+            payload_sha256="a" * 64,
+        )
+        second_invocation = InvocationRecord(
+            tenant_id=TENANT_A,
+            case_id=SEEDED_CASE,
+            run_id=run_a.id,
+            kind="TOOL",
+            name="rls_binding_test",
+            status="FAILED",
+            ended_at=utc_now(),
+            payload_redacted={"error_code": "TEST_FAILURE"},
+            payload_sha256="b" * 64,
+        )
+        session.add_all([invocation, second_invocation])
+        await session.flush()
+        outbox = TelemetryOutbox(
+            tenant_id=TENANT_A,
+            case_id=SEEDED_CASE,
+            run_id=run_a.id,
+            invocation_id=invocation.invocation_id,
+        )
+        session.add(outbox)
+        await session.flush()
+        run_a_id = run_a.id
+        invocation_id = invocation.invocation_id
+        second_invocation_id = second_invocation.invocation_id
+        outbox_id = outbox.id
+
+    # Workflow state remains mutable, but the immutable case binding cannot be
+    # reassigned even to another case that this same user is authorized to see.
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        result = await session.execute(
+            text("UPDATE review_runs SET status = status WHERE id = :run_id"),
+            {"run_id": run_a_id},
+        )
+        assert result.rowcount == 1
+
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        with pytest.raises(Exception) as exc_info:
+            await session.execute(
+                text("UPDATE review_runs SET case_id = :case_id WHERE id = :run_id"),
+                {"case_id": SECOND_SEEDED_CASE, "run_id": run_a_id},
+            )
+        await session.rollback()
+    _assert_policy_or_privilege_denied(exc_info.value)
+
+    async with session_scope(factory, tenant_id=TENANT_B, user_id=USER_B) as session:
+        run_b = ReviewRun(
+            tenant_id=TENANT_B,
+            case_id=CASE_B,
+            status="RECEIVED",
+            as_of_date=date(2026, 3, 31),
+            decision_cutoff_at=datetime(2026, 3, 31, 23, 59, 59, tzinfo=UTC),
+        )
+        session.add(run_b)
+        await session.flush()
+        run_b_id = run_b.id
+        assert await session.get(InvocationRecord, invocation_id) is None
+        assert await session.get(TelemetryOutbox, outbox_id) is None
+
+    outsider_id = uuid.uuid4()
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=outsider_id) as session:
+        assert await session.get(InvocationRecord, invocation_id) is None
+        assert await session.get(TelemetryOutbox, outbox_id) is None
+        session.add(
+            InvocationRecord(
+                tenant_id=TENANT_A,
+                case_id=SEEDED_CASE,
+                run_id=run_a_id,
+                kind="MODEL",
+                name="outsider_write",
+                status="SUCCESS",
+                ended_at=utc_now(),
+                payload_redacted={},
+                payload_sha256="d" * 64,
+            )
+        )
+        with pytest.raises(Exception) as exc_info:
+            await session.flush()
+        await session.rollback()
+    _assert_policy_or_privilege_denied(exc_info.value)
+
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=outsider_id) as session:
+        session.add(
+            TelemetryOutbox(
+                tenant_id=TENANT_A,
+                case_id=SEEDED_CASE,
+                run_id=run_a_id,
+                invocation_id=second_invocation_id,
+            )
+        )
+        with pytest.raises(Exception) as exc_info:
+            await session.flush()
+        await session.rollback()
+    _assert_policy_or_privilege_denied(exc_info.value)
+
+    # Authorized worker lifecycle update succeeds with only the granted columns.
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        row = await session.get(TelemetryOutbox, outbox_id)
+        assert row is not None
+        now = utc_now()
+        row.status = "PROCESSING"
+        row.attempts = 1
+        row.locked_at = now
+        row.locked_until = now + timedelta(seconds=30)
+        await session.flush()
+
+    # Identity/content mutation is denied even when it assigns the current value.
+    mutation_attempts = (
+        (
+            text("UPDATE invocation_records SET status = status WHERE invocation_id = :target_id"),
+            {"target_id": invocation_id},
+        ),
+        (
+            text("UPDATE telemetry_outbox SET run_id = run_id WHERE id = :target_id"),
+            {"target_id": outbox_id},
+        ),
+        (
+            text("DELETE FROM telemetry_outbox WHERE id = :target_id"),
+            {"target_id": outbox_id},
+        ),
+    )
+    for statement, params in mutation_attempts:
+        async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+            with pytest.raises(Exception) as exc_info:
+                await session.execute(statement, params)
+            await session.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)
+
+    # Individually valid FK values still cannot forge a cross-tenant Run binding.
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        session.add(
+            InvocationRecord(
+                tenant_id=TENANT_A,
+                case_id=SEEDED_CASE,
+                run_id=run_b_id,
+                kind="MODEL",
+                name="forged_parent",
+                status="SUCCESS",
+                ended_at=utc_now(),
+                payload_redacted={},
+                payload_sha256="c" * 64,
+            )
+        )
+        with pytest.raises(Exception) as exc_info:
+            await session.flush()
+        await session.rollback()
+    _assert_policy_or_privilege_denied(exc_info.value)
+
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        session.add(
+            TelemetryOutbox(
+                tenant_id=TENANT_A,
+                case_id=SEEDED_CASE,
+                run_id=run_b_id,
+                invocation_id=second_invocation_id,
+            )
+        )
+        with pytest.raises(Exception) as exc_info:
+            await session.flush()
+        await session.rollback()
+    _assert_policy_or_privilege_denied(exc_info.value)
+
+    # Sanity: the correctly bound rows remain visible after rejected mutations.
+    async with session_scope(factory, tenant_id=TENANT_A, user_id=USER_A) as session:
+        assert await session.get(ReviewRun, run_a_id) is not None
+        assert await session.get(InvocationRecord, invocation_id) is not None
+        assert await session.get(TelemetryOutbox, outbox_id) is not None
 
 
 async def test_business_role_can_only_update_claim_review_status(pg_engine):

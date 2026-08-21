@@ -1,5 +1,6 @@
 """OpenAI-compatible chat tracing stays useful without retaining model data."""
 
+import asyncio
 import hashlib
 import json
 
@@ -280,6 +281,48 @@ async def test_http_failure_has_single_attempt_and_no_response_body_in_trace():
     assert trace.input_tokens is None
     assert provider_error not in trace.model_dump_json()
     assert provider_error not in str(captured.value)
+
+
+async def test_cancelled_structured_call_exposes_only_redacted_cancelled_trace():
+    request_started = asyncio.Event()
+    never_respond = asyncio.Event()
+    system = "private cancellation system prompt"
+    user = "private cancellation evidence"
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        request_started.set()
+        await never_respond.wait()
+        return _completion('{"statement":"must never be returned"}')
+
+    chat = await _mocked_chat(handler)
+    task = asyncio.create_task(
+        chat.generate_structured_traced(
+            system=system,
+            user=user,
+            output_schema=_Answer,
+            prompt_version="cancelled-prompt-v1",
+        )
+    )
+    try:
+        await asyncio.wait_for(request_started.wait(), timeout=2)
+        task.cancel("private caller cancellation detail")
+        with pytest.raises(asyncio.CancelledError) as captured:
+            await task
+    finally:
+        await chat.aclose()
+
+    trace = captured.value.trace
+    assert trace.status == "CANCELLED"
+    assert trace.error_type == "ModelCallCancelled"
+    assert trace.attempts == 1
+    assert trace.response_sha256 is None
+    assert trace.input_tokens is None
+    assert trace.output_tokens is None
+    assert len(trace.request_sha256) == 64
+    int(trace.request_sha256, 16)
+    persisted = trace.model_dump_json()
+    for secret in (system, user, "private caller cancellation detail"):
+        assert secret not in persisted
 
 
 async def test_legacy_generate_structured_returns_only_validated_output_and_aclose_works():

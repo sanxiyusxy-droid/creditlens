@@ -1,9 +1,11 @@
 """Supervisor 关键 Agent 失败门禁与 Artifact/Trace 连续性。"""
 
+import contextlib
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import select
 
 from creditlens.agents.contracts import AgentArtifact
@@ -19,7 +21,9 @@ from creditlens.infrastructure.postgres.models import (
     RunEvent,
     Tenant,
 )
+from creditlens.observability.writer import InvocationAuditPersistError
 from creditlens.retrieval.contracts import TrustedRequestContext
+from creditlens.tools.gateway import ToolGateway
 
 
 class _ArtifactAgent:
@@ -39,6 +43,26 @@ class _ArtifactAgent:
 class _RaisingAgent:
     async def run(self, run_id, task_id, trusted):
         raise RuntimeError("injected failure")
+
+
+class _AuditWriteFailingAgent:
+    async def run(self, *_args, **_kwargs):
+        raise InvocationAuditPersistError()
+
+
+class _AuditFailureSwallowingToolAgent:
+    def __init__(self, gateway: ToolGateway):
+        self._gateway = gateway
+
+    async def run(self, run_id, task_id, trusted):
+        with contextlib.suppress(Exception):
+            await self._gateway.invoke("analyst", "lookup", task_id=f"{run_id}:{task_id}")
+        return AgentArtifact(
+            run_id=run_id,
+            task_id=task_id,
+            producer="policy_analyst",
+            execution_status="DEGRADED",
+        )
 
 
 async def _reviewable_world(session):
@@ -169,3 +193,49 @@ async def test_prior_success_artifact_survives_later_core_exception(session):
         "policy_analyst",
         "financial_analyst",
     }
+
+
+async def test_challenger_invocation_audit_failure_is_not_degraded(session):
+    """反证工具缺失调用账本时必须中止，而不是生成降级报告。"""
+    trusted = await _reviewable_world(session)
+    supervisor = Supervisor(
+        policy_agent=_ArtifactAgent("policy_analyst"),
+        financial_agent=_ArtifactAgent("financial_analyst"),
+        challenger=_AuditWriteFailingAgent(),
+        auditor=object(),
+    )
+
+    with pytest.raises(InvocationAuditPersistError) as captured:
+        await supervisor.execute_full_review(session, trusted)
+
+    assert captured.value.error_code == "INVOCATION_AUDIT_PERSIST_FAILED"
+
+
+async def test_supervisor_recovers_fail_closed_signal_swallowed_inside_agent(
+    session,
+    monkeypatch,
+):
+    """Agent 的通用降级逻辑不能吞掉 Gateway 账本写失败。"""
+    from creditlens.agents import supervisor as supervisor_module
+
+    async def lookup():
+        return "ok"
+
+    async def unavailable_writer(*_args, **_kwargs):
+        raise RuntimeError("private database detail")
+
+    gateway = ToolGateway()
+    gateway.register("lookup", lookup)
+    gateway.grant("analyst", ["lookup"])
+    trusted = await _reviewable_world(session)
+    supervisor = Supervisor(
+        policy_agent=_AuditFailureSwallowingToolAgent(gateway),
+        financial_agent=_ArtifactAgent("financial_analyst"),
+        challenger=object(),
+        auditor=object(),
+        tool_gateway=gateway,
+    )
+    monkeypatch.setattr(supervisor_module.InvocationWriter, "record", unavailable_writer)
+
+    with pytest.raises(InvocationAuditPersistError):
+        await supervisor.execute_full_review(session, trusted)
