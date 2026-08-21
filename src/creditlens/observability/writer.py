@@ -1,9 +1,10 @@
 """Transactional persistence for redacted model and tool invocations.
 
-The writer deliberately owns no transaction boundary.  Callers add an
-``InvocationRecord`` and its ``TelemetryOutbox`` row to the same transaction as
-the run checkpoint they describe.  Durability therefore begins only after that
-outer transaction commits.
+The writer deliberately owns no transaction boundary. Callers persist an
+``InvocationRecord`` and its ``TelemetryOutbox`` row in one transaction; the
+production runtime supplies a dedicated short audit transaction so telemetry
+does not depend on a long-running workflow transaction. Durability begins only
+after the caller's transaction commits.
 """
 
 from __future__ import annotations
@@ -72,10 +73,10 @@ class InvocationWriter:
         self._task_id = task_id
 
     async def record(self, envelope: InvocationEnvelope) -> InvocationRecordResult:
-        """Persist ``envelope`` idempotently without committing the outer transaction.
+        """Persist ``envelope`` idempotently without committing the caller transaction.
 
         A nested transaction contains the unique-key race so a concurrent,
-        identical insert does not poison the caller's business transaction.
+        identical insert does not poison the caller's transaction.
         """
 
         resolved = self._with_context(envelope)
