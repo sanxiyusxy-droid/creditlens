@@ -11,7 +11,7 @@
 
 - **当前开发候选**：包版本已升至 `1.5.0`，本地发布门禁已通过：Ruff check/format 与
   `uv lock --check --offline` 全绿；非集成 **487 passed / 16 skipped / 20 deselected**；真实
-  PostgreSQL/Qdrant/RLS 栈 **20 passed / 22 deselected，0 skip/fail**。实现提交为 `3ed78db`；
+  PostgreSQL/Qdrant/RLS 栈 **20 passed / 22 deselected，0 skip/fail**。GitHub 实现提交为 `494be48`；
   feature PR、GitHub CI、`main` 合并与 `v1.5.0` tag 证据仍待实际取得，不预填 run ID。
   本版将已接线的 structured Model 与 ToolGateway 四类终态统一写入
   `InvocationEnvelope v2`、追加写 `invocation_records` 和同事务 `telemetry_outbox`；新增
