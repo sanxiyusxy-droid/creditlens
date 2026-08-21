@@ -5,6 +5,7 @@
 - 不记录/输出 API Key；请求脱敏由调用方负责。
 """
 
+import asyncio
 import hashlib
 import json
 import time
@@ -57,7 +58,7 @@ class ModelInvocationTrace(BaseModel):
     total_tokens: int | None = None
     latency_ms: float = Field(ge=0)
     attempts: int = Field(ge=1)
-    status: Literal["SUCCESS", "FAILED"]
+    status: Literal["SUCCESS", "FAILED", "CANCELLED"]
     error_type: str | None = None
     schema_error_fingerprint: str | None = Field(
         default=None,
@@ -262,7 +263,7 @@ def _build_trace(
     usage: _UsageAccumulator,
     started_at: float,
     attempts: int,
-    status: Literal["SUCCESS", "FAILED"],
+    status: Literal["SUCCESS", "FAILED", "CANCELLED"],
     error_type: str | None = None,
     schema_error_fingerprint: str | None = None,
     schema_error_counts: dict[SchemaErrorCode, int] | None = None,
@@ -406,6 +407,25 @@ class OpenAICompatChat:
                     if attempt_index == 0:
                         continue
                     break
+            except asyncio.CancelledError as error:
+                trace = _build_trace(
+                    model=self.model,
+                    prompt_version=prompt_version,
+                    prompt_sha256=prompt_hash,
+                    request_sha256=_attempt_sequence_hash(request_digests),
+                    response_sha256=response_hash,
+                    usage=usage,
+                    started_at=started_at,
+                    attempts=attempts,
+                    status="CANCELLED",
+                    error_type="ModelCallCancelled",
+                    schema_error_fingerprint=_schema_error_fingerprint(schema_error_summaries),
+                    schema_error_counts=dict(sorted(schema_error_counts.items())),
+                )
+                # Preserve asyncio cancellation as control flow while attaching
+                # only the bounded trace needed by the caller's durable ledger.
+                error.trace = trace
+                raise
             except Exception as exc:
                 trace = _build_trace(
                     model=self.model,

@@ -72,6 +72,22 @@ class Settings(BaseSettings):
     # LLM 未配置时按技术失败处理。
     qa_allow_extractive_fallback: bool = False
 
+    # --- v1.5 调用账本与可靠投递 ---
+    # 空密钥表示每个 Gateway 使用进程内随机密钥；生产环境应注入稳定密钥并轮换版本。
+    invocation_fingerprint_secret: str = ""
+    invocation_fingerprint_key_version: str = "runtime-ephemeral-v1"
+    invocation_cancel_persist_timeout_seconds: float = 2.0
+    telemetry_outbox_worker_enabled: bool = False
+    # API 内置实现只允许显式 noop（本地生命周期验证）；生产 exporter 应运行在
+    # 带 service role 或 tenant shard 身份的独立 worker 中。
+    telemetry_exporter_backend: str = "disabled"  # disabled | noop
+    telemetry_export_batch_size: int = 32
+    telemetry_export_poll_seconds: float = 2.0
+    telemetry_export_max_attempts: int = 5
+    telemetry_export_lease_seconds: int = 60
+    telemetry_export_base_backoff_seconds: int = 5
+    telemetry_export_max_backoff_seconds: int = 300
+
     @property
     def effective_embedding_version(self) -> str:
         """真实模型时以 provider+model 命名版本，避免与哈希兜底向量混用。"""

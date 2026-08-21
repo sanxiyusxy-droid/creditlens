@@ -42,8 +42,10 @@ from creditlens.infrastructure.postgres.models import (
     CreditCase,
     Entity,
     EvidenceRecord,
+    InvocationRecord,
     ReviewRun,
     RunEvent,
+    TelemetryOutbox,
     Tenant,
 )
 from creditlens.infrastructure.postgres.session import create_session_factory
@@ -111,7 +113,7 @@ class _FakeOrchestrator:
 class _CancellingOrchestrator(_FakeOrchestrator):
     async def retrieve(self, *_args, **_kwargs) -> OrchestratedResult:
         self.calls.append({"cancelled": True})
-        raise asyncio.CancelledError
+        raise asyncio.CancelledError("original retrieval cancellation")
 
 
 class _AcceptingAuditor:
@@ -218,6 +220,54 @@ class _FailingAgent:
             error_type="ReadTimeout",
         )
         raise LLMCallError("provider response secret must not persist", trace)
+
+
+class _CancellingGenerationAgent:
+    def __init__(self):
+        self.calls = 0
+        self.trace = ModelInvocationTrace(
+            provider="fake",
+            model="fake-grounded-model",
+            prompt_version="grounded_qa_v1",
+            prompt_sha256="a" * 64,
+            request_sha256="b" * 64,
+            response_sha256=None,
+            latency_ms=1.0,
+            attempts=1,
+            status="CANCELLED",
+            error_type="ModelCallCancelled",
+        )
+
+    async def generate(self, *_args, **_kwargs):
+        self.calls += 1
+        error = asyncio.CancelledError("private provider cancellation detail")
+        error.trace = self.trace
+        raise error
+
+
+def _gated_invocation_writer_type(
+    delegate_type,
+    started: asyncio.Event,
+    release: asyncio.Event,
+    finished: asyncio.Event,
+    *,
+    fail_after_release: bool = False,
+):
+    class _GatedInvocationWriter:
+        def __init__(self, *args, **kwargs):
+            self._delegate = delegate_type(*args, **kwargs)
+
+        async def record_model_trace(self, trace, **kwargs):
+            started.set()
+            try:
+                await release.wait()
+                if fail_after_release:
+                    raise RuntimeError("private writer failure")
+                return await self._delegate.record_model_trace(trace, **kwargs)
+            finally:
+                finished.set()
+
+    return _GatedInvocationWriter
 
 
 class _UnknownFailureAgent:
@@ -586,6 +636,18 @@ async def test_answered_run_persists_complete_audited_chain(qa_world, monkeypatc
                 .order_by(RunEvent.sequence_no)
             )
         ).all()
+        invocations = (
+            await session.scalars(
+                select(InvocationRecord)
+                .where(InvocationRecord.run_id == response.run_id)
+                .order_by(InvocationRecord.ended_at, InvocationRecord.invocation_id)
+            )
+        ).all()
+        deliveries = (
+            await session.scalars(
+                select(TelemetryOutbox).where(TelemetryOutbox.run_id == response.run_id)
+            )
+        ).all()
 
     assert run.status == "COMPLETED"
     assert run.completed_at is not None
@@ -623,13 +685,18 @@ async def test_answered_run_persists_complete_audited_chain(qa_world, monkeypatc
         "STATE_CHANGED",
         "RETRIEVAL_COMPLETED",
         "STATE_CHANGED",
-        "MODEL_INVOCATION_COMPLETED",
         "STATE_CHANGED",
         "ANSWER_AUDIT_COMPLETED",
         "ANSWER_PERSISTED",
         "STATE_CHANGED",
     ]
     assert [event.sequence_no for event in events] == list(range(1, len(events) + 1))
+    assert len(invocations) == len(deliveries) == 1
+    assert invocations[0].kind == "MODEL"
+    assert invocations[0].status == "SUCCESS"
+    assert invocations[0].payload_redacted["contract_version"] == "invocation_v2"
+    assert deliveries[0].status == "PENDING"
+    assert deliveries[0].invocation_id == invocations[0].invocation_id
 
     # The existing GET projection must expose the persisted QA artifact.
     from apps.api import main as api_main
@@ -693,16 +760,20 @@ async def test_agent_failure_commits_failed_run_and_safe_trace(qa_world):
         evidence_count = await session.scalar(
             select(func.count()).select_from(EvidenceRecord).where(EvidenceRecord.run_id == run.id)
         )
+        invocation = await session.scalar(
+            select(InvocationRecord).where(InvocationRecord.run_id == run.id)
+        )
+        delivery = await session.scalar(
+            select(TelemetryOutbox).where(TelemetryOutbox.run_id == run.id)
+        )
 
     assert captured.value.error_type == "LLMCallError"
     assert run.status == "FAILED"
     assert run.completed_at is not None
-    assert run.model_manifest["model_invocation_ids"] == [
-        events[-2].payload_redacted["invocation_id"]
-    ]
+    assert run.model_manifest["model_invocation_ids"] == [str(invocation.invocation_id)]
     assert artifact_count == claim_count == evidence_count == 0
     event_types = [event.event_type for event in events]
-    assert "MODEL_INVOCATION_FAILED" in event_types
+    assert not any(event.startswith("MODEL_INVOCATION_") for event in event_types)
     assert event_types[-1] == "QA_EXECUTION_FAILED"
     assert "ANSWER_PERSISTED" not in event_types
     persisted_trace = json.dumps(
@@ -711,11 +782,281 @@ async def test_agent_failure_commits_failed_run_and_safe_trace(qa_world):
     assert "provider response secret must not persist" not in persisted_trace
     assert "provider secret question" not in persisted_trace
     assert "ABSTAINED" not in persisted_trace
-    model_failure = next(event for event in events if event.event_type == "MODEL_INVOCATION_FAILED")
-    assert model_failure.payload_redacted["schema_error_fingerprint"] == "7" * 64
-    assert model_failure.payload_redacted["schema_error_counts"] == {"MISSING_FIELD": 2}
+    assert invocation.status == "FAILED"
+    assert invocation.payload_redacted["schema_diagnostics"]["error_fingerprint"] == "7" * 64
+    assert invocation.payload_redacted["schema_diagnostics"]["error_counts"] == {"MISSING_FIELD": 2}
+    assert delivery.status == "PENDING"
     failure_payload = events[-1].payload_redacted
     assert failure_payload == {"from": "GENERATING", "error_type": "LLMCallError"}
+
+
+async def test_generation_cancellation_persists_v2_ledger_and_trace(qa_world, monkeypatch):
+    agent = _CancellingGenerationAgent()
+    service = _service(qa_world, _packed(_section()), agent)
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "cancel model generation without leaking request content",
+        "top_k": 5,
+        "idempotency_key": "unit-cancelled-generation",
+    }
+
+    with pytest.raises(asyncio.CancelledError):
+        await service.ask(**request)
+
+    async with qa_world.factory() as session:
+        run = await session.scalar(
+            select(ReviewRun).where(ReviewRun.request_idempotency_key == request["idempotency_key"])
+        )
+        events = (
+            await session.scalars(
+                select(RunEvent).where(RunEvent.run_id == run.id).order_by(RunEvent.sequence_no)
+            )
+        ).all()
+        invocations = (
+            await session.scalars(select(InvocationRecord).where(InvocationRecord.run_id == run.id))
+        ).all()
+        deliveries = (
+            await session.scalars(select(TelemetryOutbox).where(TelemetryOutbox.run_id == run.id))
+        ).all()
+
+    assert agent.calls == 1
+    assert run.status == "FAILED"
+    assert run.completed_at is not None
+    assert run.model_manifest["invocation_contract_version"] == "invocation_v2"
+    assert events[-1].event_type == "QA_EXECUTION_FAILED"
+    assert events[-1].payload_redacted == {
+        "from": "GENERATING",
+        "error_type": "QA_CALL_CANCELLED",
+    }
+    assert len(invocations) == len(deliveries) == 1
+    assert invocations[0].kind == "MODEL"
+    assert invocations[0].status == "CANCELLED"
+    assert invocations[0].invocation_id == agent.trace.invocation_id
+    assert deliveries[0].invocation_id == invocations[0].invocation_id
+    assert deliveries[0].status == "PENDING"
+    persisted = json.dumps(invocations[0].payload_redacted, ensure_ascii=False, sort_keys=True)
+    assert request["question"] not in persisted
+    assert "private provider cancellation detail" not in persisted
+
+    # Exercise the real Trace projection over the same durable QA ledger.
+    from apps.api import main as api_main
+
+    monkeypatch.setattr(api_main, "session_factory", qa_world.factory)
+    trace = await api_main.get_run_trace(run.id)
+    assert trace["integrity"] == {"status": "VALID", "valid": True, "invalid_count": 0}
+    assert trace["delivery"]["status"] == "PENDING"
+    assert trace["delivery"]["complete"] is False
+    assert trace["invocations"][0]["status"] == "CANCELLED"
+    assert trace["invocations"][0]["integrity"]["valid"] is True
+
+
+async def test_success_trace_commit_drains_before_propagating_outer_cancellation(
+    qa_world,
+    monkeypatch,
+):
+    started = asyncio.Event()
+    release = asyncio.Event()
+    finished = asyncio.Event()
+    real_writer = qa_module.InvocationWriter
+    monkeypatch.setattr(
+        qa_module,
+        "InvocationWriter",
+        _gated_invocation_writer_type(real_writer, started, release, finished),
+    )
+    service = _service(qa_world, _packed(_section()), _AnsweredAgent())
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "cancel only after the successful model trace write starts",
+        "top_k": 5,
+        "idempotency_key": "unit-success-trace-cancel-window",
+    }
+    caller = asyncio.create_task(service.ask(**request))
+    await asyncio.wait_for(started.wait(), timeout=2)
+
+    caller.cancel("original success-window cancellation")
+    await asyncio.sleep(0)
+    assert not caller.done()
+    release.set()
+    with pytest.raises(asyncio.CancelledError) as captured:
+        await caller
+
+    assert captured.value.args == ("original success-window cancellation",)
+    assert finished.is_set()
+    async with qa_world.factory() as session:
+        run = await session.scalar(
+            select(ReviewRun).where(ReviewRun.request_idempotency_key == request["idempotency_key"])
+        )
+        invocation = await session.scalar(
+            select(InvocationRecord).where(InvocationRecord.run_id == run.id)
+        )
+        delivery = await session.scalar(
+            select(TelemetryOutbox).where(TelemetryOutbox.run_id == run.id)
+        )
+    assert run.status == "FAILED"
+    assert invocation.status == "SUCCESS"
+    assert delivery.invocation_id == invocation.invocation_id
+    assert delivery.status == "PENDING"
+
+
+async def test_failed_trace_commit_drains_before_propagating_outer_cancellation(
+    qa_world,
+    monkeypatch,
+):
+    started = asyncio.Event()
+    release = asyncio.Event()
+    finished = asyncio.Event()
+    real_writer = qa_module.InvocationWriter
+    monkeypatch.setattr(
+        qa_module,
+        "InvocationWriter",
+        _gated_invocation_writer_type(real_writer, started, release, finished),
+    )
+    failed_trace = ModelInvocationTrace(
+        provider="fake",
+        model="fake-grounded-model",
+        prompt_version="grounded_qa_v1",
+        prompt_sha256="1" * 64,
+        request_sha256="2" * 64,
+        response_sha256=None,
+        latency_ms=3,
+        attempts=1,
+        status="FAILED",
+        error_type="ReadTimeout",
+    )
+    service = _service(qa_world, _packed(_section()), _FailingAgent(failed_trace))
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "cancel only after the failed model trace write starts",
+        "top_k": 5,
+        "idempotency_key": "unit-failed-trace-cancel-window",
+    }
+    caller = asyncio.create_task(service.ask(**request))
+    await asyncio.wait_for(started.wait(), timeout=2)
+
+    caller.cancel("original failed-window cancellation")
+    await asyncio.sleep(0)
+    assert not caller.done()
+    release.set()
+    with pytest.raises(asyncio.CancelledError) as captured:
+        await caller
+
+    assert captured.value.args == ("original failed-window cancellation",)
+    assert finished.is_set()
+    async with qa_world.factory() as session:
+        run = await session.scalar(
+            select(ReviewRun).where(ReviewRun.request_idempotency_key == request["idempotency_key"])
+        )
+        invocation = await session.scalar(
+            select(InvocationRecord).where(InvocationRecord.run_id == run.id)
+        )
+        delivery = await session.scalar(
+            select(TelemetryOutbox).where(TelemetryOutbox.run_id == run.id)
+        )
+    assert run.status == "FAILED"
+    assert invocation.status == "FAILED"
+    assert delivery.invocation_id == invocation.invocation_id
+    assert delivery.status == "PENDING"
+
+
+async def test_trace_writer_failure_during_cancel_drain_does_not_replace_cancellation(
+    qa_world,
+    monkeypatch,
+):
+    started = asyncio.Event()
+    release = asyncio.Event()
+    finished = asyncio.Event()
+    real_writer = qa_module.InvocationWriter
+    monkeypatch.setattr(
+        qa_module,
+        "InvocationWriter",
+        _gated_invocation_writer_type(
+            real_writer,
+            started,
+            release,
+            finished,
+            fail_after_release=True,
+        ),
+    )
+    service = _service(qa_world, _packed(_section()), _AnsweredAgent())
+    request = {
+        "case_id": qa_world.case_id,
+        "question": "writer failure must not replace caller cancellation",
+        "top_k": 5,
+        "idempotency_key": "unit-trace-writer-failure-cancel",
+    }
+    caller = asyncio.create_task(service.ask(**request))
+    await asyncio.wait_for(started.wait(), timeout=2)
+
+    caller.cancel("original writer-failure cancellation")
+    await asyncio.sleep(0)
+    assert not caller.done()
+    release.set()
+    with pytest.raises(asyncio.CancelledError) as captured:
+        await caller
+
+    assert captured.value.args == ("original writer-failure cancellation",)
+    assert finished.is_set()
+    async with qa_world.factory() as session:
+        run = await session.scalar(
+            select(ReviewRun).where(ReviewRun.request_idempotency_key == request["idempotency_key"])
+        )
+        invocation_count = await session.scalar(
+            select(func.count())
+            .select_from(InvocationRecord)
+            .where(InvocationRecord.run_id == run.id)
+        )
+    assert run.status == "FAILED"
+    assert invocation_count == 0
+
+
+async def test_trace_writer_timeout_during_cancel_drain_is_bounded_and_preserves_cancellation(
+    qa_world,
+    monkeypatch,
+):
+    started = asyncio.Event()
+    release = asyncio.Event()
+    finished = asyncio.Event()
+    real_writer = qa_module.InvocationWriter
+    monkeypatch.setattr(
+        qa_module,
+        "InvocationWriter",
+        _gated_invocation_writer_type(real_writer, started, release, finished),
+    )
+    service = _service(qa_world, _packed(_section()), _AnsweredAgent())
+    service.settings.invocation_cancel_persist_timeout_seconds = 0.05
+    idempotency_key = "unit-trace-writer-timeout-cancel"
+    caller = asyncio.create_task(
+        service.ask(
+            case_id=qa_world.case_id,
+            question="trace writer timeout must preserve cancellation",
+            top_k=5,
+            idempotency_key=idempotency_key,
+        )
+    )
+    await asyncio.wait_for(started.wait(), timeout=2)
+
+    caller.cancel("original writer-timeout cancellation")
+    with pytest.raises(asyncio.CancelledError) as captured:
+        await asyncio.wait_for(caller, timeout=1)
+
+    assert captured.value.args == ("original writer-timeout cancellation",)
+    release.set()
+    await asyncio.wait_for(finished.wait(), timeout=2)
+    invocation_count = 0
+    for _ in range(20):
+        async with qa_world.factory() as session:
+            run = await session.scalar(
+                select(ReviewRun).where(ReviewRun.request_idempotency_key == idempotency_key)
+            )
+            invocation_count = await session.scalar(
+                select(func.count())
+                .select_from(InvocationRecord)
+                .where(InvocationRecord.run_id == run.id)
+            )
+        if invocation_count:
+            break
+        await asyncio.sleep(0.01)
+    assert invocation_count == 1
 
 
 async def test_retrieval_cancellation_terminalizes_run_and_replays_stable_failure(qa_world):
@@ -741,7 +1082,6 @@ async def test_retrieval_cancellation_terminalizes_run_and_replays_stable_failur
                 select(RunEvent).where(RunEvent.run_id == run.id).order_by(RunEvent.sequence_no)
             )
         ).all()
-
     assert run.status == "FAILED"
     assert run.completed_at is not None
     assert events[-1].event_type == "QA_EXECUTION_FAILED"
@@ -767,13 +1107,50 @@ async def test_failed_cancellation_cleanup_does_not_replace_cancelled_error(qa_w
 
     service._mark_failed = unavailable_failure_cleanup
 
-    with pytest.raises(asyncio.CancelledError):
+    with pytest.raises(asyncio.CancelledError) as captured:
         await service.ask(
             case_id=qa_world.case_id,
             question="cancellation cleanup failure must not replace cancellation",
             top_k=5,
             idempotency_key="unit-cancel-cleanup-failure",
         )
+    assert captured.value.args == ("original retrieval cancellation",)
+
+
+async def test_cancellation_cleanup_timeout_is_bounded_and_preserves_original_error(qa_world):
+    service = _service(qa_world, _packed(_section()), _AnsweredAgent())
+    service.orchestrator = _CancellingOrchestrator(_packed(_section()))
+    service.settings.invocation_cancel_persist_timeout_seconds = 0.05
+    cleanup_started = asyncio.Event()
+    cleanup_release = asyncio.Event()
+    cleanup_finished = asyncio.Event()
+
+    async def blocked_failure_cleanup(_run_id, _error_type):
+        cleanup_started.set()
+        try:
+            await cleanup_release.wait()
+        finally:
+            cleanup_finished.set()
+
+    service._mark_failed = blocked_failure_cleanup
+    caller = asyncio.create_task(
+        service.ask(
+            case_id=qa_world.case_id,
+            question="cleanup timeout must preserve original cancellation",
+            top_k=5,
+            idempotency_key="unit-cancel-cleanup-timeout",
+        )
+    )
+    await asyncio.wait_for(cleanup_started.wait(), timeout=2)
+    started_at = asyncio.get_running_loop().time()
+    with pytest.raises(asyncio.CancelledError) as captured:
+        await asyncio.wait_for(caller, timeout=1)
+    elapsed = asyncio.get_running_loop().time() - started_at
+
+    assert captured.value.args == ("original retrieval cancellation",)
+    assert elapsed < 0.5
+    cleanup_release.set()
+    await asyncio.wait_for(cleanup_finished.wait(), timeout=2)
 
 
 async def test_failed_replay_rejects_missing_request_hash_contract_version(qa_world):
@@ -1029,6 +1406,13 @@ async def test_audit_repair_receives_stable_codes_and_manifest_accumulates(qa_wo
                 .order_by(RunEvent.sequence_no)
             )
         ).all()
+        invocations = (
+            await session.scalars(
+                select(InvocationRecord)
+                .where(InvocationRecord.run_id == response.run_id)
+                .order_by(InvocationRecord.created_at, InvocationRecord.invocation_id)
+            )
+        ).all()
 
     assert response.answer_status == "ANSWERED"
     assert auditor.calls == 2
@@ -1049,13 +1433,9 @@ async def test_audit_repair_receives_stable_codes_and_manifest_accumulates(qa_wo
     serialized_feedback = json.dumps(agent.feedback[1], ensure_ascii=False)
     assert str(auditor.rejected_claim_id) not in serialized_feedback
     assert "70%" not in serialized_feedback
-    model_event_ids = [
-        event.payload_redacted["invocation_id"]
-        for event in events
-        if event.event_type == "MODEL_INVOCATION_COMPLETED"
-    ]
-    assert len(model_event_ids) == 2
-    assert run.model_manifest["model_invocation_ids"] == model_event_ids
+    invocation_ids = [str(record.invocation_id) for record in invocations]
+    assert len(invocation_ids) == 2
+    assert run.model_manifest["model_invocation_ids"] == invocation_ids
     assert run.model_manifest["generation_repairs"] == 0
     assert run.model_manifest["audit_repairs"] == 1
     rejected = next(event for event in events if event.event_type == "ANSWER_AUDIT_REJECTED")
@@ -1247,6 +1627,13 @@ async def test_invalid_constructed_model_output_repairs_and_persists_safe_trace(
                 .order_by(RunEvent.sequence_no)
             )
         ).all()
+        invocations = (
+            await session.scalars(
+                select(InvocationRecord)
+                .where(InvocationRecord.run_id == response.run_id)
+                .order_by(InvocationRecord.created_at, InvocationRecord.invocation_id)
+            )
+        ).all()
 
     assert response.answer_status == "ANSWERED"
     assert replay.idempotent_replay is True
@@ -1258,12 +1645,8 @@ async def test_invalid_constructed_model_output_repairs_and_persists_safe_trace(
         str(invalid_trace.invocation_id),
         str(repaired_trace.invocation_id),
     ]
-    model_event_ids = [
-        event.payload_redacted["invocation_id"]
-        for event in events
-        if event.event_type == "MODEL_INVOCATION_COMPLETED"
-    ]
-    assert model_event_ids == run.model_manifest["model_invocation_ids"]
+    invocation_ids = [str(record.invocation_id) for record in invocations]
+    assert invocation_ids == run.model_manifest["model_invocation_ids"]
     rejection = next(event for event in events if event.event_type == "ANSWER_GENERATION_REJECTED")
     assert rejection.payload_redacted == {
         "repair_attempt": 1,

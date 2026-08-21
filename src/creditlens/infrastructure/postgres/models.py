@@ -18,6 +18,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -563,6 +564,114 @@ class RunEvent(Base):
     event_type: Mapped[str] = mapped_column(String(64))
     payload_redacted: Mapped[dict] = mapped_column(JSON, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
+
+
+class InvocationRecord(Base):
+    """Append-only, redacted terminal fact for one model/tool invocation.
+
+    Raw prompts, responses, tool arguments, tool results and exception text do
+    not belong in this table.  ``payload_redacted`` is the bounded public
+    envelope and ``payload_sha256`` makes idempotent replay tamper-evident.
+    """
+
+    __tablename__ = "invocation_records"
+    __table_args__ = (
+        CheckConstraint("kind IN ('MODEL', 'TOOL')", name="ck_invocation_records_kind"),
+        CheckConstraint(
+            "status IN ('SUCCESS', 'FAILED', 'DENIED', 'CANCELLED')",
+            name="ck_invocation_records_status",
+        ),
+        CheckConstraint(
+            "length(payload_sha256) = 64",
+            name="ck_invocation_records_payload_sha256",
+        ),
+        Index(
+            "ix_invocation_records_run_ended",
+            "run_id",
+            "ended_at",
+            "invocation_id",
+        ),
+    )
+
+    invocation_id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_id)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("tenants.id"))
+    case_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("credit_cases.id"))
+    run_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("review_runs.id"))
+    contract_version: Mapped[str] = mapped_column(String(32), default="invocation_v2")
+    kind: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(128))
+    provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    actor_role: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(16))
+    ended_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    payload_redacted: Mapped[dict] = mapped_column(JSON, default=dict)
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
+
+
+class TelemetryOutbox(Base):
+    """Durable, least-privilege delivery state for invocation telemetry.
+
+    Delivery errors are represented only by bounded stable codes.  In
+    particular, this table has no free-text exception/error column.
+    """
+
+    __tablename__ = "telemetry_outbox"
+    __table_args__ = (
+        UniqueConstraint("invocation_id", name="uq_telemetry_outbox_invocation_id"),
+        CheckConstraint(
+            "topic = 'INVOCATION_TERMINATED'",
+            name="ck_telemetry_outbox_topic",
+        ),
+        CheckConstraint(
+            "status IN ('PENDING', 'PROCESSING', 'DELIVERED', 'DEAD')",
+            name="ck_telemetry_outbox_status",
+        ),
+        CheckConstraint("attempts >= 0", name="ck_telemetry_outbox_attempts"),
+        CheckConstraint(
+            "last_error_code IS NULL OR "
+            "(length(last_error_code) BETWEEN 1 AND 64 "
+            "AND last_error_code = upper(last_error_code) "
+            "AND last_error_code NOT LIKE '% %')",
+            name="ck_telemetry_outbox_error_code",
+        ),
+        CheckConstraint(
+            "(status = 'PENDING' AND locked_at IS NULL AND locked_until IS NULL "
+            "AND delivered_at IS NULL AND dead_at IS NULL) OR "
+            "(status = 'PROCESSING' AND attempts >= 1 AND locked_at IS NOT NULL "
+            "AND locked_until IS NOT NULL AND locked_until > locked_at "
+            "AND delivered_at IS NULL AND dead_at IS NULL) OR "
+            "(status = 'DELIVERED' AND attempts >= 1 AND locked_at IS NULL "
+            "AND locked_until IS NULL AND delivered_at IS NOT NULL AND dead_at IS NULL) OR "
+            "(status = 'DEAD' AND attempts >= 1 AND locked_at IS NULL "
+            "AND locked_until IS NULL AND delivered_at IS NULL AND dead_at IS NOT NULL)",
+            name="ck_telemetry_outbox_lifecycle",
+        ),
+        Index("ix_telemetry_outbox_status_available", "status", "available_at"),
+        Index("ix_telemetry_outbox_status_locked_until", "status", "locked_until"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_id)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("tenants.id"))
+    case_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("credit_cases.id"))
+    run_id: Mapped[uuid.UUID] = mapped_column(GUID, ForeignKey("review_runs.id"))
+    invocation_id: Mapped[uuid.UUID] = mapped_column(
+        GUID,
+        ForeignKey("invocation_records.invocation_id"),
+    )
+    topic: Mapped[str] = mapped_column(String(64), default="INVOCATION_TERMINATED")
+    status: Mapped[str] = mapped_column(String(16), default="PENDING")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    available_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
+    locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    last_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
+    delivered_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    dead_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
 class ReportVersion(Base):

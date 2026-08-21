@@ -11,17 +11,23 @@ import pytest
 
 from creditlens.infrastructure.llm.chat import ModelInvocationTrace
 from creditlens.observability.invocation import (
+    CANONICALIZATION_VERSION,
+    INVOCATION_CONTRACT_VERSION,
+    FingerprintScheme,
+    InvocationEnvelope,
     InvocationKind,
     InvocationStatus,
     InvocationTimeQuality,
     ModelPrice,
     PayloadCanonicalizationError,
     PricingCatalog,
+    SchemaDiagnostics,
     TokenUsage,
     adapt_model_invocation_trace,
     aggregate_invocations,
     best_effort_hmac_fingerprint,
     estimate_model_cost,
+    hash_invocation_envelope,
     hash_invocation_payload,
     invocation_event_type,
     invocation_run_event_payload,
@@ -81,6 +87,99 @@ def test_adapts_legacy_model_trace_and_estimates_cost_from_versioned_table():
     assert envelope.cost.pricing_version == "interview-demo-2026-08-12"
     assert invocation_event_type(envelope) == "MODEL_INVOCATION_SUCCESS"
     assert envelope.time_quality == InvocationTimeQuality.ESTIMATED
+    assert envelope.contract_version == INVOCATION_CONTRACT_VERSION
+
+
+def test_model_adapter_preserves_only_bounded_schema_diagnostics_and_context():
+    trace = ModelInvocationTrace(
+        provider="openai_compatible",
+        model="model-v1",
+        prompt_version="grounded-qa-v1",
+        prompt_sha256=_HASH_A,
+        request_sha256=_HASH_B,
+        response_sha256=_HASH_C,
+        latency_ms=5,
+        attempts=2,
+        status="FAILED",
+        error_type="ValidationError",
+        schema_error_fingerprint=_HASH_C,
+        schema_error_counts={"MISSING_FIELD": 2, "TYPE_MISMATCH": 1},
+    )
+    envelope = adapt_model_invocation_trace(
+        trace,
+        actor_role="grounded_qa",
+        task_id="answer_generation",
+    )
+    assert envelope.actor_role == "grounded_qa"
+    assert envelope.task_id == "answer_generation"
+    assert envelope.schema_diagnostics == SchemaDiagnostics(
+        error_fingerprint=_HASH_C,
+        error_counts={"MISSING_FIELD": 2, "TYPE_MISMATCH": 1},
+    )
+
+    unsafe_mapping = {
+        **trace.model_dump(mode="python"),
+        "schema_error_fingerprint": "not-a-digest",
+        "schema_error_counts": {
+            "MISSING_FIELD": 3,
+            "MODEL_CONTROLLED_SECRET": 1,
+            "TYPE_MISMATCH": True,
+        },
+    }
+    sanitized = adapt_model_invocation_trace(unsafe_mapping)
+    assert sanitized.schema_diagnostics == SchemaDiagnostics(error_counts={"MISSING_FIELD": 3})
+
+
+def test_schema_diagnostics_and_fingerprint_key_version_are_strictly_bounded():
+    with pytest.raises(ValueError, match="unsupported schema error category"):
+        SchemaDiagnostics(error_counts={"MODEL_OUTPUT_KEY": 1})
+    with pytest.raises(ValueError, match="between 1 and 16"):
+        SchemaDiagnostics(error_counts={"MISSING_FIELD": 17})
+
+    envelope = InvocationEnvelope(
+        kind=InvocationKind.TOOL,
+        name="lookup",
+        started_at=datetime(2026, 8, 21, tzinfo=UTC),
+        ended_at=datetime(2026, 8, 21, tzinfo=UTC),
+        latency_ms=0,
+        status=InvocationStatus.SUCCESS,
+        request_sha256=_HASH_A,
+        fingerprint_scheme=FingerprintScheme.HMAC_SHA256_V1,
+        canonicalization_version=CANONICALIZATION_VERSION,
+        fingerprint_key_version="tool-hmac-2026-08",
+    )
+    assert envelope.fingerprint_key_version == "tool-hmac-2026-08"
+    with pytest.raises(ValueError, match="bounded stable identifier"):
+        InvocationEnvelope.model_validate(
+            {**envelope.model_dump(mode="python"), "fingerprint_key_version": "unsafe key"}
+        )
+    with pytest.raises(ValueError, match="require a fingerprint key version"):
+        InvocationEnvelope.model_validate(
+            {**envelope.model_dump(mode="python"), "fingerprint_key_version": None}
+        )
+
+
+def test_redacted_envelope_hash_is_deterministic_and_covers_contract_fields():
+    envelope = InvocationEnvelope(
+        invocation_id=uuid.UUID("00000000-0000-0000-0000-000000000911"),
+        kind=InvocationKind.MODEL,
+        name="structured_generation",
+        provider="openai_compatible",
+        model="model-v1",
+        actor_role="grounded_qa",
+        task_id="answer_generation",
+        started_at=datetime(2026, 8, 21, tzinfo=UTC),
+        ended_at=datetime(2026, 8, 21, 0, 0, 1, tzinfo=UTC),
+        latency_ms=1000,
+        status=InvocationStatus.SUCCESS,
+        request_sha256=_HASH_A,
+        response_sha256=_HASH_B,
+    )
+    assert hash_invocation_envelope(envelope) == hash_invocation_envelope(envelope)
+    changed = InvocationEnvelope.model_validate(
+        {**envelope.model_dump(mode="python"), "task_id": "repair_generation"}
+    )
+    assert hash_invocation_envelope(envelope) != hash_invocation_envelope(changed)
 
 
 def test_unknown_price_or_incomplete_usage_never_guesses_cost():

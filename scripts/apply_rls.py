@@ -91,10 +91,25 @@ def main() -> None:
         cur.execute(
             "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app"
         )
-        # 审计/证据链表对业务角色只允许查询与追加；Claim/Run 仍需更新状态。
+        # 审计/证据链表对业务角色只允许查询与追加。
         cur.execute(
             "REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, "
-            "evidence, artifacts FROM creditlens_app"
+            "evidence, artifacts, invocation_records FROM creditlens_app"
+        )
+        # Outbox rows are immutable in identity/content.  The in-process worker
+        # may advance only delivery lifecycle columns; it cannot rebind an
+        # invocation to another tenant/case/run or delete audit history.
+        cur.execute("REVOKE UPDATE, DELETE ON telemetry_outbox FROM creditlens_app")
+        cur.execute(
+            "GRANT UPDATE (status, attempts, available_at, locked_at, locked_until, "
+            "last_error_code, delivered_at, dead_at) ON telemetry_outbox TO creditlens_app"
+        )
+        # Run 的租户、案件、快照和审查时间边界是审计身份，创建后不可改绑。
+        # 业务工作流只推进状态/版本、补 Manifest，并写终结时间。
+        cur.execute("REVOKE UPDATE, DELETE ON review_runs FROM creditlens_app")
+        cur.execute(
+            "GRANT UPDATE (status, state_version, model_manifest, completed_at) "
+            "ON review_runs TO creditlens_app"
         )
         # Claim facts are append-only. Workflow state is the sole mutable
         # projection and therefore receives a column-level grant only.

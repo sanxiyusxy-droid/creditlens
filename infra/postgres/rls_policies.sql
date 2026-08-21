@@ -460,6 +460,75 @@ CREATE POLICY case_membership_isolation ON run_events
     )
   );
 
+-- invocation_records（v1.5）：统一 Model/Tool 调用终态事实，严格追加写。
+-- tenant/case/run 三元组必须与父 Run 完全一致，不能只依赖调用方提供的 tenant_id。
+ALTER TABLE invocation_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invocation_records FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS case_membership_isolation ON invocation_records;
+CREATE POLICY case_membership_isolation ON invocation_records
+  USING (
+    tenant_id = app_current_tenant()
+    AND app_has_case_access(invocation_records.case_id)
+    AND EXISTS (
+      SELECT 1 FROM review_runs AS r
+      WHERE r.id = invocation_records.run_id
+        AND r.tenant_id = invocation_records.tenant_id
+        AND r.case_id = invocation_records.case_id
+    )
+  )
+  WITH CHECK (
+    tenant_id = app_current_tenant()
+    AND app_has_case_access(invocation_records.case_id)
+    AND EXISTS (
+      SELECT 1 FROM review_runs AS r
+      WHERE r.id = invocation_records.run_id
+        AND r.tenant_id = invocation_records.tenant_id
+        AND r.case_id = invocation_records.case_id
+    )
+  );
+
+-- telemetry_outbox（v1.5）：调用事实的 durable delivery 状态。
+-- 除父 Run 绑定外，还要求 invocation_id 指向同一 tenant/case/run 的事实行，
+-- 防止跨案件 Outbox 伪造或把一个调用投递到另一个 Run。
+ALTER TABLE telemetry_outbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE telemetry_outbox FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS case_membership_isolation ON telemetry_outbox;
+CREATE POLICY case_membership_isolation ON telemetry_outbox
+  USING (
+    tenant_id = app_current_tenant()
+    AND app_has_case_access(telemetry_outbox.case_id)
+    AND EXISTS (
+      SELECT 1 FROM review_runs AS r
+      WHERE r.id = telemetry_outbox.run_id
+        AND r.tenant_id = telemetry_outbox.tenant_id
+        AND r.case_id = telemetry_outbox.case_id
+    )
+    AND EXISTS (
+      SELECT 1 FROM invocation_records AS i
+      WHERE i.invocation_id = telemetry_outbox.invocation_id
+        AND i.tenant_id = telemetry_outbox.tenant_id
+        AND i.case_id = telemetry_outbox.case_id
+        AND i.run_id = telemetry_outbox.run_id
+    )
+  )
+  WITH CHECK (
+    tenant_id = app_current_tenant()
+    AND app_has_case_access(telemetry_outbox.case_id)
+    AND EXISTS (
+      SELECT 1 FROM review_runs AS r
+      WHERE r.id = telemetry_outbox.run_id
+        AND r.tenant_id = telemetry_outbox.tenant_id
+        AND r.case_id = telemetry_outbox.case_id
+    )
+    AND EXISTS (
+      SELECT 1 FROM invocation_records AS i
+      WHERE i.invocation_id = telemetry_outbox.invocation_id
+        AND i.tenant_id = telemetry_outbox.tenant_id
+        AND i.case_id = telemetry_outbox.case_id
+        AND i.run_id = telemetry_outbox.run_id
+    )
+  );
+
 -- report_versions（P0-3，v0.9）
 ALTER TABLE report_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_versions FORCE ROW LEVEL SECURITY;

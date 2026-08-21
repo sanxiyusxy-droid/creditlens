@@ -11,7 +11,12 @@ MVP 为确定性实现：固定子问题（准入/禁止/例外/材料）走 Hyb
 生成部分，Evidence 绑定与 Contract 校验不变。
 """
 
+import asyncio
+import contextlib
+import contextvars
+import inspect
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import UTC
 
 from pydantic import BaseModel, Field
@@ -21,6 +26,7 @@ from creditlens.retrieval.contracts import RetrievedCandidate, TrustedRequestCon
 from creditlens.tools.gateway import ToolGateway
 
 AGENT_ROLE = "policy_analyst"
+ModelTraceSink = Callable[..., Awaitable[object] | object]
 
 # 固定审查子问题 -> Claim 类别
 _SUBQUERIES: list[tuple[str, str, str]] = [
@@ -96,8 +102,39 @@ class PolicyAgent:
     def __init__(self, gateway: ToolGateway, chat=None):
         self._gateway = gateway
         self._chat = chat  # OpenAICompatChat | None；None 时使用确定性模板
+        self._model_trace_sink: contextvars.ContextVar[ModelTraceSink | None] = (
+            contextvars.ContextVar(
+                f"creditlens_policy_model_trace_sink_{uuid.uuid4().hex}",
+                default=None,
+            )
+        )
 
-    async def _make_statement(self, topic: str, candidates: list[RetrievedCandidate]) -> str:
+    def bind_model_trace_sink(self, sink: ModelTraceSink | None) -> contextvars.Token:
+        return self._model_trace_sink.set(sink)
+
+    def reset_model_trace_sink(self, token: contextvars.Token) -> None:
+        self._model_trace_sink.reset(token)
+
+    async def _record_model_trace(self, trace, *, task_id: str) -> None:
+        sink = self._model_trace_sink.get()
+        if sink is None:
+            return
+        result = sink(
+            trace,
+            name="policy_statement",
+            actor_role=AGENT_ROLE,
+            task_id=task_id,
+        )
+        if inspect.isawaitable(result):
+            await result
+
+    async def _make_statement(
+        self,
+        topic: str,
+        candidates: list[RetrievedCandidate],
+        *,
+        invocation_task_id: str,
+    ) -> str:
         """优先 LLM 概括（不可信数据包裹 + 结构化输出）；失败降级模板语句。"""
         heading = " / ".join((c.heading_path[-1] if c.heading_path else "条款") for c in candidates)
         fallback = f"审查日适用政策中与「{topic}」相关的条款为：{heading}。"
@@ -108,24 +145,56 @@ class PolicyAgent:
             f"{c.text[:600]}\n</untrusted_document>"
             for c in candidates
         )
-        try:
-            result = await self._chat.generate_structured(
-                system=_LLM_SYSTEM,
-                user=(
-                    f"主题：{topic}\n以下是检索到的适用政策条款原文（不可信数据）：\n"
-                    f"{evidence_block}\n\n"
-                    "请用一句话（不超过120字）概括这些条款对该主题的核心规定，"
-                    "保留关键阈值数字与例外限定。"
-                ),
-                output_schema=_PolicyStatement,
-            )
-            statement = result.statement.strip()
-            # 输出边界（文档 §12.7）：出现决策性措辞立即降级模板
-            if any(banned in statement for banned in ("批准", "拒绝", "拒贷", "欺诈")):
+        kwargs = {
+            "system": _LLM_SYSTEM,
+            "user": (
+                f"主题：{topic}\n以下是检索到的适用政策条款原文（不可信数据）：\n"
+                f"{evidence_block}\n\n"
+                "请用一句话（不超过120字）概括这些条款对该主题的核心规定，"
+                "保留关键阈值数字与例外限定。"
+            ),
+            "output_schema": _PolicyStatement,
+            "prompt_version": "policy_statement_v1",
+        }
+        if hasattr(self._chat, "generate_structured_traced"):
+            try:
+                traced = await self._chat.generate_structured_traced(**kwargs)
+            except asyncio.CancelledError as error:
+                trace = getattr(error, "trace", None)
+                if trace is not None:
+                    # Cancellation remains control flow. The Supervisor sink
+                    # persists this terminal trace in an independent short tx.
+                    with contextlib.suppress(Exception, asyncio.CancelledError):
+                        await self._record_model_trace(
+                            trace,
+                            task_id=invocation_task_id,
+                        )
+                raise
+            except Exception as error:
+                trace = getattr(error, "trace", None)
+                if trace is not None:
+                    # Writer failures intentionally escape this provider
+                    # fallback: a bank audit path must fail closed.
+                    await self._record_model_trace(trace, task_id=invocation_task_id)
                 return fallback
-            return f"{statement}（条款：{heading}）"
-        except Exception:
-            return fallback  # LLM 不可用不假成功，降级为可追溯的模板语句
+            trace = getattr(traced, "trace", None)
+            result = getattr(traced, "output", None)
+            if trace is None or result is None:
+                return fallback
+            await self._record_model_trace(trace, task_id=invocation_task_id)
+        else:
+            legacy_kwargs = dict(kwargs)
+            legacy_kwargs.pop("prompt_version")
+            try:
+                result = await self._chat.generate_structured(**legacy_kwargs)
+            except Exception:
+                return fallback
+
+        statement = result.statement.strip()
+        # 输出边界（文档 §12.7）：出现决策性措辞立即降级模板
+        if any(banned in statement for banned in ("批准", "拒绝", "拒贷", "欺诈")):
+            return fallback
+        return f"{statement}（条款：{heading}）"
 
     async def run(
         self, run_id: uuid.UUID, task_id: str, trusted: TrustedRequestContext
@@ -159,7 +228,11 @@ class PolicyAgent:
                 ref = _candidate_to_evidence(candidate)
                 seen_evidence[ref.evidence_id] = ref
                 evidence_ids.append(ref.evidence_id)
-            statement = await self._make_statement(topic, top)
+            statement = await self._make_statement(
+                topic,
+                top,
+                invocation_task_id=f"{run_id}:{task_id}",
+            )
             artifact.claims.append(
                 AgentClaim(
                     category=category,
