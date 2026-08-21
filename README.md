@@ -9,10 +9,10 @@
 
 ## 当前版本口径
 
-- **当前 v1.4 候选**：分支 `feat/v1.4-eval-observability` 已将工程提交 `64a81de` 推送到
-  GitHub `https://github.com/sanxiyusxy-droid/creditlens.git`。当前 workflow 不因普通 feature
-  branch push 触发，因此尚未创建 PR、运行 v1.4 GitHub CI、合并 `main` 或创建 `v1.4.0`
-  标签；GitLab 未推送。该 branch push 不是正式发布。候选补齐失败幂等重放的稳定分类、
+- **当前 v1.4 候选**：分支 `feat/v1.4-eval-observability` 的 PR #2 已创建，Head 为
+  `a9131ebc2b5c1dd3ba497de03059eccd633a2f77`；GitHub Actions run `31951749187` 的
+  lint/unit/integration 三项均成功。尚未合并 `main` 或创建 `v1.4.0` 标签，GitLab 未推送；
+  PR 与 CI 全绿仍不是正式发布，当前已发布版本仍为 `v1.3.0`。候选补齐失败幂等重放的稳定分类、
   结构化输出的安全 Schema
   指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
   Invocation Envelope → `run_events` best-effort sink。本地 Ruff check/format、
