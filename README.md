@@ -14,8 +14,8 @@
   四变体 Multi-Agent 消融与 fail-closed 系统验收。2026-08-30 本机已完成 Docker bootstrap、
   TCP HTTP 黑盒验收、3 题 smoke + 41 题 full、6×4 离线组件消融和两个
   Supervisor/Auditor/数据库 fail-closed 案例；Ruff 全绿，非集成 671 passed / 16 skipped /
-  23 deselected，真实栈 23 passed / 23 deselected、0 skip/fail。证据仍是工作树 dirty 的
-  `DEVELOPMENT_SOURCE_BOUND`，尚未经过本版 GitHub 发布 CI；组件消融也不是
+  23 deselected，真实栈 23 passed / 23 deselected、0 skip/fail。最终证据绑定 clean commit
+  `4815633`，成熟度为 `RELEASE_CANDIDATE`；尚未经过本版 GitHub 发布 CI，组件消融也不是
   Supervisor/LLM/HTTP/DB/RAG 端到端或线上增益。状态矩阵与精确指标见
   [v1.6 演示闭环与评测实证](docs/v1.6_演示闭环与评测实证.md)。
 - **当前已发布版本**：`v1.5.0`。GitHub 实现提交
@@ -373,9 +373,9 @@ PR、合并后 main、release-closure main 与 tag 四道 CI 门禁；发布证�
   合约测试已建立；本机 TCP HTTP 实跑已通过：初始 `HUMAN_REVIEW` 经冻结白名单审批后
   `COMPLETED`，Trace `VALID/COMPLETE`（15 事件、20 Invocation）。
 - 3+41 答案重评使用 query-only online → raw checkpoint → gold mapping → scoring；每阶段独立
-  execution nonce，freshness gate 拒绝业务预测的幂等重放。本轮 full 的 Lexical 10.00%、
-  Key-point 18.18%、Numeric 14.71%、Citation P/R/F1 67.86/57.58/62.30%、Refusal 90.91%、
-  Technical Failure 9.76%；必须如实说明“安全拒答较稳、可回答题质量仍弱”。
+  execution nonce，freshness gate 拒绝业务预测的幂等重放。clean-commit full 的 Lexical
+  16.67%、Key-point 29.09%、Numeric 23.53%、Citation P/R/F1 65.79/75.76/70.42%、Refusal
+  90.91%、Technical Failure 4.88%；仍须如实说明这是 3 个合成案件上的确定性评分。
 - Multi-Agent 消融已实际执行 6 场景 × 4 变体的离线
   `DETERMINISTIC_COMPONENT_HARNESS`，每个 cell 有 Schema+SHA 校验的 sidecar。FULL 的
   unsupported 拦截 3/3、注入反证处理 2/2、HITL 4/6；去 Challenger 为 3/3、0/2、3/6，
