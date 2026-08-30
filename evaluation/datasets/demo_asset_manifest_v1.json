@@ -176,7 +176,7 @@
       "source_available_at": "2026-04-30T00:00:00+00:00",
       "source_filename": "annual_report_2025.pdf",
       "source_text_file": "annual_report_2025.txt",
-      "source_text_sha256": "32684ad77c5671620a0809594edb11fa742f4fc00bdb96cf5f7a10f740879250",
+      "source_text_sha256": "f9d7368386f7b1bf5db9855cad7408d3a9b8629183202096b6763c77408281bd",
       "summaries": [
         {
           "id": "e95f455d-63ba-53c2-9566-34e1f42c1cac",
@@ -363,7 +363,7 @@
       "source_available_at": "2026-04-30T00:00:00+00:00",
       "source_filename": "annual_report_tech_2025.pdf",
       "source_text_file": "annual_report_tech_2025.txt",
-      "source_text_sha256": "bc46b6b3d3104e6fefb7774588c196d3483f573531e31186de5e294526baf689",
+      "source_text_sha256": "e9f41fd8cb47e4e18d1ff47c4c94fc700a3c11ac3c2a638c5f6fe404cdeecfff",
       "summaries": [
         {
           "id": "cecbac9c-adaa-5e04-a46f-71dab7f99954",
@@ -842,7 +842,7 @@
       "source_available_at": "2024-01-01T00:00:00+00:00",
       "source_filename": "policy_manufacturing_wc_v2024.pdf",
       "source_text_file": "policy_manufacturing_wc_v2024.txt",
-      "source_text_sha256": "0c4fc322859638aaac0ff271d8e68e6e5658b3da772e822466260859e4cec868",
+      "source_text_sha256": "f8d4fe45256bfc0821dcdf6966e6a2afb43897faae74b18c5e3ae813c0d23702",
       "summaries": [
         {
           "id": "70078e97-770f-5f4f-8584-7f67d967be6e",
@@ -1400,7 +1400,7 @@
       "source_available_at": "2026-01-01T00:00:00+00:00",
       "source_filename": "policy_manufacturing_wc_v2026.pdf",
       "source_text_file": "policy_manufacturing_wc_v2026.txt",
-      "source_text_sha256": "671ecd6a7cefe1ead58794121597e9fa4749741422737c1f5c1c3ac254bd539d",
+      "source_text_sha256": "8432a31ef43958ce74c9eafac41415ab1c19e09b6e82bd54c06a668a389c52d7",
       "summaries": [
         {
           "id": "298c7296-ba96-5340-9f81-272d6059b331",
@@ -1952,7 +1952,7 @@
       "source_available_at": "2024-01-01T00:00:00+00:00",
       "source_filename": "policy_tech_wc_v2024.pdf",
       "source_text_file": "policy_tech_wc_v2024.txt",
-      "source_text_sha256": "f63d1088a5364570f458253b9a5b6142fe6a2d9589854ef60b6c2c7c74be2db2",
+      "source_text_sha256": "e1381da50f1266a2638bc288f889c85278f800d41251439a7ba35f71e626a6bd",
       "summaries": [
         {
           "id": "b5cf9fa2-9930-573b-8c06-494e33271303",
@@ -2504,7 +2504,7 @@
       "source_available_at": "2026-01-01T00:00:00+00:00",
       "source_filename": "policy_tech_wc_v2026.pdf",
       "source_text_file": "policy_tech_wc_v2026.txt",
-      "source_text_sha256": "4fbb6db19649e257ab2fe32ec910ddac7da74faa0c71a6bdc2eefa4eb8dbe089",
+      "source_text_sha256": "4819a6a14410e6dfbfa86249c2f0cdd4d27a4a05b7b3af31e8980bba1d746ec8",
       "summaries": [
         {
           "id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
@@ -3006,7 +3006,7 @@
       "source_available_at": "2024-06-01T00:00:00+00:00",
       "source_filename": "regulation_factoring.pdf",
       "source_text_file": "regulation_factoring.txt",
-      "source_text_sha256": "7d8ea1a28399373187bb5d8be009c0e313f1c3b56bbfd3fbb0f7cee27969292c",
+      "source_text_sha256": "f3425e0ec1ac8d51bd37409ec09d3f7e3930c020c1b819d49d87bf3646236f1d",
       "summaries": [
         {
           "id": "c7399199-83d6-5064-90a9-b90a7624f1da",
@@ -3496,7 +3496,7 @@
       "source_available_at": "2024-03-01T00:00:00+00:00",
       "source_filename": "regulation_wc_admin.pdf",
       "source_text_file": "regulation_wc_admin.txt",
-      "source_text_sha256": "ebef67834de3a7891f3b04d04444200f66f959bd69bf855263e7c5c29a3da291",
+      "source_text_sha256": "3a0d5a668ed5b9887036dea83d52ee1b189576b06ffe2d81fe4cb096c94f4c05",
       "summaries": [
         {
           "id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
@@ -3587,5 +3587,6 @@
   "identity_namespace": "1b5a9d87-8fe3-5e45-8f50-ec2f70b6f8c1",
   "raw_bucket": "creditlens-raw",
   "schema_version": "creditlens.demo-assets.v1",
+  "source_text_hash_algorithm": "sha256-utf8-lf-v1",
   "tenant_id": "00000000-0000-0000-0000-000000000001"
 }

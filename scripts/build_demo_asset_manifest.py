@@ -16,10 +16,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
-from creditlens.common.hashing import sha256_text  # noqa: E402
+from creditlens.common.hashing import sha256_canonical_utf8_text, sha256_text  # noqa: E402
 from creditlens.demo_manifest import (  # noqa: E402
     DEMO_ASSET_NAMESPACE,
     DEMO_ASSET_SCHEMA,
+    DEMO_SOURCE_TEXT_HASH_ALGORITHM,
     stable_demo_id,
 )
 from creditlens.infrastructure.parsers.pymupdf_parser import (  # noqa: E402
@@ -172,7 +173,7 @@ def _build() -> dict:
                 "logical_key": logical_key,
                 "version_label": version_label,
                 "source_text_file": spec["txt"],
-                "source_text_sha256": hashlib.sha256(text_path.read_bytes()).hexdigest(),
+                "source_text_sha256": sha256_canonical_utf8_text(text_path.read_bytes()),
                 "title": canonical_title,
                 "document_type": spec["document_type"],
                 "confidentiality": "INTERNAL",
@@ -202,6 +203,7 @@ def _build() -> dict:
         )
     return {
         "schema_version": DEMO_ASSET_SCHEMA,
+        "source_text_hash_algorithm": DEMO_SOURCE_TEXT_HASH_ALGORITHM,
         "identity_namespace": str(DEMO_ASSET_NAMESPACE),
         "tenant_id": str(TENANT_ID),
         "raw_bucket": "creditlens-raw",

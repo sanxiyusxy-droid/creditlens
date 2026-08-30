@@ -17,6 +17,7 @@ from creditlens.common.ids import deterministic_point_id
 DEMO_ASSET_NAMESPACE = uuid.UUID("1b5a9d87-8fe3-5e45-8f50-ec2f70b6f8c1")
 DEMO_ASSET_MANIFEST = Path("evaluation/datasets/demo_asset_manifest_v1.json")
 DEMO_ASSET_SCHEMA = "creditlens.demo-assets.v1"
+DEMO_SOURCE_TEXT_HASH_ALGORITHM = "sha256-utf8-lf-v1"
 
 
 def stable_demo_id(kind: str, identity: str) -> uuid.UUID:
@@ -35,6 +36,8 @@ def load_demo_asset_manifest(project_root: Path) -> dict[str, Any]:
         raise ValueError("DEMO_ASSET_MANIFEST_UNREADABLE") from exc
     if not isinstance(payload, dict) or payload.get("schema_version") != DEMO_ASSET_SCHEMA:
         raise ValueError("DEMO_ASSET_MANIFEST_SCHEMA_INVALID")
+    if payload.get("source_text_hash_algorithm") != DEMO_SOURCE_TEXT_HASH_ALGORITHM:
+        raise ValueError("DEMO_ASSET_MANIFEST_SOURCE_TEXT_HASH_ALGORITHM_INVALID")
     assets = payload.get("assets")
     if not isinstance(assets, list) or len(assets) != 8:
         raise ValueError("DEMO_ASSET_MANIFEST_CARDINALITY_INVALID")

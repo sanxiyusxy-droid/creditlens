@@ -10,6 +10,7 @@ import pytest
 from scripts.seed_synthetic_data import SYNTH_DIR, text_to_pdf
 from sqlalchemy import func, select
 
+from creditlens.common.hashing import sha256_canonical_utf8_text
 from creditlens.demo_bootstrap import (
     DEMO_TENANT_ID,
     DEMO_USER_ID,
@@ -20,6 +21,7 @@ from creditlens.demo_bootstrap import (
     validate_demo_settings,
 )
 from creditlens.demo_manifest import (
+    DEMO_SOURCE_TEXT_HASH_ALGORITHM,
     expected_demo_qdrant_points,
     load_demo_asset_manifest,
     stable_demo_id,
@@ -187,6 +189,7 @@ def test_configured_profile_completeness_and_transport_fail_closed(overrides, co
 
 def test_frozen_asset_manifest_pins_source_objects_and_deterministic_identities(tmp_path):
     manifest = load_demo_asset_manifest(PROJECT_ROOT)
+    assert manifest["source_text_hash_algorithm"] == DEMO_SOURCE_TEXT_HASH_ALGORITHM
     assert len(manifest["assets"]) == 8
     assert sum(len(asset["bindings"]) for asset in manifest["assets"]) == 10
     for asset in manifest["assets"]:
@@ -195,7 +198,7 @@ def test_frozen_asset_manifest_pins_source_objects_and_deterministic_identities(
         assert asset["document_version_id"] == str(stable_demo_id("version", identity))
         assert asset["parse_run_id"] == str(stable_demo_id("parse", identity))
         source = SYNTH_DIR / asset["source_text_file"]
-        assert hashlib.sha256(source.read_bytes()).hexdigest() == asset["source_text_sha256"]
+        assert sha256_canonical_utf8_text(source.read_bytes()) == asset["source_text_sha256"]
         pdf_bytes = text_to_pdf(source, tmp_path / asset["source_filename"])
         assert len(pdf_bytes) == asset["object_size"]
         assert hashlib.sha256(pdf_bytes).hexdigest() == asset["object_sha256"]
