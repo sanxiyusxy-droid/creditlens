@@ -12,9 +12,14 @@
 
 import hashlib
 import uuid
+from pathlib import Path
 
-import requests
 import streamlit as st
+from apps.demo.http_client import DemoHTTPError, get_binary, get_json, post_json
+from apps.demo.presenter import present_retrieval, present_run_trace
+from pydantic import ValidationError
+
+from creditlens.evaluation.failure_cases import FailureCaseReport
 
 st.set_page_config(page_title="CreditLens 授信预审演示", layout="wide")
 
@@ -27,9 +32,9 @@ with st.sidebar:
     api_base = st.text_input("API 地址", DEFAULT_API)
     case_id = st.text_input("案件 ID", DEFAULT_CASE)
     try:
-        ready = requests.get(f"{api_base}/health/ready", timeout=5).json()
+        ready = get_json(f"{api_base}/health/ready", timeout=5)
         st.success(f"API {ready.get('status', '?')}（RLS 业务角色连接）")
-    except Exception:
+    except DemoHTTPError:
         st.error("API 未就绪：请先运行 scripts/start_demo.ps1")
     st.divider()
     st.caption(
@@ -38,16 +43,117 @@ with st.sidebar:
     )
 
 
+def _show_http_error(error: DemoHTTPError) -> None:
+    if error.status_code is None:
+        st.error(f"API 请求失败（{error.code}）：服务不可达、超时或响应格式无效。")
+    else:
+        st.error(f"API 请求失败（HTTP {error.status_code}，{error.code}）。")
+
+
 def _post(path: str, payload: dict) -> dict:
-    resp = requests.post(f"{api_base}{path}", json=payload, timeout=120)
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        return post_json(f"{api_base}{path}", payload=payload)
+    except DemoHTTPError as exc:
+        _show_http_error(exc)
+        st.stop()
 
 
 def _get(path: str, **params) -> dict:
-    resp = requests.get(f"{api_base}{path}", params=params, timeout=120)
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        return get_json(f"{api_base}{path}", params=params)
+    except DemoHTTPError as exc:
+        _show_http_error(exc)
+        st.stop()
+
+
+def _render_deep_rag(data: dict, *, view_key: str) -> None:
+    """展示 API 已返回的深 RAG 事实；旧响应缺字段时只提示、不阻断。"""
+    view = present_retrieval(data)
+    with st.expander("深 RAG Trace：Rewrite → 多路召回 → RRF → 精排 → Packing"):
+        for warning in view["warnings"]:
+            st.info(warning)
+        if not view["available"]:
+            return
+
+        query = view["query"]
+        st.markdown("**QuerySpec / 术语归一**")
+        query_cols = st.columns(4)
+        query_cols[0].metric("意图", query["intent"])
+        query_cols[1].metric("Rewrite 置信度", query["confidence"])
+        query_cols[2].metric("不可变数字", len(query["immutable_numbers"]))
+        query_cols[3].metric("精确词", len(query["exact_terms"]))
+        st.caption(f"原问题：{query['original']} · 独立问题：{query['standalone']}")
+        st.caption(
+            f"产品：{query['product_code']} · as_of_date：{query['as_of_date']} · "
+            f"decision_cutoff_at：{query['decision_cutoff_at']}"
+        )
+        if query["normalized_terms"]:
+            st.write("术语归一/词法扩展：" + "、".join(query["normalized_terms"]))
+        else:
+            st.caption("本次问题未触发规则词典中的术语归一。")
+        if view["normalization_rows"]:
+            st.dataframe(view["normalization_rows"], use_container_width=True, hide_index=True)
+        if query["must_not_assume"]:
+            st.caption("禁止假设：" + "；".join(query["must_not_assume"]))
+
+        st.markdown("**Query Variants**")
+        if view["variant_rows"]:
+            st.dataframe(view["variant_rows"], use_container_width=True, hide_index=True)
+        else:
+            st.caption("无 Query Variant 明细。")
+
+        st.markdown("**Dense / Sparse / Summary / Exact 多路召回与拒绝**")
+        st.dataframe(view["route_rows"], use_container_width=True, hide_index=True)
+        if view["rejection_rows"]:
+            st.dataframe(view["rejection_rows"], use_container_width=True, hide_index=True)
+        else:
+            st.caption("Trace 未记录候选拒绝；未执行的路由与执行后 0 命中已分别标注。")
+
+        fusion = view["fusion"]
+        st.markdown("**RRF 融合与精排**")
+        fusion_cols = st.columns(4)
+        fusion_cols[0].metric("RRF k", fusion["rrf_k"])
+        fusion_cols[1].metric("输入排名表", len(fusion["input_lists"]))
+        fusion_cols[2].metric("融合候选", fusion["fused_count"])
+        fusion_cols[3].metric("最终候选", fusion["final_count"])
+        if fusion["input_lists"]:
+            st.caption("输入列表：" + "、".join(fusion["input_lists"]))
+        rerank = view["rerank"]
+        if rerank["degraded"]:
+            st.warning(
+                f"精排降级：{rerank['reason']}；系统保留 RRF 顺序继续，"
+                "但不会把降级结果伪装成已完成精排。"
+            )
+        elif rerank["applied"]:
+            st.success(f"精排已执行 · 版本 {rerank['version']}")
+        else:
+            st.info("本次未应用精排（这与精排调用失败的 degraded 状态不同）。")
+
+        packing = view["packing"]
+        st.markdown("**Context Packing**")
+        packing_cols = st.columns(4)
+        packing_cols[0].metric("选入段落", packing["selected_count"])
+        packing_cols[1].metric(
+            "Token 预算",
+            f"{packing['total_tokens_est']} / {packing['budget']}" if packing["budget"] else "—",
+        )
+        packing_cols[2].metric("相邻扩展", packing["expanded_count"])
+        packing_cols[3].metric("Packing 丢弃", len(packing["dropped"]))
+        if packing["rows"]:
+            st.dataframe(
+                packing["rows"],
+                use_container_width=True,
+                hide_index=True,
+                key=f"packing-{view_key}",
+            )
+        elif packing["available"]:
+            st.caption("Packing 已执行，但没有段落被选入。")
+        if packing["dropped"]:
+            st.caption(
+                "Packing 只返回丢弃 Section ID；来源可能是预算/文档配额，"
+                "也可能是相邻扩展重新回表校验未通过。"
+            )
+            st.caption("被丢弃 Section ID：" + "、".join(packing["dropped"]))
 
 
 def _show_evidence_locators(title: str, locators: list[dict], claim_id: str, polarity: str) -> None:
@@ -77,24 +183,32 @@ def _show_evidence_locators(title: str, locators: list[dict], claim_id: str, pol
             "打开原文页",
             key=f"preview-{claim_id}-{polarity}-{index}",
         ):
-            response = requests.get(
-                f"{api_base}/api/v1/evidence/preview",
-                params={"case_id": case_id, **{field: locator[field] for field in required}},
-                timeout=60,
-            )
-            if response.status_code == 200:
-                st.image(response.content, caption=f"{title} · 原始 PDF 页")
-            else:
-                st.error(f"{response.status_code}: {response.text}")
+            preview_params = {
+                "case_id": case_id,
+                "section_id": locator["section_id"],
+                "document_version_id": locator["document_version_id"],
+                "parse_run_id": locator["parse_run_id"],
+                "page_number": locator["page_number"],
+                "text_hash": locator["content_hash"],
+            }
+            try:
+                content = get_binary(
+                    f"{api_base}/api/v1/evidence/preview",
+                    params=preview_params,
+                )
+                st.image(content, caption=f"{title} · 原始 PDF 页")
+            except DemoHTTPError as exc:
+                _show_http_error(exc)
 
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
     [
         "① 可审计问答 / 政策时点",
         "② 完整预审 (Multi-Agent)",
         "③ 证据回原文页",
         "④ 人工复核 HITL",
         "⑤ Trace 审计",
+        "⑥ Fail-Closed 案例",
     ]
 )
 
@@ -180,13 +294,15 @@ with tab1:
                     with st.container(border=True):
                         st.markdown(f"**{' > '.join(c['heading_path'])}**（第 {c['page']} 页）")
                         st.write(c["text"][:300])
+                _render_deep_rag(data, view_key=as_of)
 
 # ---------------------------------------------------------------- ② 完整预审
 with tab2:
-    st.subheader("Supervisor 固定 DAG：Policy → Financial → Challenger → Auditor")
+    st.subheader("Supervisor 固定 DAG：Policy → Financial → Risk → Challenger → Auditor → Report")
     st.caption(
         "POST /runs 立即返回 202 + run_id，DAG 后台执行并按阶段提交；"
-        "Agent 只交换结构化 Artifact，Claim 必须绑定证据或确定性计算。"
+        "当前专业 Agent 在进程内顺序执行；Agent 只交换结构化 Artifact，"
+        "Claim 必须绑定证据或确定性计算。"
     )
     if st.button("🚀 启动完整预审", type="primary"):
         data = _post(f"/api/v1/cases/{case_id}/runs", {"run_type": "FULL_REVIEW"})
@@ -251,22 +367,21 @@ with tab3:
         else:
             st.info("请先在 ① 执行一次检索")
     if ref and st.button("打开原文页"):
-        resp = requests.get(
-            f"{api_base}/api/v1/evidence/preview",
-            params={
-                "case_id": case_id,
-                "section_id": ref["section_id"],
-                "document_version_id": ref["document_version_id"],
-                "parse_run_id": ref["parse_run_id"],
-                "page_number": ref["page"],
-                "text_hash": ref["text_hash"],
-            },
-            timeout=60,
-        )
-        if resp.status_code == 200:
-            st.image(resp.content, caption="原始 PDF 页渲染（非重排文本）")
-        else:
-            st.error(f"{resp.status_code}: {resp.text}")
+        try:
+            content = get_binary(
+                f"{api_base}/api/v1/evidence/preview",
+                params={
+                    "case_id": case_id,
+                    "section_id": ref["section_id"],
+                    "document_version_id": ref["document_version_id"],
+                    "parse_run_id": ref["parse_run_id"],
+                    "page_number": ref["page"],
+                    "text_hash": ref["text_hash"],
+                },
+            )
+            st.image(content, caption="原始 PDF 页渲染（非重排文本）")
+        except DemoHTTPError as exc:
+            _show_http_error(exc)
 
 # ---------------------------------------------------------------- ④ HITL
 with tab4:
@@ -345,24 +460,133 @@ with tab4:
 
 # ---------------------------------------------------------------- ⑤ Trace
 with tab5:
-    st.subheader("Run Trace：已持久化的状态审计事件")
+    st.subheader("Run Trace：Invocation Ledger + Telemetry Outbox + 状态事件")
     st.caption(
-        "当前 MVP 持久化 run_events 的阶段状态与脱敏载荷；完整 Tool/Model Trace "
-        "尚未作为独立审计表落库，事件记录也不等同于不可篡改存证。"
+        "MODEL/TOOL 的四类终态（SUCCESS / FAILED / DENIED / CANCELLED）已写入"
+        "持久调用账本，并与 Telemetry Outbox 同事务提交；Trace 会重新校验载荷、哈希、"
+        "投影及 Run/Outbox 绑定。该机制提供可校验完整性，不等同于外部不可篡改存证。"
     )
     run_id = st.session_state.get("run_id", "")
     if run_id and st.button("加载 Trace"):
-        trace = _get(f"/api/v1/runs/{run_id}/trace")
+        st.session_state["loaded_trace"] = _get(f"/api/v1/runs/{run_id}/trace")
+        st.session_state["loaded_trace_run_id"] = run_id
+    trace = (
+        st.session_state.get("loaded_trace")
+        if st.session_state.get("loaded_trace_run_id") == run_id
+        else None
+    )
+    if trace:
+        view = present_run_trace(trace)
+        for warning in view["warnings"]:
+            st.warning(warning)
+        summary = view["summary"]
+        state = view["state"]
+        state_message = (
+            f"账本派生状态：{state} · API Delivery 汇总：{summary['delivery_status']} · "
+            f"完整性：{summary['integrity_status']}"
+        )
+        if state == "COMPLETE":
+            st.success(state_message)
+        elif state in {"PENDING", "LEGACY_UNAVAILABLE"}:
+            st.info(state_message)
+        else:
+            st.warning(state_message)
+        summary_cols = st.columns(4)
+        summary_cols[0].metric("契约", summary["contract_version"])
+        summary_cols[1].metric("调用数", summary["total"])
+        summary_cols[2].metric("完整性失败", summary["invalid_count"])
+        summary_cols[3].metric(
+            "投递完整", "是" if summary["delivery_complete"] is True else "否/未知"
+        )
+
+        with st.expander("六态判定口径"):
+            st.markdown(
+                "- **EMPTY**：v2 Run 当前没有已提交调用记录；不证明从未发生调用。\n"
+                "- **MISSING**：有效调用记录缺少同事务 Outbox。\n"
+                "- **INVALID**：载荷、哈希、投影或绑定校验失败。\n"
+                "- **PENDING**：Outbox 待投递或租约处理中。\n"
+                "- **COMPLETE**：当前持久化调用均有效且 Outbox 已投递。\n"
+                "- **DEGRADED**：死信或其他非完整投递状态。"
+            )
+
+        st.markdown("**Telemetry Delivery**")
+        st.dataframe(view["count_rows"], use_container_width=True, hide_index=True)
+        st.markdown("**MODEL / TOOL Invocation 终态**")
+        if view["invocation_rows"]:
+            st.dataframe(view["invocation_rows"], use_container_width=True, hide_index=True)
+        else:
+            st.info("该 Run 没有可展示的 invocation_v2 记录。")
+
+        st.markdown("**Run 状态事件（与调用账本是两类不同事实）**")
         st.dataframe(
-            [
-                {
-                    "#": e["sequence_no"],
-                    "事件": e["event_type"],
-                    "内容": str(e["payload"]),
-                    "时间": e["occurred_at"],
-                }
-                for e in trace["events"]
-            ],
+            view["event_rows"],
             use_container_width=True,
             height=560,
+            hide_index=True,
         )
+
+# ---------------------------------------------------------------- ⑥ Fail-Closed
+with tab6:
+    st.subheader("两个合成故障注入：真实执行如何 fail closed")
+    st.caption(
+        "这里展示的是可复现的合成故障，不是生产事故。非法 Artifact 会经过真实 "
+        "Supervisor → EvidenceAuditor → 数据库持久化；验收要求 Run=HUMAN_REVIEW、"
+        "Claim 被打回、Artifact/RunEvent 可核验且 ReportVersion=0。"
+    )
+    failure_report_path = (
+        Path(__file__).resolve().parents[2]
+        / "evaluation"
+        / "reports"
+        / "local"
+        / "v16_fail_closed_system.json"
+    )
+    if not failure_report_path.is_file():
+        st.info(
+            "尚无本机系统实证。运行 scripts/run_fail_closed_cases.py "
+            "--execute-system 后刷新；一键启动会自动执行。"
+        )
+    else:
+        try:
+            failure_report = FailureCaseReport.model_validate_json(failure_report_path.read_bytes())
+        except (OSError, ValidationError):
+            st.error("Fail-closed 报告不可读或契约校验失败，拒绝展示为有效证据。")
+        else:
+            st.caption(
+                f"生成时间：{failure_report.generated_at.isoformat()} · "
+                f"Execution ID：{failure_report.execution_id}"
+            )
+            if not failure_report.system_execution_performed:
+                st.warning("当前文件只是 Contract Validator 预检，不是系统执行证明。")
+            elif not failure_report.all_passed:
+                st.error("至少一个系统门禁断言失败；不得将该报告作为完成证据。")
+            else:
+                st.success("真实状态机与数据库门禁全部通过；证明范围不包含 HTTP 端点或生产事故。")
+            for result in failure_report.results:
+                evidence = result.system_evidence
+                title = f"{result.case_id} · {result.injection_type.value}"
+                with st.container(border=True):
+                    st.markdown(f"**{title}**")
+                    st.write(result.safe_display.public_message)
+                    st.caption(
+                        f"动作 {result.safe_display.action} · 工作流 "
+                        f"{result.safe_display.workflow_status} · "
+                        f"违规码 {', '.join(result.observed_violation_codes) or '—'}"
+                    )
+                    if evidence is None:
+                        st.caption("无 Supervisor/数据库系统证据；仅可视为合同预检。")
+                        continue
+                    cols = st.columns(4)
+                    cols[0].metric("Run 状态", evidence.persisted_run_status)
+                    cols[1].metric("Claim 状态", "/".join(evidence.claim_review_statuses))
+                    cols[2].metric(
+                        "Artifact / Event",
+                        f"{evidence.artifact_count} / {evidence.run_event_count}",
+                    )
+                    cols[3].metric("报告版本数", evidence.report_count)
+                    st.caption("状态路径：" + " → ".join(evidence.state_transitions))
+                    st.caption(
+                        f"Artifact 哈希复核：{evidence.artifact_hashes_verified} · "
+                        f"列/Claim 投影复核：{evidence.artifact_claim_projection_verified} · "
+                        f"Audit 事件：{evidence.audit_completed} · HTTP 调用："
+                        f"{evidence.http_endpoint_called}"
+                    )

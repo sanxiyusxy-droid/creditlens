@@ -1,0 +1,1024 @@
+{
+  "$defs": {
+    "AnswerEvaluationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "total_questions": {
+          "title": "Total Questions",
+          "type": "integer"
+        },
+        "answerable_questions": {
+          "title": "Answerable Questions",
+          "type": "integer"
+        },
+        "unanswerable_questions": {
+          "title": "Unanswerable Questions",
+          "type": "integer"
+        },
+        "lexically_correct_answers": {
+          "title": "Lexically Correct Answers",
+          "type": "integer"
+        },
+        "lexical_correctness": {
+          "title": "Lexical Correctness",
+          "type": "number"
+        },
+        "lexically_correct_citation_exact_answers": {
+          "title": "Lexically Correct Citation Exact Answers",
+          "type": "integer"
+        },
+        "lexically_correct_citation_exact": {
+          "title": "Lexically Correct Citation Exact",
+          "type": "number"
+        },
+        "matched_key_point_weight": {
+          "title": "Matched Key Point Weight",
+          "type": "number"
+        },
+        "total_key_point_weight": {
+          "title": "Total Key Point Weight",
+          "type": "number"
+        },
+        "key_point_recall": {
+          "title": "Key Point Recall",
+          "type": "number"
+        },
+        "matched_numeric_facts": {
+          "title": "Matched Numeric Facts",
+          "type": "integer"
+        },
+        "total_numeric_facts": {
+          "title": "Total Numeric Facts",
+          "type": "integer"
+        },
+        "numeric_accuracy": {
+          "title": "Numeric Accuracy",
+          "type": "number"
+        },
+        "citation_tp": {
+          "title": "Citation Tp",
+          "type": "integer"
+        },
+        "citation_fp": {
+          "title": "Citation Fp",
+          "type": "integer"
+        },
+        "citation_fn": {
+          "title": "Citation Fn",
+          "type": "integer"
+        },
+        "citation_precision": {
+          "title": "Citation Precision",
+          "type": "number"
+        },
+        "citation_recall": {
+          "title": "Citation Recall",
+          "type": "number"
+        },
+        "citation_f1": {
+          "title": "Citation F1",
+          "type": "number"
+        },
+        "correct_refusals": {
+          "title": "Correct Refusals",
+          "type": "integer"
+        },
+        "refusal_accuracy": {
+          "title": "Refusal Accuracy",
+          "type": "number"
+        },
+        "false_refusals": {
+          "title": "False Refusals",
+          "type": "integer"
+        },
+        "false_refusal_rate": {
+          "title": "False Refusal Rate",
+          "type": "number"
+        },
+        "technical_failures": {
+          "title": "Technical Failures",
+          "type": "integer"
+        },
+        "technical_failure_rate": {
+          "title": "Technical Failure Rate",
+          "type": "number"
+        },
+        "technical_failures_answerable": {
+          "title": "Technical Failures Answerable",
+          "type": "integer"
+        },
+        "technical_failures_unanswerable": {
+          "title": "Technical Failures Unanswerable",
+          "type": "integer"
+        },
+        "needs_review_count": {
+          "title": "Needs Review Count",
+          "type": "integer"
+        },
+        "needs_review_rate": {
+          "title": "Needs Review Rate",
+          "type": "number"
+        },
+        "missing_predictions": {
+          "title": "Missing Predictions",
+          "type": "integer"
+        },
+        "forbidden_assertion_violations": {
+          "title": "Forbidden Assertion Violations",
+          "type": "integer"
+        },
+        "forbidden_violation_questions": {
+          "title": "Forbidden Violation Questions",
+          "type": "integer"
+        },
+        "deterministic_outcome_pass_count": {
+          "title": "Deterministic Outcome Pass Count",
+          "type": "integer"
+        },
+        "deterministic_outcome_pass_rate": {
+          "title": "Deterministic Outcome Pass Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "total_questions",
+        "answerable_questions",
+        "unanswerable_questions",
+        "lexically_correct_answers",
+        "lexical_correctness",
+        "lexically_correct_citation_exact_answers",
+        "lexically_correct_citation_exact",
+        "matched_key_point_weight",
+        "total_key_point_weight",
+        "key_point_recall",
+        "matched_numeric_facts",
+        "total_numeric_facts",
+        "numeric_accuracy",
+        "citation_tp",
+        "citation_fp",
+        "citation_fn",
+        "citation_precision",
+        "citation_recall",
+        "citation_f1",
+        "correct_refusals",
+        "refusal_accuracy",
+        "false_refusals",
+        "false_refusal_rate",
+        "technical_failures",
+        "technical_failure_rate",
+        "technical_failures_answerable",
+        "technical_failures_unanswerable",
+        "needs_review_count",
+        "needs_review_rate",
+        "missing_predictions",
+        "forbidden_assertion_violations",
+        "forbidden_violation_questions",
+        "deterministic_outcome_pass_count",
+        "deterministic_outcome_pass_rate"
+      ],
+      "title": "AnswerEvaluationSummary",
+      "type": "object"
+    },
+    "AnswerSuiteStageName": {
+      "enum": [
+        "smoke",
+        "full"
+      ],
+      "title": "AnswerSuiteStageName",
+      "type": "string"
+    },
+    "AnswerSuiteStageRecord": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "smoke"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expected_question_count": {
+                "const": 3
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "full"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expected_question_count": {
+                "const": 41
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "PLANNED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "prediction_count": {
+                "type": "null"
+              },
+              "idempotent_replay_count": {
+                "type": "null"
+              },
+              "generation_return_code": {
+                "type": "null"
+              },
+              "scoring_return_code": {
+                "type": "null"
+              },
+              "predictions_path": {
+                "type": "null"
+              },
+              "scoring_dataset_path": {
+                "type": "null"
+              },
+              "report_path": {
+                "type": "null"
+              },
+              "query_dataset_sha256": {
+                "type": "null"
+              },
+              "answer_dataset_sha256": {
+                "type": "null"
+              },
+              "source_gold_sha256": {
+                "type": "null"
+              },
+              "predictions_sha256": {
+                "type": "null"
+              },
+              "scoring_dataset_sha256": {
+                "type": "null"
+              },
+              "report_sha256": {
+                "type": "null"
+              },
+              "runtime_profile_sha256": {
+                "type": "null"
+              },
+              "git_commit": {
+                "type": "null"
+              },
+              "git_dirty": {
+                "type": "null"
+              },
+              "source_state_sha256": {
+                "type": "null"
+              },
+              "source_state_algorithm": {
+                "type": "null"
+              },
+              "source_state_scope": {
+                "type": "null"
+              },
+              "source_state_file_count": {
+                "type": "null"
+              },
+              "evidence_maturity": {
+                "type": "null"
+              },
+              "summary": {
+                "type": "null"
+              },
+              "failure_phase": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "RUNNING"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "failure_phase": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "FAILED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "failure_phase": {
+                "enum": [
+                  "GENERATION",
+                  "SCORING",
+                  "VALIDATION",
+                  "INTERRUPTED"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "failure_phase"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "FAILED"
+              },
+              "failure_phase": {
+                "const": "GENERATION"
+              }
+            },
+            "required": [
+              "status",
+              "failure_phase"
+            ]
+          },
+          "then": {
+            "properties": {
+              "generation_return_code": {
+                "not": {
+                  "const": 0
+                },
+                "type": "integer"
+              }
+            },
+            "required": [
+              "generation_return_code"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "FAILED"
+              },
+              "failure_phase": {
+                "const": "SCORING"
+              }
+            },
+            "required": [
+              "status",
+              "failure_phase"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scoring_return_code": {
+                "not": {
+                  "const": 0
+                },
+                "type": "integer"
+              }
+            },
+            "required": [
+              "scoring_return_code"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "COMPLETED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "predictions_path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "scoring_dataset_path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "report_path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "query_dataset_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "answer_dataset_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "source_gold_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "predictions_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "scoring_dataset_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "report_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "runtime_profile_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "source_state_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "prediction_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "idempotent_replay_count": {
+                "const": 0,
+                "type": "integer"
+              },
+              "generation_return_code": {
+                "const": 0,
+                "type": "integer"
+              },
+              "scoring_return_code": {
+                "const": 0,
+                "type": "integer"
+              },
+              "git_commit": {
+                "pattern": "^[0-9a-f]{7,64}$",
+                "type": "string"
+              },
+              "git_dirty": {
+                "type": "boolean"
+              },
+              "source_state_algorithm": {
+                "const": "sha256-canonical-file-manifest-v1",
+                "type": "string"
+              },
+              "source_state_scope": {
+                "const": "creditlens-runtime-evidence-v1",
+                "type": "string"
+              },
+              "source_state_file_count": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "evidence_maturity": {
+                "enum": [
+                  "DEVELOPMENT_SOURCE_BOUND",
+                  "RELEASE_CANDIDATE"
+                ],
+                "type": "string"
+              },
+              "summary": {
+                "properties": {
+                  "missing_predictions": {
+                    "const": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "missing_predictions"
+                ],
+                "type": "object"
+              },
+              "failure_phase": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "prediction_count",
+              "idempotent_replay_count",
+              "generation_return_code",
+              "scoring_return_code",
+              "predictions_path",
+              "scoring_dataset_path",
+              "report_path",
+              "query_dataset_sha256",
+              "answer_dataset_sha256",
+              "source_gold_sha256",
+              "predictions_sha256",
+              "scoring_dataset_sha256",
+              "report_sha256",
+              "runtime_profile_sha256",
+              "git_commit",
+              "git_dirty",
+              "source_state_sha256",
+              "source_state_algorithm",
+              "source_state_scope",
+              "source_state_file_count",
+              "evidence_maturity",
+              "summary"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "smoke"
+              },
+              "status": {
+                "const": "COMPLETED"
+              }
+            },
+            "required": [
+              "name",
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "prediction_count": {
+                "const": 3,
+                "type": "integer"
+              },
+              "summary": {
+                "properties": {
+                  "technical_failures": {
+                    "const": 0,
+                    "type": "integer"
+                  },
+                  "total_questions": {
+                    "const": 3,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "technical_failures",
+                  "total_questions"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "full"
+              },
+              "status": {
+                "const": "COMPLETED"
+              }
+            },
+            "required": [
+              "name",
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "prediction_count": {
+                "const": 41,
+                "type": "integer"
+              },
+              "summary": {
+                "properties": {
+                  "total_questions": {
+                    "const": 41,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "total_questions"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/AnswerSuiteStageName"
+        },
+        "status": {
+          "enum": [
+            "PLANNED",
+            "RUNNING",
+            "FAILED",
+            "COMPLETED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "expected_question_count": {
+          "exclusiveMinimum": 0,
+          "title": "Expected Question Count",
+          "type": "integer"
+        },
+        "execution_nonce": {
+          "title": "Execution Nonce",
+          "type": "string"
+        },
+        "prediction_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prediction Count"
+        },
+        "idempotent_replay_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotent Replay Count"
+        },
+        "generation_return_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generation Return Code"
+        },
+        "scoring_return_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scoring Return Code"
+        },
+        "predictions_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Predictions Path"
+        },
+        "scoring_dataset_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scoring Dataset Path"
+        },
+        "report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Path"
+        },
+        "query_dataset_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query Dataset Sha256"
+        },
+        "answer_dataset_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Dataset Sha256"
+        },
+        "source_gold_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Gold Sha256"
+        },
+        "predictions_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Predictions Sha256"
+        },
+        "scoring_dataset_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scoring Dataset Sha256"
+        },
+        "report_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Sha256"
+        },
+        "runtime_profile_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Profile Sha256"
+        },
+        "git_commit": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{7,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Commit"
+        },
+        "git_dirty": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Dirty"
+        },
+        "source_state_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source State Sha256"
+        },
+        "source_state_algorithm": {
+          "anyOf": [
+            {
+              "const": "sha256-canonical-file-manifest-v1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source State Algorithm"
+        },
+        "source_state_scope": {
+          "anyOf": [
+            {
+              "const": "creditlens-runtime-evidence-v1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source State Scope"
+        },
+        "source_state_file_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source State File Count"
+        },
+        "evidence_maturity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceMaturity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnswerEvaluationSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "failure_phase": {
+          "anyOf": [
+            {
+              "enum": [
+                "GENERATION",
+                "SCORING",
+                "VALIDATION",
+                "INTERRUPTED"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Phase"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "expected_question_count",
+        "execution_nonce"
+      ],
+      "title": "AnswerSuiteStageRecord",
+      "type": "object"
+    },
+    "EvidenceMaturity": {
+      "description": "How strongly an artifact may be presented.\n\n``RELEASE_CANDIDATE`` means only that the complete Git checkout was clean at\ncapture time and had a measured commit.  It does not claim that the commit\nwas tagged, reviewed, published, or released.",
+      "enum": [
+        "DEVELOPMENT_SOURCE_BOUND",
+        "RELEASE_CANDIDATE"
+      ],
+      "title": "EvidenceMaturity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "protocol_id": {
+      "const": "creditlens_answer_reevaluation_v1",
+      "title": "Protocol Id",
+      "type": "string"
+    },
+    "protocol_version": {
+      "const": "1.0.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "execution_requested": {
+      "title": "Execution Requested",
+      "type": "boolean"
+    },
+    "gold_boundary": {
+      "const": "ONLINE_QUERY_ONLY_THEN_OFFLINE_GOLD_MAPPING",
+      "title": "Gold Boundary",
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/AnswerSuiteStageRecord"
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "title": "Stages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocol_id",
+    "protocol_version",
+    "run_id",
+    "generated_at",
+    "execution_requested",
+    "gold_boundary",
+    "manifest_sha256",
+    "stages"
+  ],
+  "title": "AnswerSuiteRunRecord",
+  "type": "object"
+}

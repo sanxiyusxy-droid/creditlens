@@ -81,7 +81,10 @@ function Set-IntegrationEnvironment {
     $env:EMBEDDING_PROVIDER = "hash_fallback"
     $env:EMBEDDING_VERSION = "hash-embed-v1"
     $env:EMBEDDING_DIM = "256"
-    $env:RERANK_PROVIDER = "disabled"
+    # Keep the frozen deterministic HTTP acceptance profile identical to start_demo.ps1.
+    # The lexical reranker is local and network-free; using "disabled" here would make
+    # the integration proof cross-profile and correctly force the HITL test to skip.
+    $env:RERANK_PROVIDER = "lexical_fallback"
     $env:LLM_PROVIDER = "disabled"
 }
 
@@ -149,21 +152,7 @@ try {
 
     # ---------- 6) 授权业务角色 ----------
     Invoke-Step "向业务角色授权" {
-        Invoke-Psql -Sql @"
-GRANT USAGE ON SCHEMA public TO creditlens_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app;
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app;
-REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts, invocation_records FROM creditlens_app;
-REVOKE UPDATE, DELETE ON telemetry_outbox FROM creditlens_app;
-GRANT UPDATE (status, attempts, available_at, locked_at, locked_until, last_error_code, delivered_at, dead_at) ON telemetry_outbox TO creditlens_app;
-REVOKE UPDATE, DELETE ON review_runs FROM creditlens_app;
-GRANT UPDATE (status, state_version, model_manifest, completed_at) ON review_runs TO creditlens_app;
-REVOKE UPDATE, DELETE ON claims FROM creditlens_app;
-GRANT UPDATE (review_status) ON claims TO creditlens_app;
-REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, financial_metric_definitions, search_index_versions, alembic_version FROM creditlens_app;
-REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_app;
-REVOKE INSERT, DELETE ON credit_cases FROM creditlens_app;
-"@
+        Invoke-Psql -File "infra/postgres/runtime_role_grants.sql"
     }
 
     # ---------- 7) Seed（业务身份） ----------

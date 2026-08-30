@@ -1,0 +1,9 @@
+{
+  "schema_version": "creditlens.http-hitl-allowlist.v1",
+  "case_id": "00000000-0000-0000-0000-000000000201",
+  "profile": "deterministic-offline",
+  "blocking_claim_fingerprints": [
+    "644ee7ab3ef6c15af0bc6f401682e6ac12e9809c80da073731dc93b8a671d129",
+    "fe85a83f7ac55e6bb9a43bfed3c1214f194b4ac1c0cbdf3c3caf70c7358da6fa"
+  ]
+}

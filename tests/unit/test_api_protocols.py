@@ -1,6 +1,7 @@
 """API 协议边界：SSE 续传/停止语义与错误码映射。"""
 
 import asyncio
+import json
 import time
 import uuid
 from datetime import UTC, date, datetime
@@ -268,6 +269,210 @@ def test_telemetry_worker_config_is_rejected_before_background_start(
 
     with pytest.raises(RuntimeError, match=error_code):
         api_main._build_api_telemetry_worker()
+
+
+def test_local_directory_telemetry_worker_is_limited_to_ignored_report_root(monkeypatch):
+    from apps.api import main as api_main
+
+    from creditlens.observability.outbox_worker import LocalDirectoryTelemetryExporter
+
+    common = {
+        "telemetry_outbox_worker_enabled": True,
+        "telemetry_exporter_backend": "local_directory",
+        "app_env": "test",
+        "telemetry_export_poll_seconds": 0.01,
+        "telemetry_export_batch_size": 7,
+        "telemetry_export_max_attempts": 3,
+        "telemetry_export_lease_seconds": 10,
+        "telemetry_export_base_backoff_seconds": 1,
+        "telemetry_export_max_backoff_seconds": 10,
+    }
+    monkeypatch.setattr(
+        api_main,
+        "settings",
+        SimpleNamespace(
+            **common,
+            telemetry_local_directory="evaluation/reports/local/telemetry-test",
+        ),
+    )
+
+    worker = api_main._build_api_telemetry_worker()
+
+    assert isinstance(worker._exporter, LocalDirectoryTelemetryExporter)
+    assert (
+        worker._exporter.directory
+        == (api_main.PROJECT_ROOT / "evaluation/reports/local/telemetry-test").resolve()
+    )
+
+    monkeypatch.setattr(
+        api_main,
+        "settings",
+        SimpleNamespace(**common, telemetry_local_directory="../outside-reports"),
+    )
+    with pytest.raises(RuntimeError, match="TELEMETRY_LOCAL_DIRECTORY_FORBIDDEN"):
+        api_main._build_api_telemetry_worker()
+
+
+def _healthy_readiness_dependencies(monkeypatch, api_main):
+    calls: list[str] = []
+
+    class Session:
+        async def execute(self, _statement):
+            calls.append("postgresql")
+
+    class SessionContext:
+        async def __aenter__(self):
+            return Session()
+
+        async def __aexit__(self, _exc_type, _exc, _traceback):
+            return False
+
+    class Qdrant:
+        def get_collections(self):
+            calls.append("qdrant")
+            return SimpleNamespace(collections=[])
+
+    class MinioClient:
+        def bucket_exists(self, bucket):
+            calls.append(f"minio:{bucket}")
+            return True
+
+    monkeypatch.setattr(api_main, "session_scope", lambda *_args, **_kwargs: SessionContext())
+    monkeypatch.setattr(api_main, "qdrant", Qdrant())
+    monkeypatch.setattr(
+        api_main,
+        "object_store",
+        SimpleNamespace(_client=MinioClient()),
+    )
+    return calls
+
+
+def _readiness_settings(**overrides):
+    values = {
+        "object_store_backend": "minio",
+        "minio_raw_bucket": "raw",
+        "minio_derived_bucket": "derived",
+        "minio_rendered_bucket": "rendered",
+        "telemetry_outbox_worker_enabled": False,
+        "telemetry_exporter_backend": "disabled",
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+async def test_readiness_checks_postgresql_qdrant_and_every_minio_bucket(monkeypatch):
+    from apps.api import main as api_main
+
+    calls = _healthy_readiness_dependencies(monkeypatch, api_main)
+    monkeypatch.setattr(api_main, "settings", _readiness_settings())
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(runtime_started=True)))
+
+    response = await api_main.health_ready(request)
+
+    assert response == {"status": "ready"}
+    assert calls == [
+        "postgresql",
+        "qdrant",
+        "minio:raw",
+        "minio:derived",
+        "minio:rendered",
+    ]
+
+
+async def test_readiness_returns_stable_safe_code_for_dependency_error(monkeypatch):
+    from apps.api import main as api_main
+
+    _healthy_readiness_dependencies(monkeypatch, api_main)
+
+    class BrokenMinioClient:
+        def bucket_exists(self, _bucket):
+            raise RuntimeError("http://admin:secret@remote-minio.example")
+
+    monkeypatch.setattr(
+        api_main,
+        "object_store",
+        SimpleNamespace(_client=BrokenMinioClient()),
+    )
+    monkeypatch.setattr(api_main, "settings", _readiness_settings())
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(runtime_started=True)))
+
+    response = await api_main.health_ready(request)
+    payload = json.loads(response.body)
+
+    assert response.status_code == 503
+    assert payload == {
+        "status": "not_ready",
+        "error_code": "RUNTIME_NOT_READY",
+        "unavailable": ["minio"],
+    }
+    assert "secret" not in response.body.decode()
+    assert "remote-minio" not in response.body.decode()
+
+
+async def test_readiness_fails_closed_without_completed_lifespan(monkeypatch):
+    from apps.api import main as api_main
+
+    async def unexpected_probe():
+        raise AssertionError("dependencies must not be contacted before lifespan startup")
+
+    monkeypatch.setattr(api_main, "_postgresql_readiness_probe", unexpected_probe)
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(runtime_started=False)))
+
+    response = await api_main.health_ready(request)
+
+    assert response.status_code == 503
+    assert json.loads(response.body) == {
+        "status": "not_ready",
+        "error_code": "RUNTIME_NOT_READY",
+        "unavailable": ["runtime"],
+    }
+
+
+async def test_readiness_requires_live_worker_and_usable_local_exporter(monkeypatch, tmp_path):
+    from apps.api import main as api_main
+
+    from creditlens.observability.outbox_worker import (
+        LocalDirectoryTelemetryExporter,
+        NoopTelemetryExporter,
+    )
+
+    _healthy_readiness_dependencies(monkeypatch, api_main)
+    monkeypatch.setattr(api_main, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        api_main,
+        "settings",
+        _readiness_settings(
+            telemetry_outbox_worker_enabled=True,
+            telemetry_exporter_backend="local_directory",
+        ),
+    )
+    directory = tmp_path / "evaluation" / "reports" / "local" / "telemetry"
+    directory.mkdir(parents=True)
+
+    class Task:
+        def __init__(self, done):
+            self._done = done
+
+        def done(self):
+            return self._done
+
+    state = SimpleNamespace(
+        runtime_started=True,
+        telemetry_worker_enabled=True,
+        telemetry_task=Task(False),
+        telemetry_worker=SimpleNamespace(_exporter=LocalDirectoryTelemetryExporter(directory)),
+    )
+    request = SimpleNamespace(app=SimpleNamespace(state=state))
+    assert await api_main.health_ready(request) == {"status": "ready"}
+
+    state.telemetry_task = Task(True)
+    stopped = await api_main.health_ready(request)
+    assert json.loads(stopped.body)["unavailable"] == ["telemetry"]
+
+    state.telemetry_task = Task(False)
+    state.telemetry_worker = SimpleNamespace(_exporter=NoopTelemetryExporter())
+    unusable = await api_main.health_ready(request)
+    assert json.loads(unusable.body)["unavailable"] == ["telemetry"]
 
 
 async def test_immediate_telemetry_start_failure_still_closes_every_resource(monkeypatch):

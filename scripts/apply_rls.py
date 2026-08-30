@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 import psycopg2
+from psycopg2 import sql as psycopg_sql
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DSN = "postgresql://creditlens:creditlens@localhost:5432/creditlens"
@@ -65,6 +66,9 @@ def main() -> None:
         sys.exit(1)
 
     sql = (PROJECT_ROOT / "infra" / "postgres" / "rls_policies.sql").read_text(encoding="utf-8")
+    role_grants_sql = (PROJECT_ROOT / "infra" / "postgres" / "runtime_role_grants.sql").read_text(
+        encoding="utf-8"
+    )
     conn = psycopg2.connect(DSN)
     conn.autocommit = True
     with conn.cursor() as cur:
@@ -80,67 +84,35 @@ def main() -> None:
         if cur.fetchone() is None:
             cur.execute(
                 "CREATE ROLE creditlens_app LOGIN PASSWORD %s "
-                "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE",
+                "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE "
+                "NOREPLICATION NOINHERIT",
                 (password,),
             )
             print("[2/3] 业务角色 creditlens_app 已创建（NOBYPASSRLS）")
         else:
-            cur.execute("ALTER ROLE creditlens_app WITH PASSWORD %s", (password,))
-            print("[2/3] 业务角色已存在，密码已更新")
-        cur.execute("GRANT USAGE ON SCHEMA public TO creditlens_app")
+            cur.execute(
+                "ALTER ROLE creditlens_app WITH PASSWORD %s LOGIN "
+                "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE "
+                "NOREPLICATION NOINHERIT",
+                (password,),
+            )
+            print("[2/3] 业务角色已存在，密码与安全属性已收敛")
         cur.execute(
-            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app"
+            "SELECT parent.rolname FROM pg_auth_members AS membership "
+            "JOIN pg_roles AS child ON child.oid = membership.member "
+            "JOIN pg_roles AS parent ON parent.oid = membership.roleid "
+            "WHERE child.rolname = 'creditlens_app'"
         )
-        # 审计/证据链表对业务角色只允许查询与追加。
+        if cur.fetchall():
+            raise RuntimeError("creditlens_app 存在未授权 role membership；拒绝继续授权")
+        cur.execute("SELECT current_database()")
+        database_name = cur.fetchone()[0]
         cur.execute(
-            "REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, "
-            "evidence, artifacts, invocation_records FROM creditlens_app"
+            psycopg_sql.SQL("REVOKE CREATE ON DATABASE {} FROM creditlens_app").format(
+                psycopg_sql.Identifier(database_name)
+            )
         )
-        # Outbox rows are immutable in identity/content.  The in-process worker
-        # may advance only delivery lifecycle columns; it cannot rebind an
-        # invocation to another tenant/case/run or delete audit history.
-        cur.execute("REVOKE UPDATE, DELETE ON telemetry_outbox FROM creditlens_app")
-        cur.execute(
-            "GRANT UPDATE (status, attempts, available_at, locked_at, locked_until, "
-            "last_error_code, delivered_at, dead_at) ON telemetry_outbox TO creditlens_app"
-        )
-        # Run 的租户、案件、快照和审查时间边界是审计身份，创建后不可改绑。
-        # 业务工作流只推进状态/版本、补 Manifest，并写终结时间。
-        cur.execute("REVOKE UPDATE, DELETE ON review_runs FROM creditlens_app")
-        cur.execute(
-            "GRANT UPDATE (status, state_version, model_manifest, completed_at) "
-            "ON review_runs TO creditlens_app"
-        )
-        # Claim facts are append-only. Workflow state is the sole mutable
-        # projection and therefore receives a column-level grant only.
-        cur.execute("REVOKE UPDATE, DELETE ON claims FROM creditlens_app")
-        cur.execute("GRANT UPDATE (review_status) ON claims TO creditlens_app")
-        # Tenant/User 是身份授权根，只允许业务连接读取 RLS 限定的当前身份。
-        # 全局定义/索引/迁移版本是只读运行时元数据，变更只能由管理身份执行。
-        cur.execute(
-            "REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, "
-            "financial_metric_definitions, search_index_versions, alembic_version "
-            "FROM creditlens_app"
-        )
-        # Case Membership 是授权根，只能由独立管理身份维护。业务代码仍需 SELECT
-        # 来校验当前用户的已有 Membership，但不得自授、撤销或篡改角色。
-        cur.execute("REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_app")
-        # Case 与 Membership 一起由管理身份创建；业务角色只更新自己已有的案件。
-        cur.execute("REVOKE INSERT, DELETE ON credit_cases FROM creditlens_app")
-        # 新表默认 fail-closed：迁移后必须重新执行本脚本，才能按当前白名单授予 DML。
-        # 这也会清理旧版本曾写入的宽泛默认权限，避免未来新增授权根表时被自动放开。
-        cur.execute(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA public"
-            " REVOKE INSERT, UPDATE, DELETE ON TABLES FROM creditlens_app"
-        )
-        cur.execute(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO creditlens_app"
-        )
-        cur.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO creditlens_app")
-        cur.execute(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA public"
-            " GRANT USAGE, SELECT ON SEQUENCES TO creditlens_app"
-        )
+        cur.execute(role_grants_sql)
         print("[3/3] 授权完成。请把 API 的 DATABASE_URL 切换到 creditlens_app。")
     conn.close()
 

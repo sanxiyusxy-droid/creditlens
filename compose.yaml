@@ -8,9 +8,11 @@ services:
       POSTGRES_PASSWORD: creditlens
       POSTGRES_DB: creditlens
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      # v1.6 freezes every demo aggregate identifier. Keep the legacy random-ID
+      # database untouched and bootstrap the reproducible demo in its own volume.
+      - pg_data_v16_demo:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U creditlens -d creditlens"]
       interval: 5s
@@ -21,10 +23,12 @@ services:
     # 固定版本：与 uv.lock 的 qdrant-client 1.18.0 对应（v1.1）
     image: qdrant/qdrant:v1.18.0
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
     volumes:
-      - qdrant_data:/qdrant/storage
+      # v1.6 uses a version-pinned fresh index volume. The legacy qdrant_data
+      # volume is intentionally left untouched for snapshot migration/rollback.
+      - qdrant_data_v18:/qdrant/storage
     healthcheck:
       test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
       interval: 5s
@@ -38,10 +42,12 @@ services:
       MINIO_ROOT_USER: creditlens
       MINIO_ROOT_PASSWORD: creditlens-dev-secret
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
-      - minio_data:/data
+      # Object keys are derived from the same frozen identities as PostgreSQL.
+      # A versioned volume avoids mixing legacy objects into exact-set preflight.
+      - minio_data_v16_demo:/data
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -67,7 +73,7 @@ services:
   redis:
     image: redis:7.4-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -77,7 +83,7 @@ services:
       retries: 10
 
 volumes:
-  pg_data:
-  qdrant_data:
-  minio_data:
+  pg_data_v16_demo:
+  qdrant_data_v18:
+  minio_data_v16_demo:
   redis_data:

@@ -67,7 +67,7 @@ integration:
     EMBEDDING_PROVIDER: "hash_fallback"
     EMBEDDING_VERSION: "hash-embed-v1"
     EMBEDDING_DIM: "256"
-    RERANK_PROVIDER: "disabled"
+    RERANK_PROVIDER: "lexical_fallback"
     LLM_PROVIDER: "disabled"
   before_script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends postgresql-client > /dev/null
@@ -81,8 +81,8 @@ integration:
     - psql -h pg -U postgres -d creditlens_test -f infra/postgres/rls_policies.sql
     # 4) 管理身份：授权根只能由管理身份创建；业务 Seed 不得自授 Membership
     - psql -h pg -U postgres -d creditlens_test -f infra/postgres/ci_seed_principals.sql
-    # 5) 管理身份：向业务角色授权（case_memberships 仅保留业务读取）
-    - psql -h pg -U postgres -d creditlens_test -c "GRANT USAGE ON SCHEMA public TO creditlens_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO creditlens_app; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO creditlens_app; REVOKE UPDATE, DELETE ON run_events, human_decisions, report_versions, evidence, artifacts, invocation_records FROM creditlens_app; REVOKE UPDATE, DELETE ON telemetry_outbox FROM creditlens_app; GRANT UPDATE (status, attempts, available_at, locked_at, locked_until, last_error_code, delivered_at, dead_at) ON telemetry_outbox TO creditlens_app; REVOKE UPDATE, DELETE ON review_runs FROM creditlens_app; GRANT UPDATE (status, state_version, model_manifest, completed_at) ON review_runs TO creditlens_app; REVOKE UPDATE, DELETE ON claims FROM creditlens_app; GRANT UPDATE (review_status) ON claims TO creditlens_app; REVOKE INSERT, UPDATE, DELETE ON tenants, app_users, financial_metric_definitions, search_index_versions, alembic_version FROM creditlens_app; REVOKE INSERT, UPDATE, DELETE ON case_memberships FROM creditlens_app; REVOKE INSERT, DELETE ON credit_cases FROM creditlens_app;"
+    # 5) 管理身份：应用与本地 bootstrap 共用的最小权限白名单
+    - psql -h pg -U postgres -d creditlens_test -f infra/postgres/runtime_role_grants.sql
     # 6) 业务身份：三案件幂等 Seed（幂等；RLS 上下文由 session_scope 注入）
     - uv run python scripts/seed_synthetic_data.py
   script:

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Protocol
 
 from sqlalchemy import and_, or_, select
@@ -55,6 +58,91 @@ class NoopTelemetryExporter:
     ) -> None:
         del envelope, delivery, idempotency_key
         raise TelemetryExporterNotConfigured()
+
+
+class LocalDirectoryTelemetryExporter:
+    """Durably deliver redacted local-demo telemetry as one file per invocation.
+
+    The filename is the invocation UUID (the outbox idempotency key).  A retry
+    either observes identical canonical bytes or fails closed; it never appends
+    a duplicate record.  This exporter is intentionally only wired by the API
+    for local/dev/test profiles.
+    """
+
+    def __init__(self, directory: str | Path):
+        self._directory = Path(directory).resolve()
+
+    @property
+    def directory(self) -> Path:
+        return self._directory
+
+    async def export(
+        self,
+        envelope: InvocationEnvelope,
+        *,
+        delivery: TelemetryDelivery,
+        idempotency_key: str,
+    ) -> None:
+        await asyncio.to_thread(
+            self._export_sync,
+            envelope,
+            delivery=delivery,
+            idempotency_key=idempotency_key,
+        )
+
+    def _export_sync(
+        self,
+        envelope: InvocationEnvelope,
+        *,
+        delivery: TelemetryDelivery,
+        idempotency_key: str,
+    ) -> None:
+        try:
+            invocation_id = uuid.UUID(idempotency_key)
+        except (TypeError, ValueError, AttributeError):
+            raise TelemetryPayloadInvalid() from None
+        if (
+            str(invocation_id) != idempotency_key
+            or envelope.invocation_id != invocation_id
+            or delivery.invocation_id != invocation_id
+        ):
+            raise TelemetryPayloadInvalid()
+
+        payload = {
+            "schema_version": "creditlens.local-telemetry-delivery.v1",
+            "idempotency_key": idempotency_key,
+            "delivery": {
+                "invocation_id": str(delivery.invocation_id),
+                "tenant_id": str(delivery.tenant_id),
+                "case_id": str(delivery.case_id),
+                "run_id": str(delivery.run_id),
+                "topic": delivery.topic,
+            },
+            "envelope": envelope.model_dump(mode="json"),
+        }
+        rendered = (
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
+        ).encode("utf-8")
+
+        self._directory.mkdir(parents=True, exist_ok=True)
+        destination = self._directory / f"{idempotency_key}.json"
+        if destination.exists():
+            if destination.is_file() and destination.read_bytes() == rendered:
+                return
+            raise TelemetryPayloadInvalid()
+
+        temporary = self._directory / f".{idempotency_key}.{uuid.uuid4().hex}.tmp"
+        try:
+            with temporary.open("xb") as handle:
+                handle.write(rendered)
+                handle.flush()
+                os.fsync(handle.fileno())
+            # A crash after this atomic replace but before the database ACK is
+            # harmless: the retry verifies these same canonical bytes.
+            os.replace(temporary, destination)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
 
 
 @dataclass(frozen=True, slots=True)

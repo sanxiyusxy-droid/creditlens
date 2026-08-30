@@ -66,7 +66,10 @@ class Settings(BaseSettings):
     # --- Grounded QA（v1.3） ---
     qa_prompt_version: str = "grounded_qa_v1"
     qa_max_claims: int = 6
-    qa_max_generation_tokens: int = 2048
+    # The grounded schema can contain several claims/citations.  A 2K limit was
+    # observed truncating otherwise valid JSON twice on the frozen smoke suite;
+    # 4K completed the same case without a technical failure.
+    qa_max_generation_tokens: int = 4096
     qa_max_audit_repairs: int = 1
     # 离线演示使用“原文抽取 + 引用”而非伪造模型回答；生产环境建议关闭，
     # LLM 未配置时按技术失败处理。
@@ -78,9 +81,10 @@ class Settings(BaseSettings):
     invocation_fingerprint_key_version: str = "runtime-ephemeral-v1"
     invocation_cancel_persist_timeout_seconds: float = 2.0
     telemetry_outbox_worker_enabled: bool = False
-    # API 内置实现只允许显式 noop（本地生命周期验证）；生产 exporter 应运行在
-    # 带 service role 或 tenant shard 身份的独立 worker 中。
-    telemetry_exporter_backend: str = "disabled"  # disabled | noop
+    # API 内置实现只允许显式 noop 或仅限本地的原子目录 exporter；生产 exporter
+    # 应运行在带 service role 或 tenant shard 身份的独立 worker 中。
+    telemetry_exporter_backend: str = "disabled"  # disabled | noop | local_directory
+    telemetry_local_directory: str = "evaluation/reports/local/telemetry_delivery"
     telemetry_export_batch_size: int = 32
     telemetry_export_poll_seconds: float = 2.0
     telemetry_export_max_attempts: int = 5
