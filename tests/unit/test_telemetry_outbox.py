@@ -1,4 +1,5 @@
 import asyncio
+import json
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -18,9 +19,11 @@ from creditlens.infrastructure.postgres.models import (
 from creditlens.infrastructure.postgres.session import create_session_factory
 from creditlens.observability.invocation import InvocationEnvelope, InvocationKind, InvocationStatus
 from creditlens.observability.outbox_worker import (
+    LocalDirectoryTelemetryExporter,
     NoopTelemetryExporter,
     TelemetryDelivery,
     TelemetryOutboxWorker,
+    TelemetryPayloadInvalid,
 )
 from creditlens.observability.writer import INVOCATION_OUTBOX_TOPIC, InvocationWriter
 
@@ -122,6 +125,8 @@ async def _seed_pending(factory) -> uuid.UUID:
                 response_sha256="b" * 64,
             )
         )
+        outbox = await session.scalar(select(TelemetryOutbox))
+        outbox.available_at = _NOW
         await session.commit()
     return invocation_id
 
@@ -335,3 +340,44 @@ async def test_noop_exporter_fails_closed_instead_of_acknowledging(engine):
     row = await _outbox(factory)
     assert row.status == "DEAD"
     assert row.last_error_code == "TELEMETRY_EXPORTER_NOT_CONFIGURED"
+
+
+async def test_local_directory_exporter_is_durable_and_idempotent(tmp_path):
+    invocation_id = uuid.UUID("00000000-0000-0000-0000-000000000935")
+    envelope = InvocationEnvelope(
+        invocation_id=invocation_id,
+        kind=InvocationKind.MODEL,
+        name="structured_generation",
+        provider="deterministic_local",
+        model="extractive-fallback",
+        version="grounded-qa-v1",
+        started_at=_NOW,
+        ended_at=_NOW + timedelta(seconds=1),
+        latency_ms=1000,
+        status=InvocationStatus.SUCCESS,
+        request_sha256="a" * 64,
+        response_sha256="b" * 64,
+    )
+    delivery = TelemetryDelivery(
+        invocation_id=invocation_id,
+        tenant_id=_TENANT_ID,
+        case_id=_CASE_ID,
+        run_id=_RUN_ID,
+        topic=INVOCATION_OUTBOX_TOPIC,
+    )
+    exporter = LocalDirectoryTelemetryExporter(tmp_path)
+
+    await exporter.export(envelope, delivery=delivery, idempotency_key=str(invocation_id))
+    await exporter.export(envelope, delivery=delivery, idempotency_key=str(invocation_id))
+
+    files = list(tmp_path.glob("*.json"))
+    assert len(files) == 1
+    payload = json.loads(files[0].read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "creditlens.local-telemetry-delivery.v1"
+    assert payload["idempotency_key"] == str(invocation_id)
+    assert payload["delivery"]["run_id"] == str(_RUN_ID)
+    assert "raw_prompt" not in files[0].read_text(encoding="utf-8")
+
+    files[0].write_text("tampered\n", encoding="utf-8")
+    with pytest.raises(TelemetryPayloadInvalid):
+        await exporter.export(envelope, delivery=delivery, idempotency_key=str(invocation_id))

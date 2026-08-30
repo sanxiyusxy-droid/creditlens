@@ -1,0 +1,383 @@
+{
+  "$defs": {
+    "EvidenceMaturity": {
+      "description": "How strongly an artifact may be presented.\n\n``RELEASE_CANDIDATE`` means only that the complete Git checkout was clean at\ncapture time and had a measured commit.  It does not claim that the commit\nwas tagged, reviewed, published, or released.",
+      "enum": [
+        "DEVELOPMENT_SOURCE_BOUND",
+        "RELEASE_CANDIDATE"
+      ],
+      "title": "EvidenceMaturity",
+      "type": "string"
+    },
+    "FailureCaseResult": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "injection_type": {
+          "$ref": "#/$defs/FailureInjectionType"
+        },
+        "proof_scope": {
+          "$ref": "#/$defs/FailureProofScope"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "observed_violation_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Observed Violation Codes",
+          "type": "array"
+        },
+        "missing_expected_violation_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Expected Violation Codes",
+          "type": "array"
+        },
+        "safe_display": {
+          "$ref": "#/$defs/SafeFailureDisplay"
+        },
+        "system_evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FailureSystemEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "case_id",
+        "injection_type",
+        "proof_scope",
+        "passed",
+        "observed_violation_codes",
+        "missing_expected_violation_codes",
+        "safe_display"
+      ],
+      "title": "FailureCaseResult",
+      "type": "object"
+    },
+    "FailureInjectionType": {
+      "enum": [
+        "NUMERIC_EVIDENCE_MISBINDING",
+        "PROHIBITED_CREDIT_DETERMINATION"
+      ],
+      "title": "FailureInjectionType",
+      "type": "string"
+    },
+    "FailureProofScope": {
+      "enum": [
+        "CONTRACT_VALIDATOR_PRECHECK",
+        "SUPERVISOR_AUDITOR_DATABASE_GATE"
+      ],
+      "title": "FailureProofScope",
+      "type": "string"
+    },
+    "FailureSystemEvidence": {
+      "additionalProperties": false,
+      "description": "Bounded proof derived from the real workflow and database rows.\n\nThe evidence intentionally omits artifact payloads, Claim statements and\nevent payloads.  Hashes and stable state labels are sufficient to reproduce\nthe persistence and report-gate assertions without leaking injected text.",
+      "properties": {
+        "proof_boundary": {
+          "const": "SUPERVISOR_STATE_MACHINE_AND_DATABASE_GATE",
+          "default": "SUPERVISOR_STATE_MACHINE_AND_DATABASE_GATE",
+          "title": "Proof Boundary",
+          "type": "string"
+        },
+        "http_endpoint_called": {
+          "const": false,
+          "default": false,
+          "title": "Http Endpoint Called",
+          "type": "boolean"
+        },
+        "report_gate_proof": {
+          "const": "DATABASE_REPORT_VERSION_ROW_COUNT",
+          "default": "DATABASE_REPORT_VERSION_ROW_COUNT",
+          "title": "Report Gate Proof",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "persisted_run_status": {
+          "title": "Persisted Run Status",
+          "type": "string"
+        },
+        "persisted_claim_count": {
+          "minimum": 0,
+          "title": "Persisted Claim Count",
+          "type": "integer"
+        },
+        "claim_review_statuses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Review Statuses",
+          "type": "array"
+        },
+        "injected_claim_persisted": {
+          "title": "Injected Claim Persisted",
+          "type": "boolean"
+        },
+        "artifact_count": {
+          "minimum": 0,
+          "title": "Artifact Count",
+          "type": "integer"
+        },
+        "artifact_producers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Producers",
+          "type": "array"
+        },
+        "artifact_output_hashes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Output Hashes",
+          "type": "array"
+        },
+        "artifact_hashes_verified": {
+          "title": "Artifact Hashes Verified",
+          "type": "boolean"
+        },
+        "artifact_claim_projection_verified": {
+          "title": "Artifact Claim Projection Verified",
+          "type": "boolean"
+        },
+        "run_event_count": {
+          "minimum": 0,
+          "title": "Run Event Count",
+          "type": "integer"
+        },
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array"
+        },
+        "state_transitions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "State Transitions",
+          "type": "array"
+        },
+        "audit_completed": {
+          "title": "Audit Completed",
+          "type": "boolean"
+        },
+        "report_count": {
+          "minimum": 0,
+          "title": "Report Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "run_id",
+        "persisted_run_status",
+        "persisted_claim_count",
+        "claim_review_statuses",
+        "injected_claim_persisted",
+        "artifact_count",
+        "artifact_producers",
+        "artifact_output_hashes",
+        "artifact_hashes_verified",
+        "artifact_claim_projection_verified",
+        "run_event_count",
+        "event_types",
+        "state_transitions",
+        "audit_completed",
+        "report_count"
+      ],
+      "title": "FailureSystemEvidence",
+      "type": "object"
+    },
+    "SafeFailureDisplay": {
+      "additionalProperties": false,
+      "properties": {
+        "verification_scope": {
+          "const": "STATIC_PUBLIC_CONTRACT_NOT_HTTP",
+          "default": "STATIC_PUBLIC_CONTRACT_NOT_HTTP",
+          "title": "Verification Scope",
+          "type": "string"
+        },
+        "public_error_code": {
+          "const": "CLAIM_EVIDENCE_VALIDATION_FAILED",
+          "title": "Public Error Code",
+          "type": "string"
+        },
+        "public_message": {
+          "const": "结论未通过证据完整性校验，已阻断自动出具并转人工复核。",
+          "title": "Public Message",
+          "type": "string"
+        },
+        "action": {
+          "const": "BLOCK",
+          "title": "Action",
+          "type": "string"
+        },
+        "workflow_status": {
+          "const": "HUMAN_REVIEW",
+          "title": "Workflow Status",
+          "type": "string"
+        },
+        "report_allowed": {
+          "const": false,
+          "title": "Report Allowed",
+          "type": "boolean"
+        },
+        "unsafe_content_exposed": {
+          "const": false,
+          "title": "Unsafe Content Exposed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "public_error_code",
+        "public_message",
+        "action",
+        "workflow_status",
+        "report_allowed",
+        "unsafe_content_exposed"
+      ],
+      "title": "SafeFailureDisplay",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "report_type": {
+      "const": "fail_closed_regression",
+      "default": "fail_closed_regression",
+      "title": "Report Type",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "execution_id": {
+      "format": "uuid",
+      "title": "Execution Id",
+      "type": "string"
+    },
+    "protocol_id": {
+      "const": "creditlens_fail_closed_cases_v1",
+      "title": "Protocol Id",
+      "type": "string"
+    },
+    "protocol_version": {
+      "const": "1.0.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "title": "Dataset Sha256",
+      "type": "string"
+    },
+    "git_commit": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{7,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Git Commit"
+    },
+    "git_dirty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Git Dirty"
+    },
+    "source_state_sha256": {
+      "title": "Source State Sha256",
+      "type": "string"
+    },
+    "source_state_algorithm": {
+      "const": "sha256-canonical-file-manifest-v1",
+      "title": "Source State Algorithm",
+      "type": "string"
+    },
+    "source_state_scope": {
+      "const": "creditlens-runtime-evidence-v1",
+      "title": "Source State Scope",
+      "type": "string"
+    },
+    "source_state_file_count": {
+      "exclusiveMinimum": 0,
+      "title": "Source State File Count",
+      "type": "integer"
+    },
+    "evidence_maturity": {
+      "$ref": "#/$defs/EvidenceMaturity"
+    },
+    "proof_scope": {
+      "$ref": "#/$defs/FailureProofScope"
+    },
+    "system_execution_performed": {
+      "title": "System Execution Performed",
+      "type": "boolean"
+    },
+    "http_endpoint_called": {
+      "const": false,
+      "default": false,
+      "title": "Http Endpoint Called",
+      "type": "boolean"
+    },
+    "all_passed": {
+      "title": "All Passed",
+      "type": "boolean"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/FailureCaseResult"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Results",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocol_id",
+    "protocol_version",
+    "dataset_sha256",
+    "git_commit",
+    "git_dirty",
+    "source_state_sha256",
+    "source_state_algorithm",
+    "source_state_scope",
+    "source_state_file_count",
+    "evidence_maturity",
+    "proof_scope",
+    "system_execution_performed",
+    "all_passed",
+    "results"
+  ],
+  "title": "FailureCaseReport",
+  "type": "object"
+}

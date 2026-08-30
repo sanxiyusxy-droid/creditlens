@@ -66,6 +66,7 @@ from creditlens.observability.writer import (
 )
 from creditlens.retrieval.context_packing import PackedContext
 from creditlens.retrieval.orchestrator import OrchestratorConfig, RetrievalOrchestrator
+from creditlens.retrieval.query_spec import QuerySpec
 
 _QA_TRANSITIONS: dict[str, set[str]] = {
     "RECEIVED": {"AUTHORIZED", "FAILED"},
@@ -167,6 +168,7 @@ class GroundedQAResponse(BaseModel):
     model_invocation_ids: list[uuid.UUID]
     trace_url: str
     candidates: list[dict[str, Any]] = Field(default_factory=list)
+    query_spec: dict[str, Any] = Field(default_factory=dict)
     channel_config: dict[str, Any] = Field(default_factory=dict)
     retrieval_trace: dict[str, Any] = Field(default_factory=dict)
     packing: dict[str, Any] | None = None
@@ -183,6 +185,7 @@ class _QARequestReservation:
 @dataclass(frozen=True)
 class _ReplayRetrieval:
     candidates: list[Any] = field(default_factory=list)
+    query_spec: dict[str, Any] = field(default_factory=dict)
     channel_config: dict[str, Any] = field(default_factory=dict)
     trace: dict[str, Any] = field(default_factory=dict)
     packing: dict[str, Any] | None = None
@@ -651,6 +654,10 @@ class QAService:
 
                 artifact_payload = dict(payload)
                 generation_mode = str(artifact_payload.pop("generation_mode", "unknown"))
+                replay_query_spec = artifact_payload.pop("retrieval_query_spec", {})
+                if not isinstance(replay_query_spec, dict):
+                    raise ValueError("invalid persisted query spec")
+                replay_query_spec = _canonical_query_spec(replay_query_spec)
                 artifact = GroundedAnswerArtifact.model_validate(artifact_payload)
                 self._validate_replayed_artifact(
                     run=run,
@@ -671,6 +678,7 @@ class QAService:
                 artifact=artifact,
                 generation_mode=generation_mode,
                 retrieval=_ReplayRetrieval(
+                    query_spec=replay_query_spec,
                     channel_config={"idempotent_replay": True},
                 ),
                 idempotent_replay=True,
@@ -901,6 +909,7 @@ class QAService:
                 artifact,
                 generation.generation_mode,
                 generation.model_traces,
+                retrieval.query_spec,
             )
             run.model_manifest = {
                 **(run.model_manifest or {}),
@@ -938,11 +947,13 @@ class QAService:
         artifact: GroundedAnswerArtifact,
         generation_mode: str,
         model_traces: list[Any],
+        query_spec: dict[str, Any],
     ) -> None:
         self._validate_artifact_provenance(run, artifact, model_traces)
         persisted_payload = artifact.model_dump(mode="json", exclude={"output_hash"})
         persisted_payload["lifecycle_status"] = "VERIFIED"
         persisted_payload["generation_mode"] = generation_mode
+        persisted_payload["retrieval_query_spec"] = _canonical_query_spec(query_spec)
         output_hash = _canonical_persisted_payload_hash(persisted_payload)
         session.add(
             ArtifactRecord(
@@ -1478,6 +1489,7 @@ def _build_response(
     retrieval,
     idempotent_replay: bool = False,
 ) -> GroundedQAResponse:
+    query_spec = _canonical_query_spec(retrieval.query_spec)
     evidence_by_id = {evidence.evidence_id: evidence for evidence in artifact.evidence}
 
     def locator(evidence_id: uuid.UUID) -> dict[str, Any] | None:
@@ -1558,8 +1570,17 @@ def _build_response(
         model_invocation_ids=list(artifact.model_invocation_ids),
         trace_url=f"/api/v1/runs/{run.id}/trace",
         candidates=candidates,
+        query_spec=query_spec,
         channel_config=retrieval.channel_config,
         retrieval_trace=retrieval.trace,
         packing=retrieval.packing,
         idempotent_replay=idempotent_replay,
     )
+
+
+def _canonical_query_spec(value: dict[str, Any]) -> dict[str, Any]:
+    """Use one JSON representation for live responses, persistence and replay."""
+
+    if not value:
+        return {}
+    return QuerySpec.model_validate(value).model_dump(mode="json")

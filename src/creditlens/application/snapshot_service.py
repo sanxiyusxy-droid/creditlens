@@ -75,6 +75,41 @@ async def freeze_snapshot(
     if not members:
         raise CaseNotReadyError("案件没有任何已激活解析的材料")
 
+    # P0-1：冻结财务事实——借款人在本案件范围内、审查截止前可获得、
+    # 未被拒绝且未被重述替代的 Fact；计算工具只允许读取该集合
+    from datetime import UTC
+
+    from sqlalchemy import or_
+
+    superseded = select(FinancialFact.supersedes_fact_id).where(
+        FinancialFact.supersedes_fact_id.is_not(None)
+    )
+    fact_rows = (
+        await session.execute(
+            select(FinancialFact.id).where(
+                FinancialFact.tenant_id == case.tenant_id,
+                FinancialFact.entity_id == case.borrower_entity_id,
+                or_(FinancialFact.case_id == case.id, FinancialFact.case_id.is_(None)),
+                FinancialFact.source_available_at <= trusted.decision_cutoff_at.astimezone(UTC),
+                FinancialFact.verification_status != "REJECTED",
+                FinancialFact.id.not_in(superseded),
+            )
+        )
+    ).all()
+    fact_ids = [row[0] for row in fact_rows]
+
+    canonical = {
+        "case_version": case.version,
+        "members": sorted(f"{v}:{p}" for v, p in members),
+        "facts": sorted(str(f) for f in fact_ids),
+        "collections": sorted(c for c in [chunks_collection, summaries_collection or ""] if c),
+        "acl_scope_hash": acl_hash,
+        "as_of_date": trusted.as_of_date.isoformat(),
+        "decision_cutoff_at": trusted.decision_cutoff_at.isoformat(),
+    }
+    # The snapshot root and its members are append-only for the runtime role.
+    # Compute the final digest before the first INSERT so freezing never needs
+    # a broad or column-level UPDATE exception on immutable snapshot tables.
     snapshot = CaseSnapshot(
         tenant_id=case.tenant_id,
         case_id=case.id,
@@ -83,6 +118,7 @@ async def freeze_snapshot(
         decision_cutoff_at=trusted.decision_cutoff_at,
         borrower_entity_id=case.borrower_entity_id,
         acl_scope_hash=acl_hash,
+        snapshot_hash=sha256_text(json.dumps(canonical, sort_keys=True)),
     )
     session.add(snapshot)
     await session.flush()
@@ -110,42 +146,8 @@ async def freeze_snapshot(
                 physical_collection_name=summaries_collection,
             )
         )
-
-    # P0-1：冻结财务事实——借款人在本案件范围内、审查截止前可获得、
-    # 未被拒绝且未被重述替代的 Fact；计算工具只允许读取该集合
-    from datetime import UTC
-
-    from sqlalchemy import or_
-
-    superseded = select(FinancialFact.supersedes_fact_id).where(
-        FinancialFact.supersedes_fact_id.is_not(None)
-    )
-    fact_rows = (
-        await session.execute(
-            select(FinancialFact.id).where(
-                FinancialFact.tenant_id == case.tenant_id,
-                FinancialFact.entity_id == case.borrower_entity_id,
-                or_(FinancialFact.case_id == case.id, FinancialFact.case_id.is_(None)),
-                FinancialFact.source_available_at <= trusted.decision_cutoff_at.astimezone(UTC),
-                FinancialFact.verification_status != "REJECTED",
-                FinancialFact.id.not_in(superseded),
-            )
-        )
-    ).all()
-    fact_ids = [row[0] for row in fact_rows]
     for fact_id in fact_ids:
         session.add(SnapshotFact(snapshot_id=snapshot.id, fact_id=fact_id))
-
-    canonical = {
-        "case_version": case.version,
-        "members": sorted(f"{v}:{p}" for v, p in members),
-        "facts": sorted(str(f) for f in fact_ids),
-        "collections": sorted(c for c in [chunks_collection, summaries_collection or ""] if c),
-        "acl_scope_hash": acl_hash,
-        "as_of_date": trusted.as_of_date.isoformat(),
-        "decision_cutoff_at": trusted.decision_cutoff_at.isoformat(),
-    }
-    snapshot.snapshot_hash = sha256_text(json.dumps(canonical, sort_keys=True))
     await session.flush()
 
     return SnapshotContext(

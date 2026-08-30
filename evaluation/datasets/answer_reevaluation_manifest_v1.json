@@ -1,0 +1,21 @@
+{
+  "protocol_id": "creditlens_answer_reevaluation_v1",
+  "protocol_version": "1.0.0",
+  "query_dataset": "evaluation/datasets/answer_eval_queries_v1.json",
+  "answer_dataset": "evaluation/datasets/answer_eval_v1.json",
+  "source_gold_dataset": "evaluation/datasets/frozen_v2.json",
+  "top_k": 8,
+  "gold_boundary": "ONLINE_QUERY_ONLY_THEN_OFFLINE_GOLD_MAPPING",
+  "stages": [
+    {
+      "name": "smoke",
+      "question_limit": 3,
+      "expected_question_count": 3
+    },
+    {
+      "name": "full",
+      "question_limit": 41,
+      "expected_question_count": 41
+    }
+  ]
+}

@@ -9,6 +9,15 @@
 
 ## 当前版本口径
 
+- **当前开发候选（未发布）**：`v1.6` 演示闭环与评测实证。候选代码已加入深 RAG/
+  Invocation Trace 页面、安全的一键 bootstrap、完整 HTTP 验收 Runner、3+41 答案重评规约、
+  四变体 Multi-Agent 消融与 fail-closed 系统验收。2026-08-30 本机已完成 Docker bootstrap、
+  TCP HTTP 黑盒验收、3 题 smoke + 41 题 full、6×4 离线组件消融和两个
+  Supervisor/Auditor/数据库 fail-closed 案例；Ruff 全绿，非集成 671 passed / 16 skipped /
+  23 deselected，真实栈 23 passed / 23 deselected、0 skip/fail。最终证据绑定 clean commit
+  `4815633`，成熟度为 `RELEASE_CANDIDATE`；尚未经过本版 GitHub 发布 CI，组件消融也不是
+  Supervisor/LLM/HTTP/DB/RAG 端到端或线上增益。状态矩阵与精确指标见
+  [v1.6 演示闭环与评测实证](docs/v1.6_演示闭环与评测实证.md)。
 - **当前已发布版本**：`v1.5.0`。GitHub 实现提交
   `494be48dd0ed1456dd01fc7a0e3e86903e7a847c`；PR #3 Head
   `6808b75fcd4d691a516b79817ae2f037abe0ed1e` 的 run `32448510063`、合并提交
@@ -53,6 +62,7 @@
 - **FastAPI + SQLAlchemy 2 + Alembic**：API 与迁移
 - **Transactional Outbox + Index Worker**：双库一致性
 - **Invocation Ledger + Telemetry Outbox**：Model/Tool 脱敏调用事实、可靠投递与 Trace 完整性
+- **Demo Bootstrap + HTTP Acceptance**：本地栈前检、幂等准备及公开 API 演示闭环验收
 - 详细设计见 [CreditLens_技术实现文档.md](./CreditLens_技术实现文档.md)
 - 交付进度、文档符合性对比与评测结果见 [docs/进度报告.md](./docs/进度报告.md)（每版本同步更新）
 
@@ -81,6 +91,21 @@ uv run pytest -m "not integration"             # 单元 + 安全 + 非集成 E2E
 
 ### Docker Compose 模式
 
+推荐使用 v1.6 候选的一键演示入口。它会启动本地基础设施、执行 Alembic/RLS、幂等 Seed、
+preflight、API、HTTP 验收和 Streamlit；默认禁用外部模型，不删除现有 volume：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
+```
+
+只准备并检查环境、不启动 API/UI：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1 -BootstrapOnly
+```
+
+下面保留手工启动方式，便于排查单个环节：
+
 ```powershell
 docker compose up -d
 # 默认配置离线运行，应用连接使用 NOBYPASSRLS 业务角色
@@ -108,7 +133,7 @@ src/creditlens/
   ingestion/        上传、解析、结构切分、Outbox、Index Worker
   retrieval/        统一 Orchestrator（Dense/Sparse/Summary/Exact → RRF → Rerank → Context Packing）
   evidence/         EvidenceRef -> 原始 PDF 页 Preview
-  evaluation/       GoldQuestion Schema、Recall@K/NDCG/Precision/MRR、Retrieved Evidence P/R（Refusal/Agent 指标预留答案层，不计入报告）
+  evaluation/       冻结检索/答案评测、v1.6 答案重评与 Agent 消融严格契约
   agents/           Policy/Financial/Risk/Report Agent + Challenger + Auditor + Supervisor DAG
   observability/    InvocationEnvelope v2、追加写调用账本、Telemetry Outbox Worker
 migrations/         Alembic
@@ -142,6 +167,17 @@ dataset·uv.lock·语料 SHA256 / split / alembic revision / collection point co
 模型版本 / 每个时点组合的 snapshot_id 与内容规范化 snapshot_hash）。
 口径说明：无答案生成层，不宣称 Faithfulness / Citation Accuracy / Refusal Accuracy。
 
+v1.6 候选为答案层新增两阶段入口，但默认只输出计划，**不调用模型、不产生指标**：
+
+```powershell
+uv run python scripts/run_v16_answer_reevaluation.py
+```
+
+只有在明确授权合成评测数据发送到已配置模型服务后，才可依次执行 3 题 smoke 与 41 题
+full。每阶段用独立 `execution_nonce` 进入 experiment hash 与 QA 幂等键，并要求业务预测的
+`idempotent_replay_count=0`，防止旧答案重放冒充重评。当前新一轮结果尚未归档，README 中的
+答案指标仍只代表 v1.3 已发布基线。
+
 数据口径（v1.1）：3 个合成案件（制造业流贷 / 科技型流贷 / 保理）、6 个逻辑文档、
 8 个文档版本、97 个证据锚点、200 题（182 可答 + 18 不可答），覆盖政策 QA /
 跨文档 / 财务事实 / 版本陷阱 / 口语缩写 / 拒答等意图；dev/test 按案件分层重划分，
@@ -171,15 +207,16 @@ HITL 已做行锁 + 乐观锁 + 幂等键的并发保护，但未做大规模并
 ## 演示（8–12 分钟）
 
 ```powershell
-docker compose up -d
 powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
 # 浏览器打开 http://localhost:8501
 ```
 
 ![演示页](docs/images/demo_screenshot.png)
 
-五幕编排见 [docs/演示脚本.md](docs/演示脚本.md)：
-① 政策时点切换（同题不同审查日 → 命中不同版本条款）→
+五幕编排见 [docs/演示脚本.md](docs/演示脚本.md)。启动器先完成 bootstrap 与 HTTP
+验收；页面在第一幕可展开 QuerySpec、Query Variants、Dense/Sparse/Summary/Exact、候选拒绝、
+RRF、精排降级和 Packing，Trace 幕直接展示 Invocation Ledger 与 Outbox：
+① 政策时点切换与深 RAG Trace（同题不同审查日 → 命中不同版本条款）→
 ② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
 ④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
 
@@ -316,5 +353,43 @@ Faithfulness。
 [v1.5 持久调用账本与遥测投递](docs/v1.5_持久调用账本与遥测投递.md)。`v1.5.0` 已完成
 PR、合并后 main、release-closure main 与 tag 四道 CI 门禁；发布证据是在 tag 成功后回填，
 不暗示 tag 自身包含随后产生的 tag CI run。
+
+## v1.6 开发候选：演示闭环与评测实证
+
+- Streamlit 已把服务端返回的 QuerySpec、术语归一、Query Variants、
+  Dense/Sparse/Summary/Exact 路由、拒绝原因、RRF、精排降级和 Context Packing 展示为深
+  RAG Trace；调用页同时展示 MODEL/TOOL 终态、Ledger 完整性、Outbox 状态与 RunEvent，
+  并对旧响应 fail-soft。
+- `scripts/start_demo.ps1` 默认使用本机确定性模型替代，串联 Compose、Alembic、RLS、幂等
+  Seed、三案件财务事实、PG/Qdrant/MinIO preflight、API、HTTP 验收与 UI；使用已配置外部模型
+  必须显式指定 `-UseConfiguredModels`。启动器只在 local 环境启用 `local_directory` 演示
+  Exporter：每个 Invocation 以 UUID 命名为一份 canonical JSON，经 `fsync` 与原子替换落到
+  Git 忽略的 `evaluation/reports/local/telemetry_delivery/`；相同 UUID/相同内容可幂等重试，
+  内容冲突则 fail closed。该 Exporter 仅供 local/dev/test 验收，不是生产遥测后端；Noop
+  仍保持 fail closed，默认产品配置仍关闭 Worker。
+- `scripts/http_demo_acceptance.py` 只经公开 HTTP 合约验证 Question → QA/深 RAG →
+  FULL_REVIEW → 冻结 allowlist HITL → `APPROVED_DRAFT` canonical Hash → Invocation Trace；
+  默认拒绝非 loopback，要求 FULL Trace aggregate COMPLETE、逐调用 DELIVERED。Mock/ASGI
+  合约测试已建立；本机 TCP HTTP 实跑已通过：初始 `HUMAN_REVIEW` 经冻结白名单审批后
+  `COMPLETED`，Trace `VALID/COMPLETE`（15 事件、20 Invocation）。
+- 3+41 答案重评使用 query-only online → raw checkpoint → gold mapping → scoring；每阶段独立
+  execution nonce，freshness gate 拒绝业务预测的幂等重放。clean-commit full 的 Lexical
+  16.67%、Key-point 29.09%、Numeric 23.53%、Citation P/R/F1 65.79/75.76/70.42%、Refusal
+  90.91%、Technical Failure 4.88%；仍须如实说明这是 3 个合成案件上的确定性评分。
+- Multi-Agent 消融已实际执行 6 场景 × 4 变体的离线
+  `DETERMINISTIC_COMPONENT_HARNESS`，每个 cell 有 Schema+SHA 校验的 sidecar。FULL 的
+  unsupported 拦截 3/3、注入反证处理 2/2、HITL 4/6；去 Challenger 为 3/3、0/2、3/6，
+  去 Auditor 为 0/3、2/2、0/6，Single 基线为 0/3、0/2、0/6。它只复用 Contract Validator
+  与 conflict assessment；未运行 Supervisor、LLM、HTTP、DB、RAG 或持久化，反证是冻结注入，
+  Token/成本 coverage=0，组件 P95 不可当线上延迟或 SLA。Scorer 还会从冻结 Dataset 重建
+  输入并重跑 Contract/Conflict 原语，防止 sidecar、Observation 与 SHA 被一起改写后假通过。
+- `scripts/run_fail_closed_cases.py --execute-system` 已在本机执行两个合成 Artifact 的
+  `SUPERVISOR_AUDITOR_DATABASE_GATE`：数字证据错绑与越权授信决定均转入 `HUMAN_REVIEW`，
+  Claim 为 `NEEDS_REWORK`，且数据库 `report_count=0`。它不调用模型、检索或 HTTP，不能包装成
+  外部模型或黑盒 API 安全率；旧 `v16_fail_closed_final.json` 仍只是 contract-only precheck。
+
+详细状态、命令、验收边界和本机证据见
+[v1.6 演示闭环与评测实证](docs/v1.6_演示闭环与评测实证.md)。本机功能/实证已收口；在提交、
+GitHub CI、合并与打标签完成前，本节仍只描述开发候选，不改变 `v1.5.0` 的已发布版本口径。
 
 

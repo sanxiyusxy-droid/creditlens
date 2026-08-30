@@ -243,6 +243,34 @@ async def test_orchestrator_keeps_exact_all_rejected_trace(session, qdrant, seed
     assert any(item.channel == "EXACT" for item in result.rejected)
 
 
+async def test_orchestrator_records_exact_route_when_executed_with_zero_hits(
+    session, qdrant, seeded_with_summaries
+):
+    """Exact 0/0 is executed, not disabled, and remains distinguishable in Trace."""
+    orch = _orchestrator(qdrant, seeded_with_summaries["embedder"])
+    trusted = await _trusted_from_db(session, seeded_with_summaries["case_id"])
+
+    result = await orch.retrieve(
+        session,
+        trusted,
+        "第九十九条不存在的专有术语",
+        COLLECTION,
+        config=OrchestratorConfig(
+            enable_sparse=False,
+            enable_summary=False,
+            enable_exact=True,
+            enable_rerank=False,
+            enable_packing=False,
+        ),
+    )
+
+    exact_traces = [trace for trace in result.trace["routes"] if trace["route"] == "EXACT"]
+    assert len(exact_traces) == 1
+    assert exact_traces[0]["candidates_count"] == 0
+    assert exact_traces[0]["rejected_count"] == 0
+    assert "EXACT" not in result.trace["fusion"]["input_lists"]
+
+
 # ==================== WP2：Summary L0 -> L1 -> Leaf ====================
 
 

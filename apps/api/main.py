@@ -10,6 +10,7 @@ import contextlib
 import hmac
 import inspect
 import logging
+import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -24,7 +25,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from fastapi import FastAPI, Header, HTTPException, Query, Request, Response  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field, field_validator  # noqa: E402
-from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy import func, select, text  # noqa: E402
 
 from creditlens import __version__  # noqa: E402
 from creditlens.application.qa_service import QAService, QAServiceError  # noqa: E402
@@ -62,6 +63,7 @@ from creditlens.observability.invocation import (  # noqa: E402
     invocation_run_event_payload,
 )
 from creditlens.observability.outbox_worker import (  # noqa: E402
+    LocalDirectoryTelemetryExporter,
     NoopTelemetryExporter,
     TelemetryOutboxWorker,
 )
@@ -82,6 +84,7 @@ orchestrator = RetrievalOrchestrator(
 )
 preview_service = EvidencePreviewService(object_store)
 logger = logging.getLogger(__name__)
+_READINESS_PROBE_TIMEOUT_SECONDS = 3.0
 
 # MVP 单租户：与种子脚本一致
 DEFAULT_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -188,6 +191,19 @@ async def _close_resources_best_effort(
     return failures
 
 
+def _resolve_local_telemetry_directory() -> Path:
+    configured = Path(str(settings.telemetry_local_directory))
+    if not configured.is_absolute():
+        configured = PROJECT_ROOT / configured
+    resolved = configured.resolve()
+    allowed_root = (PROJECT_ROOT / "evaluation" / "reports" / "local").resolve()
+    try:
+        resolved.relative_to(allowed_root)
+    except ValueError:
+        raise RuntimeError("TELEMETRY_LOCAL_DIRECTORY_FORBIDDEN") from None
+    return resolved
+
+
 def _build_api_telemetry_worker() -> TelemetryOutboxWorker | None:
     """Build only the explicitly enabled local tenant-shard worker.
 
@@ -200,11 +216,22 @@ def _build_api_telemetry_worker() -> TelemetryOutboxWorker | None:
     # optional worker; absence must preserve the secure disabled default.
     if not getattr(settings, "telemetry_outbox_worker_enabled", False):
         return None
-    backend = str(settings.telemetry_exporter_backend).strip().lower()
-    if backend != "noop":
-        raise RuntimeError("TELEMETRY_EXPORTER_NOT_CONFIGURED")
     if str(settings.app_env).strip().lower() not in {"local", "development", "dev", "test"}:
         raise RuntimeError("API_TELEMETRY_WORKER_FORBIDDEN")
+    backend = str(settings.telemetry_exporter_backend).strip().lower()
+    if backend == "noop":
+        exporter = NoopTelemetryExporter()
+    elif backend == "local_directory":
+        resolved = _resolve_local_telemetry_directory()
+        try:
+            resolved.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            raise RuntimeError("TELEMETRY_LOCAL_DIRECTORY_UNAVAILABLE") from None
+        if not resolved.is_dir() or not os.access(resolved, os.W_OK):
+            raise RuntimeError("TELEMETRY_LOCAL_DIRECTORY_UNAVAILABLE")
+        exporter = LocalDirectoryTelemetryExporter(resolved)
+    else:
+        raise RuntimeError("TELEMETRY_EXPORTER_NOT_CONFIGURED")
     poll_seconds = float(settings.telemetry_export_poll_seconds)
     if poll_seconds <= 0:
         raise RuntimeError("TELEMETRY_EXPORT_POLL_SECONDS_INVALID")
@@ -213,7 +240,7 @@ def _build_api_telemetry_worker() -> TelemetryOutboxWorker | None:
         raise RuntimeError("TELEMETRY_EXPORT_BATCH_SIZE_INVALID")
     return TelemetryOutboxWorker(
         session_factory,
-        NoopTelemetryExporter(),
+        exporter,
         max_attempts=settings.telemetry_export_max_attempts,
         lease_seconds=settings.telemetry_export_lease_seconds,
         base_backoff_seconds=settings.telemetry_export_base_backoff_seconds,
@@ -221,6 +248,85 @@ def _build_api_telemetry_worker() -> TelemetryOutboxWorker | None:
         tenant_id=DEFAULT_TENANT_ID,
         user_id=DEMO_USER_ID,
     )
+
+
+async def _postgresql_readiness_probe() -> bool:
+    async with session_scope(session_factory) as session:
+        await session.execute(text("SELECT 1"))
+    return True
+
+
+async def _qdrant_readiness_probe() -> bool:
+    get_collections = getattr(qdrant, "get_collections", None)
+    if not callable(get_collections):
+        return False
+    result = await asyncio.to_thread(get_collections)
+    return result is not None
+
+
+async def _object_store_readiness_probe() -> bool:
+    backend = str(getattr(settings, "object_store_backend", "")).strip().lower()
+    if backend == "minio":
+        client = getattr(object_store, "_client", None)
+        bucket_exists = getattr(client, "bucket_exists", None)
+        if not callable(bucket_exists):
+            return False
+        buckets = tuple(
+            dict.fromkeys(
+                str(getattr(settings, name, "")).strip()
+                for name in (
+                    "minio_raw_bucket",
+                    "minio_derived_bucket",
+                    "minio_rendered_bucket",
+                )
+            )
+        )
+        if not buckets or any(not bucket for bucket in buckets):
+            return False
+
+        def all_buckets_exist() -> bool:
+            return all(bool(bucket_exists(bucket)) for bucket in buckets)
+
+        return await asyncio.to_thread(all_buckets_exist)
+    if backend == "local_fs":
+        root = Path(str(getattr(settings, "local_object_root", ""))).resolve()
+        return await asyncio.to_thread(root.is_dir)
+    return False
+
+
+async def _telemetry_readiness_probe(app_state) -> bool:
+    if not getattr(settings, "telemetry_outbox_worker_enabled", False):
+        return True
+    if not getattr(app_state, "telemetry_worker_enabled", False):
+        return False
+    task = getattr(app_state, "telemetry_task", None)
+    done = getattr(task, "done", None)
+    if not callable(done) or done():
+        return False
+    if str(getattr(settings, "telemetry_exporter_backend", "")).strip().lower() != (
+        "local_directory"
+    ):
+        return False
+    worker = getattr(app_state, "telemetry_worker", None)
+    exporter = getattr(worker, "_exporter", None)
+    if not isinstance(exporter, LocalDirectoryTelemetryExporter):
+        return False
+    directory = exporter.directory.resolve()
+    allowed_root = (PROJECT_ROOT / "evaluation" / "reports" / "local").resolve()
+    try:
+        directory.relative_to(allowed_root)
+    except ValueError:
+        return False
+    return directory.is_dir() and os.access(directory, os.W_OK)
+
+
+async def _bounded_readiness_probe(probe) -> bool:
+    try:
+        return bool(await asyncio.wait_for(probe, timeout=_READINESS_PROBE_TIMEOUT_SECONDS))
+    except Exception:
+        # Dependency errors may contain credentials, URLs, SQL or provider responses.
+        # Readiness intentionally collapses all of them to a stable component code.
+        return False
 
 
 async def _run_telemetry_worker(
@@ -443,6 +549,11 @@ def _trace_invocation_response(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _assert_demo_identity_is_safe(settings)
+    app.state.runtime_started = False
+    app.state.telemetry_worker_enabled = False
+    app.state.telemetry_worker = None
+    app.state.telemetry_task = None
+    telemetry_worker: TelemetryOutboxWorker | None = None
     telemetry_task: asyncio.Task | None = None
     telemetry_stop: asyncio.Event | None = None
     try:
@@ -464,10 +575,14 @@ async def lifespan(app: FastAPI):
                     telemetry_task.result()
                 raise RuntimeError("TELEMETRY_WORKER_START_FAILED")
         app.state.telemetry_worker_enabled = telemetry_task is not None
+        app.state.telemetry_worker = telemetry_worker
+        app.state.telemetry_task = telemetry_task
+        app.state.runtime_started = True
         # 没有 lease/heartbeat 协议时，启动过程不根据 started_at 推断非终态 Run 已失活。
         # 真实后台 task 的异常仍由 _execute_review_background 当场收口为 FAILED。
         yield
     finally:
+        app.state.runtime_started = False
         try:
             await _stop_telemetry_worker(telemetry_task, telemetry_stop)
         finally:
@@ -483,6 +598,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="CreditLens API", version=__version__, lifespan=lifespan)
+app.state.runtime_started = False
+app.state.telemetry_worker_enabled = False
+app.state.telemetry_worker = None
+app.state.telemetry_task = None
 
 
 @app.middleware("http")
@@ -528,11 +647,40 @@ async def health_live():
 
 
 @app.get("/health/ready")
-async def health_ready():
-    from sqlalchemy import text
+async def health_ready(request: Request):
+    if not getattr(request.app.state, "runtime_started", False):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "error_code": "RUNTIME_NOT_READY",
+                "unavailable": ["runtime"],
+            },
+        )
 
-    async with session_scope(session_factory) as session:
-        await session.execute(text("SELECT 1"))
+    object_store_component = (
+        "minio"
+        if str(getattr(settings, "object_store_backend", "")).strip().lower() == "minio"
+        else "object_store"
+    )
+    checks = [
+        ("postgresql", _postgresql_readiness_probe()),
+        ("qdrant", _qdrant_readiness_probe()),
+        (object_store_component, _object_store_readiness_probe()),
+    ]
+    if getattr(settings, "telemetry_outbox_worker_enabled", False):
+        checks.append(("telemetry", _telemetry_readiness_probe(request.app.state)))
+    results = await asyncio.gather(*(_bounded_readiness_probe(probe) for _, probe in checks))
+    unavailable = [name for (name, _), ready in zip(checks, results, strict=True) if not ready]
+    if unavailable:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "error_code": "RUNTIME_NOT_READY",
+                "unavailable": unavailable,
+            },
+        )
     return {"status": "ready"}
 
 

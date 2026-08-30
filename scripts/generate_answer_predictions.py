@@ -52,6 +52,11 @@ from creditlens.evaluation.answer_metrics import (  # noqa: E402
 )
 from creditlens.evaluation.gold_schema import GoldDataset, GoldQuestion  # noqa: E402
 from creditlens.evaluation.recall import GoldMappingScope, map_anchor_to_section_ids  # noqa: E402
+from creditlens.evaluation.source_state import (  # noqa: E402
+    SourceStateEvidence,
+    build_source_state_evidence,
+    verify_captured_source_state,
+)
 from creditlens.infrastructure.llm.chat import build_chat_provider  # noqa: E402
 from creditlens.infrastructure.llm.embedding import build_embedding_provider  # noqa: E402
 from creditlens.infrastructure.objectstore import build_object_store  # noqa: E402
@@ -62,7 +67,10 @@ from creditlens.infrastructure.postgres.session import (  # noqa: E402
     session_scope,
 )
 from creditlens.infrastructure.qdrant.collections import build_qdrant_client  # noqa: E402
-from creditlens.retrieval.orchestrator import RetrievalOrchestrator  # noqa: E402
+from creditlens.retrieval.orchestrator import (  # noqa: E402
+    OrchestratorConfig,
+    RetrievalOrchestrator,
+)
 from creditlens.retrieval.rerank import build_reranker  # noqa: E402
 from seed_synthetic_data import (  # noqa: E402
     CASE_ID,
@@ -82,7 +90,7 @@ CASE_KEY_MAP = {
     "golden_case_003": CASE_ID_003,
 }
 
-PREDICTION_ADAPTER_VERSION = "1.0.0"
+PREDICTION_ADAPTER_VERSION = "1.1.0"
 _NUMBER = re.compile(
     rf"百分之(?P<percent_chinese>{CHINESE_NUMERAL_PATTERN})"
     rf"|百分之(?P<percent_arabic>{ARABIC_NUMERAL_PATTERN})"
@@ -228,6 +236,31 @@ def _sha256_json(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _runtime_profile_contract(experiment_contract: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the safe, generation-affecting profile shared by smoke and full."""
+
+    return {
+        key: value
+        for key, value in experiment_contract.items()
+        if key not in {"query_dataset_sha256", "execution_nonce"}
+    }
+
+
+def _runtime_profile_sha256(experiment_contract: Mapping[str, Any]) -> str:
+    """Hash generation-affecting settings while excluding dataset/run identity."""
+
+    return _sha256_json(_runtime_profile_contract(experiment_contract))
+
+
+def _endpoint_fingerprint(value: str | None) -> str | None:
+    """Bind a provider deployment without persisting its endpoint URL."""
+
+    # Preserve path case: provider deployment paths may be case-sensitive.  A
+    # conservative false mismatch is safer than collapsing distinct targets.
+    normalized = (value or "").strip().rstrip("/")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest() if normalized else None
+
+
 def _git_value(*args: str) -> str | None:
     try:
         result = subprocess.run(
@@ -264,6 +297,7 @@ def _experiment_contract(
     prompt_sha256: str,
     settings: Any,
     orchestrator: Any | None = None,
+    execution_nonce: str | None = None,
     audit_implementation_version: str = GROUNDING_AUDIT_IMPLEMENTATION_VERSION,
     grounded_answer_contract_version: str = GROUNDED_ANSWER_CONTRACT_VERSION,
 ) -> dict[str, Any]:
@@ -271,28 +305,55 @@ def _experiment_contract(
 
     runtime_embedder = getattr(orchestrator, "embedder", None)
     runtime_reranker = getattr(orchestrator, "reranker", None)
+    runtime_embedding_dimension = getattr(
+        runtime_embedder,
+        "dim",
+        settings.embedding_dim,
+    )
+    retrieval_config = OrchestratorConfig(
+        final_limit=top_k,
+        enable_rerank=settings.orchestrator_enable_rerank,
+        enable_summary=settings.orchestrator_enable_summary,
+        enable_exact=settings.orchestrator_enable_exact,
+        enable_packing=True,
+        token_budget=settings.context_token_budget,
+        max_per_document_ratio=settings.context_max_per_document_ratio,
+        expand_adjacent=settings.context_expand_adjacent,
+    )
     return {
         # This is intentionally the non-gold query projection hash.  Neither
         # answer expectations nor source-gold bytes may influence Phase-1
         # idempotency keys.
         "query_dataset_sha256": query_dataset_sha256,
+        # A fresh evaluation execution must not silently reuse a persisted QA
+        # run from an earlier benchmark.  The suite supplies a stage-scoped
+        # nonce; direct callers get a fresh UUID below in ``generate``.
+        "execution_nonce": execution_nonce,
         "prediction_adapter_version": PREDICTION_ADAPTER_VERSION,
         "top_k": top_k,
         "prompt": {"version": prompt_version, "sha256": prompt_sha256},
         "llm": {
             "provider": settings.llm_provider,
             "model": settings.llm_model or None,
+            "endpoint_sha256": _endpoint_fingerprint(settings.llm_api_base),
         },
         "embedding": {
             "provider": settings.embedding_provider,
             "model": settings.embedding_model or None,
             "version": settings.effective_embedding_version,
-            "dimension": settings.embedding_dim,
+            "endpoint_sha256": _endpoint_fingerprint(settings.embedding_api_base),
+            # ``embedding_dim`` is the configured hash-fallback dimension.  A
+            # known/probed online model can resolve to a different concrete
+            # size (for example BGE-M3 = 1024).  Persist both, and make the
+            # effective runtime value the canonical experiment dimension.
+            "dimension": runtime_embedding_dimension,
+            "configured_dimension": settings.embedding_dim,
         },
         "rerank": {
             "provider": settings.rerank_provider,
             "model": settings.rerank_model or None,
             "enabled": settings.orchestrator_enable_rerank,
+            "endpoint_sha256": _endpoint_fingerprint(settings.rerank_api_base),
         },
         "qa": {
             "allow_extractive_fallback": getattr(settings, "qa_allow_extractive_fallback", False),
@@ -325,6 +386,12 @@ def _experiment_contract(
                 settings.rerank_model or None,
             ),
         },
+        "retrieval": retrieval_config.model_dump(mode="json"),
+        "collections": {
+            "chunks": settings.chunks_collection_name,
+            "summaries": settings.summaries_collection_name,
+        },
+        "sparse_encoder_version": settings.sparse_encoder_version,
     }
 
 
@@ -387,6 +454,9 @@ def _checkpoint_raw_results(
     query_dataset: AnswerQueryDataset,
     query_dataset_sha256: str,
     experiment_sha256: str,
+    runtime_profile_sha256: str,
+    runtime_profile_json: str,
+    execution_nonce: str,
     selected_count: int,
     raw_results: list[_RawQuestionResult],
 ) -> None:
@@ -406,6 +476,9 @@ def _checkpoint_raw_results(
             "query_dataset_version": query_dataset.dataset_version,
             "query_dataset_sha256": query_dataset_sha256,
             "experiment_sha256": experiment_sha256,
+            "runtime_profile_sha256": runtime_profile_sha256,
+            "runtime_profile_json": runtime_profile_json,
+            "execution_nonce": execution_nonce,
             "completed_questions": len(raw_results),
             "selected_questions": selected_count,
             "qa_phase_complete": len(raw_results) == selected_count,
@@ -770,22 +843,28 @@ def _prediction_metadata(
     answer_eval_dataset_sha256: str,
     source_gold_sha256: str,
     experiment_sha256: str,
+    runtime_profile_sha256: str,
+    runtime_profile_json: str,
+    execution_nonce: str,
     prompt_sha256: str,
     settings: Any,
+    embedding_dimension: int,
+    configured_embedding_dimension: int,
     top_k: int,
     selected_questions: int,
     mapping_stats: CitationMappingStats,
-    git_commit: str | None,
-    git_dirty: bool | None,
+    source_state: SourceStateEvidence,
 ) -> dict[str, str | int | float | bool | None]:
     return {
         "generated_at": datetime.now(UTC).isoformat(),
-        "git_commit": git_commit,
-        "git_dirty": git_dirty,
+        **source_state.as_metadata(),
         "query_dataset_sha256": query_dataset_sha256,
         "answer_eval_dataset_sha256": answer_eval_dataset_sha256,
         "source_gold_sha256": source_gold_sha256,
         "experiment_sha256": experiment_sha256,
+        "runtime_profile_sha256": runtime_profile_sha256,
+        "runtime_profile_json": runtime_profile_json,
+        "execution_nonce": execution_nonce,
         "prediction_adapter_version": PREDICTION_ADAPTER_VERSION,
         "llm_provider": settings.llm_provider,
         "llm_model": settings.llm_model or None,
@@ -793,6 +872,8 @@ def _prediction_metadata(
         "prompt_sha256": prompt_sha256,
         "embedding_provider": settings.embedding_provider,
         "embedding_version": settings.effective_embedding_version,
+        "embedding_dimension": embedding_dimension,
+        "configured_embedding_dimension": configured_embedding_dimension,
         "rerank_provider": settings.rerank_provider,
         "rerank_model": settings.rerank_model or None,
         "top_k": top_k,
@@ -837,7 +918,51 @@ async def generate(args: argparse.Namespace) -> AnswerPredictionSet:
     query_dataset = AnswerQueryDataset.model_validate_json(query_bytes)
     selected = query_dataset.questions[: args.limit] if args.limit else query_dataset.questions
     prompt_version, prompt_sha256 = _prompt_fingerprint(settings)
+    execution_nonce = getattr(args, "execution_nonce", None) or uuid.uuid4().hex
+    if not re.fullmatch(r"[A-Za-z0-9._-]{8,64}", execution_nonce):
+        raise ValueError(
+            "execution nonce must contain 8-64 ASCII letters, digits, dots, underscores, or dashes"
+        )
     git_commit, git_dirty = _git_metadata()
+    source_state = build_source_state_evidence(
+        PROJECT_ROOT,
+        git_commit=git_commit,
+        git_dirty=git_dirty,
+    )
+    expected_baseline_values = {
+        "runtime_profile_sha256": getattr(args, "expected_runtime_profile_sha256", None),
+        "source_state_sha256": getattr(args, "expected_source_state_sha256", None),
+        "source_state_file_count": getattr(args, "expected_source_state_file_count", None),
+        "git_commit": getattr(args, "expected_git_commit", None),
+        "git_dirty": getattr(args, "expected_git_dirty", None),
+    }
+    if any(value is not None for value in expected_baseline_values.values()) and not all(
+        value is not None for value in expected_baseline_values.values()
+    ):
+        raise ValueError("expected smoke baseline arguments must be supplied together")
+    if expected_baseline_values["source_state_sha256"] is not None:
+        expected_dirty = expected_baseline_values["git_dirty"] == "true"
+        source_mismatches = []
+        for field_name, actual, expected in (
+            (
+                "source_state_sha256",
+                source_state.source_state_sha256,
+                expected_baseline_values["source_state_sha256"],
+            ),
+            (
+                "source_state_file_count",
+                source_state.source_state_file_count,
+                expected_baseline_values["source_state_file_count"],
+            ),
+            ("git_commit", source_state.git_commit, expected_baseline_values["git_commit"]),
+            ("git_dirty", source_state.git_dirty, expected_dirty),
+        ):
+            if actual != expected:
+                source_mismatches.append(field_name)
+        if source_mismatches:
+            raise ValueError(
+                f"current source state differs from smoke baseline: {sorted(source_mismatches)}"
+            )
     output_path = Path(args.output)
     raw_checkpoint = _raw_checkpoint_path(output_path)
 
@@ -865,8 +990,23 @@ async def generate(args: argparse.Namespace) -> AnswerPredictionSet:
             prompt_sha256=prompt_sha256,
             settings=settings,
             orchestrator=orchestrator,
+            execution_nonce=execution_nonce,
         )
         experiment_sha256 = _sha256_json(experiment_contract)
+        runtime_profile = _runtime_profile_contract(experiment_contract)
+        runtime_profile_json = json.dumps(
+            runtime_profile,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        runtime_profile_sha256 = hashlib.sha256(runtime_profile_json.encode("utf-8")).hexdigest()
+        expected_runtime_profile = expected_baseline_values["runtime_profile_sha256"]
+        if (
+            expected_runtime_profile is not None
+            and runtime_profile_sha256 != expected_runtime_profile
+        ):
+            raise ValueError("current runtime profile differs from smoke baseline")
 
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
@@ -936,6 +1076,9 @@ async def generate(args: argparse.Namespace) -> AnswerPredictionSet:
                 query_dataset=query_dataset,
                 query_dataset_sha256=query_dataset_sha256,
                 experiment_sha256=experiment_sha256,
+                runtime_profile_sha256=runtime_profile_sha256,
+                runtime_profile_json=runtime_profile_json,
+                execution_nonce=execution_nonce,
                 selected_count=len(selected),
                 raw_results=raw_results,
             )
@@ -957,13 +1100,17 @@ async def generate(args: argparse.Namespace) -> AnswerPredictionSet:
             answer_eval_dataset_sha256=answer_eval_dataset_sha256,
             source_gold_sha256=source_gold_sha256,
             experiment_sha256=experiment_sha256,
+            runtime_profile_sha256=runtime_profile_sha256,
+            runtime_profile_json=runtime_profile_json,
+            execution_nonce=execution_nonce,
             prompt_sha256=prompt_sha256,
             settings=settings,
+            embedding_dimension=int(experiment_contract["embedding"]["dimension"]),
+            configured_embedding_dimension=int(settings.embedding_dim),
             top_k=args.top_k,
             selected_questions=len(selected),
             mapping_stats=mapping_stats,
-            git_commit=git_commit,
-            git_dirty=git_dirty,
+            source_state=source_state,
         )
         for index, raw in enumerate(raw_results, start=1):
             print(f"[{index}/{len(raw_results)}] MAP {raw.question.question_id}", flush=True)
@@ -1032,16 +1179,27 @@ async def generate(args: argparse.Namespace) -> AnswerPredictionSet:
                 metadata=metadata,
             )
             _atomic_write_prediction_set(output_path, prediction_set)
+        prediction_set = _build_prediction_set(
+            dataset=dataset,
+            experiment_sha256=experiment_sha256,
+            predictions=predictions,
+            metadata=metadata,
+        )
+        _atomic_write_prediction_set(output_path, prediction_set)
     finally:
         cleanup_failures = await _close_runtime_resources(resources)
 
     if prediction_set is None:
         raise RuntimeError("answer prediction generation produced no checkpoint")
+    # Cleanup may take long enough for a source/config edit to occur.  Verify
+    # after it, immediately before and again after the final atomic artifact.
+    verify_captured_source_state(PROJECT_ROOT, source_state, strict_git=True)
     prediction_set.metadata["cleanup_failure_count"] = len(cleanup_failures)
     prediction_set.metadata["cleanup_failures"] = (
         ",".join(cleanup_failures) if cleanup_failures else None
     )
     _atomic_write_prediction_set(output_path, prediction_set)
+    verify_captured_source_state(PROJECT_ROOT, source_state, strict_git=True)
     return prediction_set
 
 
@@ -1058,6 +1216,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--top-k", type=int, default=8, choices=range(1, 21), metavar="1..20")
     parser.add_argument("--limit", type=int, default=0, help="0 means the full frozen set.")
+    parser.add_argument(
+        "--execution-nonce",
+        help=(
+            "Fresh-run token included in QA idempotency keys; defaults to a random UUID. "
+            "The v1.6 suite supplies a stage-scoped value."
+        ),
+    )
+    parser.add_argument("--expected-runtime-profile-sha256")
+    parser.add_argument("--expected-source-state-sha256")
+    parser.add_argument("--expected-source-state-file-count", type=int)
+    parser.add_argument("--expected-git-commit")
+    parser.add_argument("--expected-git-dirty", choices=("true", "false"))
     parser.add_argument("--allow-disabled-llm", action="store_true")
     return parser
 
