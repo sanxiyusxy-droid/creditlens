@@ -1,0 +1,816 @@
+{
+  "$defs": {
+    "AblationHarnessOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "unsupported_claim_ids_emitted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Claim Ids Emitted",
+          "type": "array"
+        },
+        "unsupported_claim_ids_intercepted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Claim Ids Intercepted",
+          "type": "array"
+        },
+        "counter_evidence_target_ids_found": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Counter Evidence Target Ids Found",
+          "type": "array"
+        },
+        "hitl_triggered": {
+          "title": "Hitl Triggered",
+          "type": "boolean"
+        },
+        "terminal_status": {
+          "enum": [
+            "COMPLETED",
+            "HUMAN_REVIEW",
+            "FAILED",
+            "NEED_MORE_INFO",
+            "DATA_QUALITY_BLOCKED"
+          ],
+          "title": "Terminal Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hitl_triggered",
+        "terminal_status"
+      ],
+      "title": "AblationHarnessOutcome",
+      "type": "object"
+    },
+    "AblationVariant": {
+      "enum": [
+        "FULL",
+        "NO_CHALLENGER",
+        "NO_AUDITOR",
+        "SINGLE_AGENT_BASELINE"
+      ],
+      "title": "AblationVariant",
+      "type": "string"
+    },
+    "AgentArtifact": {
+      "properties": {
+        "contract_version": {
+          "default": "1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "artifact_id": {
+          "format": "uuid",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "producer": {
+          "title": "Producer",
+          "type": "string"
+        },
+        "input_hash": {
+          "default": "",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "lifecycle_status": {
+          "default": "CREATED",
+          "enum": [
+            "CREATED",
+            "VALIDATED",
+            "VERIFIED",
+            "ACCEPTED",
+            "REJECTED",
+            "STALE"
+          ],
+          "title": "Lifecycle Status",
+          "type": "string"
+        },
+        "execution_status": {
+          "default": "SUCCESS",
+          "enum": [
+            "SUCCESS",
+            "PARTIAL",
+            "DEGRADED",
+            "INSUFFICIENT_EVIDENCE",
+            "FAILED"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/AgentClaim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/AgentEvidenceRef"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "calculations": {
+          "items": {
+            "$ref": "#/$defs/CalculationArtifact"
+          },
+          "title": "Calculations",
+          "type": "array"
+        },
+        "unresolved_issues": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Unresolved Issues",
+          "type": "array"
+        },
+        "suggested_tasks": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Suggested Tasks",
+          "type": "array"
+        },
+        "output_hash": {
+          "default": "",
+          "title": "Output Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "task_id",
+        "producer"
+      ],
+      "title": "AgentArtifact",
+      "type": "object"
+    },
+    "AgentClaim": {
+      "properties": {
+        "claim_id": {
+          "format": "uuid",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "ELIGIBILITY",
+            "FINANCIAL",
+            "CASH_FLOW",
+            "CONCENTRATION",
+            "RELATED_PARTY",
+            "DATA_CONFLICT",
+            "MISSING_MATERIAL",
+            "EXCEPTION"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "SUPPORTED",
+            "PARTIALLY_SUPPORTED",
+            "CONTRADICTED",
+            "INSUFFICIENT_EVIDENCE"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "severity": {
+          "default": "INFO",
+          "enum": [
+            "INFO",
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "supporting_evidence_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Supporting Evidence Ids",
+          "type": "array"
+        },
+        "opposing_evidence_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Opposing Evidence Ids",
+          "type": "array"
+        },
+        "calculation_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Calculation Ids",
+          "type": "array"
+        },
+        "as_of_date": {
+          "format": "date",
+          "title": "As Of Date",
+          "type": "string"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "recommended_follow_up": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Recommended Follow Up",
+          "type": "array"
+        },
+        "review_status": {
+          "default": "PENDING",
+          "title": "Review Status",
+          "type": "string"
+        },
+        "source_claim_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Claim Id"
+        }
+      },
+      "required": [
+        "category",
+        "statement",
+        "verdict",
+        "as_of_date"
+      ],
+      "title": "AgentClaim",
+      "type": "object"
+    },
+    "AgentEvidenceRef": {
+      "properties": {
+        "evidence_id": {
+          "format": "uuid",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_type": {
+          "enum": [
+            "DOCUMENT_SPAN",
+            "TABLE_CELL",
+            "SQL_FACT",
+            "CALCULATION",
+            "POLICY_RULE"
+          ],
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "document_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Version Id"
+        },
+        "section_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Id"
+        },
+        "parse_run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parse Run Id"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "fact_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fact Id"
+        },
+        "calculation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calculation Id"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid From"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        },
+        "source_available_at": {
+          "format": "date-time",
+          "title": "Source Available At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "evidence_type",
+        "source_id",
+        "content_hash",
+        "source_available_at"
+      ],
+      "title": "AgentEvidenceRef",
+      "type": "object"
+    },
+    "CalculationArtifact": {
+      "properties": {
+        "calculation_id": {
+          "format": "uuid",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "metric_code": {
+          "title": "Metric Code",
+          "type": "string"
+        },
+        "formula_version": {
+          "title": "Formula Version",
+          "type": "string"
+        },
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/CalculationInput"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Result"
+        },
+        "result_unit": {
+          "title": "Result Unit",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "CALCULATED",
+            "MISSING_INPUT",
+            "DIVISION_BY_ZERO",
+            "UNIT_CONFLICT",
+            "PERIOD_CONFLICT",
+            "SOURCE_CONFLICT"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "trace_hash": {
+          "title": "Trace Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "metric_code",
+        "formula_version",
+        "expression",
+        "inputs",
+        "parameters",
+        "result",
+        "result_unit",
+        "status",
+        "trace_hash"
+      ],
+      "title": "CalculationArtifact",
+      "type": "object"
+    },
+    "CalculationInput": {
+      "properties": {
+        "fact_id": {
+          "format": "uuid",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "metric_code": {
+          "title": "Metric Code",
+          "type": "string"
+        },
+        "raw_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Raw Value"
+        },
+        "canonical_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Canonical Value"
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "period_start": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Start"
+        },
+        "period_end": {
+          "format": "date",
+          "title": "Period End",
+          "type": "string"
+        },
+        "consolidation_scope": {
+          "default": "UNKNOWN",
+          "title": "Consolidation Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "metric_code",
+        "raw_value",
+        "canonical_value",
+        "period_end"
+      ],
+      "title": "CalculationInput",
+      "type": "object"
+    },
+    "ConflictAssessmentTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "claim_text": {
+          "minLength": 1,
+          "title": "Claim Text",
+          "type": "string"
+        },
+        "counter_text": {
+          "minLength": 1,
+          "title": "Counter Text",
+          "type": "string"
+        },
+        "expected_conflict": {
+          "title": "Expected Conflict",
+          "type": "boolean"
+        },
+        "is_conflict": {
+          "title": "Is Conflict",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "claim_text",
+        "counter_text",
+        "expected_conflict",
+        "is_conflict",
+        "reason"
+      ],
+      "title": "ConflictAssessmentTrace",
+      "type": "object"
+    },
+    "ContractValidationTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "component_enabled": {
+          "title": "Component Enabled",
+          "type": "boolean"
+        },
+        "executed": {
+          "title": "Executed",
+          "type": "boolean"
+        },
+        "enforced": {
+          "title": "Enforced",
+          "type": "boolean"
+        },
+        "ok": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ok"
+        },
+        "violations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Violations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "component_enabled",
+        "executed",
+        "enforced"
+      ],
+      "title": "ContractValidationTrace",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Per-cell evidence sidecar generated by the offline component collector.",
+  "properties": {
+    "artifact_type": {
+      "const": "creditlens_agent_ablation_component_harness_v1",
+      "title": "Artifact Type",
+      "type": "string"
+    },
+    "protocol_id": {
+      "const": "creditlens_multi_agent_ablation_v1",
+      "title": "Protocol Id",
+      "type": "string"
+    },
+    "protocol_version": {
+      "const": "1.0.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "collector_version": {
+      "minLength": 1,
+      "title": "Collector Version",
+      "type": "string"
+    },
+    "scenario_id": {
+      "minLength": 1,
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "variant": {
+      "$ref": "#/$defs/AblationVariant"
+    },
+    "execution_semantics": {
+      "const": "DETERMINISTIC_COMPONENT_HARNESS",
+      "title": "Execution Semantics",
+      "type": "string"
+    },
+    "source_run_id": {
+      "format": "uuid",
+      "title": "Source Run Id",
+      "type": "string"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "disabled_components": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Disabled Components",
+      "type": "array"
+    },
+    "challenger_enabled": {
+      "title": "Challenger Enabled",
+      "type": "boolean"
+    },
+    "auditor_enabled": {
+      "title": "Auditor Enabled",
+      "type": "boolean"
+    },
+    "input_artifact": {
+      "$ref": "#/$defs/AgentArtifact"
+    },
+    "contract_validation": {
+      "$ref": "#/$defs/ContractValidationTrace"
+    },
+    "conflict_assessments": {
+      "items": {
+        "$ref": "#/$defs/ConflictAssessmentTrace"
+      },
+      "title": "Conflict Assessments",
+      "type": "array"
+    },
+    "outcome": {
+      "$ref": "#/$defs/AblationHarnessOutcome"
+    },
+    "measured_latency_ms": {
+      "minimum": 0,
+      "title": "Measured Latency Ms",
+      "type": "number"
+    },
+    "total_tokens": {
+      "default": null,
+      "title": "Total Tokens",
+      "type": "null"
+    },
+    "estimated_cost": {
+      "default": null,
+      "title": "Estimated Cost",
+      "type": "null"
+    },
+    "cost_currency": {
+      "default": null,
+      "title": "Cost Currency",
+      "type": "null"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "artifact_type",
+    "protocol_id",
+    "protocol_version",
+    "collector_version",
+    "scenario_id",
+    "variant",
+    "execution_semantics",
+    "source_run_id",
+    "recorded_at",
+    "disabled_components",
+    "challenger_enabled",
+    "auditor_enabled",
+    "input_artifact",
+    "contract_validation",
+    "conflict_assessments",
+    "outcome",
+    "measured_latency_ms",
+    "limitations"
+  ],
+  "title": "AblationHarnessArtifact",
+  "type": "object"
+}

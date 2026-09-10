@@ -19,6 +19,7 @@ from creditlens.application.ports import ObjectStorePort
 from creditlens.common.clock import utc_now
 from creditlens.common.errors import DataQualityBlockedError, DocumentParseFailedError
 from creditlens.common.hashing import sha256_text
+from creditlens.common.ids import new_id
 from creditlens.infrastructure.parsers.pymupdf_parser import (
     PARSER_NAME,
     PARSER_VERSION,
@@ -51,6 +52,7 @@ class IngestionPipeline:
         sparse_encoder_version: str | None = None,
         ingestion_config_hash: str | None = None,
         summary_collection_name: str | None = None,
+        deterministic_identity_namespace: uuid.UUID | None = None,
     ):
         self._store = object_store
         self._parser = PyMuPdfParser()
@@ -61,8 +63,15 @@ class IngestionPipeline:
         self._config_hash = ingestion_config_hash or sha256_text(
             f"{PARSER_NAME}:{PARSER_VERSION}:structure-chunker-v1"
         )
+        self._identity_namespace = deterministic_identity_namespace
 
-    async def ingest(self, session: AsyncSession, document_version_id: uuid.UUID) -> IngestResult:
+    async def ingest(
+        self,
+        session: AsyncSession,
+        document_version_id: uuid.UUID,
+        *,
+        deterministic_identity_key: str | None = None,
+    ) -> IngestResult:
         version = await session.get(DocumentVersion, document_version_id)
         if version is None:
             raise DocumentParseFailedError("document version 不存在")
@@ -93,7 +102,13 @@ class IngestionPipeline:
             )
             or 0
         )
+        deterministic = self._identity_namespace is not None and deterministic_identity_key
         parse_run = ParseRun(
+            id=(
+                uuid.uuid5(self._identity_namespace, f"parse:{deterministic_identity_key}")
+                if deterministic
+                else new_id()
+            ),
             tenant_id=version.tenant_id,
             document_version_id=document_version_id,
             generation_no=max_gen + 1,
@@ -123,6 +138,21 @@ class IngestionPipeline:
 
         version.page_count = parsed.metadata.get("page_count")
         drafts = build_sections(parsed, document.title, document.document_type)
+        if deterministic:
+            old_to_new = {
+                draft.id: uuid.uuid5(
+                    self._identity_namespace,
+                    "section:"
+                    f"{deterministic_identity_key}:{draft.ordinal}:"
+                    f"{draft.section_type}:{draft.text_hash}",
+                )
+                for draft in drafts
+            }
+            for draft in drafts:
+                draft.id = old_to_new[draft.id]
+                draft.parent_id = old_to_new.get(draft.parent_id, draft.parent_id)
+                draft.previous_id = old_to_new.get(draft.previous_id, draft.previous_id)
+                draft.next_id = old_to_new.get(draft.next_id, draft.next_id)
         leaf_types = {"ARTICLE", "PARAGRAPH"}
 
         outbox_count = 0
@@ -183,6 +213,8 @@ class IngestionPipeline:
                 parse_run_id=parse_run.id,
                 target_collection_name=self._summary_collection,
                 embedding_version=self._embedding_version,
+                deterministic_identity_namespace=self._identity_namespace,
+                deterministic_identity_key=deterministic_identity_key,
             )
             outbox_count += summary_count
 

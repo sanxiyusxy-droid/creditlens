@@ -208,8 +208,8 @@ class RetrievalOrchestrator:
             all_rejected.extend(exact_rejected)
             if exact_candidates:
                 ranked_lists["EXACT"] = exact_candidates
-            if exact_candidates or exact_rejected:
-                route_traces.append(_make_trace("EXACT", exact_candidates, exact_rejected))
+            # Executed with zero hits is distinct from disabled/not applicable.
+            route_traces.append(_make_trace("EXACT", exact_candidates, exact_rejected))
 
         # 3. RRF 融合
         fused = rrf_fuse(
@@ -221,12 +221,11 @@ class RetrievalOrchestrator:
         )
 
         # 4. Cross-Encoder 精排（可选）：请求精排但 Reranker 缺失/异常 -> 降级必须记录
-        # 降级不只记 bool，还记录可归因的原因（缺失 / 异常类型 + 摘要），
+        # 降级不只记 bool，还记录稳定、非敏感的归因原因（缺失 / 异常类型），
         # 便于在评测 Manifest 与 Trace 中区分"没配精排"与"精排调用失败"
         rerank_applied = False
         rerank_degraded = False
         rerank_degraded_reason: str | None = None
-        rerank_error_detail: str | None = None
         if cfg.enable_rerank:
             if self.reranker is None:
                 rerank_degraded = True
@@ -238,7 +237,6 @@ class RetrievalOrchestrator:
                 except Exception as exc:  # 精排失败不阻断检索，但必须留痕
                     rerank_degraded = True
                     rerank_degraded_reason = f"RERANK_CALL_FAILED:{type(exc).__name__}"
-                    rerank_error_detail = str(exc)[:200]
 
         # 5. 重编 rank + 截断
         final: list[RetrievedCandidate] = []
@@ -274,7 +272,6 @@ class RetrievalOrchestrator:
             "rerank_applied": rerank_applied,
             "rerank_degraded": rerank_degraded,
             "rerank_degraded_reason": rerank_degraded_reason,
-            "rerank_error_detail": rerank_error_detail,
             "reranker_version": self.reranker.version if self.reranker else None,
             "fused_count": len(fused),
             "final_count": len(final),

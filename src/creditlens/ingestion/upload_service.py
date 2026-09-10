@@ -47,6 +47,10 @@ class UploadCommand:
     source_available_at: datetime | None = None
     confidentiality: str = "INTERNAL"
     expected_sha256: str | None = None
+    # Internal deterministic fixtures may pin identities. API callers never
+    # populate these fields; ordinary uploads retain random server-side IDs.
+    document_id: uuid.UUID | None = None
+    document_version_id: uuid.UUID | None = None
 
 
 @dataclass
@@ -86,7 +90,7 @@ class UploadService:
         )
         deduplicated = existing is not None
 
-        version_id = new_id()
+        version_id = cmd.document_version_id or new_id()
         if deduplicated:
             object_uri = existing.object_uri
         else:
@@ -155,8 +159,11 @@ class UploadService:
                 Document.logical_key == cmd.logical_key,
             )
         )
+        if document is not None and cmd.document_id is not None and document.id != cmd.document_id:
+            raise DataQualityBlockedError("冻结资产的 Document ID 与现有数据不一致")
         if document is None:
             document = Document(
+                id=cmd.document_id or new_id(),
                 tenant_id=cmd.tenant_id,
                 logical_key=cmd.logical_key,
                 title=cmd.title,

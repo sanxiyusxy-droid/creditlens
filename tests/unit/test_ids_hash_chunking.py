@@ -2,7 +2,9 @@
 
 import uuid
 
-from creditlens.common.hashing import sha256_bytes, sha256_text
+import pytest
+
+from creditlens.common.hashing import sha256_bytes, sha256_canonical_utf8_text, sha256_text
 from creditlens.common.ids import deterministic_point_id
 
 
@@ -23,6 +25,21 @@ def test_deterministic_point_id_changes_with_inputs():
 def test_sha256():
     assert len(sha256_bytes(b"abc")) == 64
     assert sha256_text("abc") == sha256_bytes(b"abc")
+
+
+def test_canonical_utf8_text_hash_is_platform_independent_and_content_sensitive():
+    lf = "第一行\n第二行\n".encode()
+    crlf = "第一行\r\n第二行\r\n".encode()
+    cr = "第一行\r第二行\r".encode()
+
+    assert sha256_canonical_utf8_text(lf) == sha256_canonical_utf8_text(crlf)
+    assert sha256_canonical_utf8_text(lf) == sha256_canonical_utf8_text(cr)
+    assert sha256_canonical_utf8_text(lf) != sha256_canonical_utf8_text("第一行\n第三行\n".encode())
+
+
+def test_canonical_utf8_text_hash_rejects_invalid_utf8():
+    with pytest.raises(UnicodeDecodeError):
+        sha256_canonical_utf8_text(b"\xff")
 
 
 class TestPolicyChunking:

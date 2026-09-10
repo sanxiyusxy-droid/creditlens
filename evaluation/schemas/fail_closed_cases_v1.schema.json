@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "FailureCaseDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "injection_type": {
+          "$ref": "#/$defs/FailureInjectionType"
+        },
+        "as_of_date": {
+          "format": "date",
+          "title": "As Of Date",
+          "type": "string"
+        },
+        "synthetic_claim": {
+          "minLength": 1,
+          "title": "Synthetic Claim",
+          "type": "string"
+        },
+        "expected_violation_codes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Expected Violation Codes",
+          "type": "array"
+        },
+        "expected_action": {
+          "const": "BLOCK",
+          "title": "Expected Action",
+          "type": "string"
+        },
+        "expected_workflow_status": {
+          "const": "HUMAN_REVIEW",
+          "title": "Expected Workflow Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "title",
+        "injection_type",
+        "as_of_date",
+        "synthetic_claim",
+        "expected_violation_codes",
+        "expected_action",
+        "expected_workflow_status"
+      ],
+      "title": "FailureCaseDefinition",
+      "type": "object"
+    },
+    "FailureInjectionType": {
+      "enum": [
+        "NUMERIC_EVIDENCE_MISBINDING",
+        "PROHIBITED_CREDIT_DETERMINATION"
+      ],
+      "title": "FailureInjectionType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "protocol_id": {
+      "const": "creditlens_fail_closed_cases_v1",
+      "title": "Protocol Id",
+      "type": "string"
+    },
+    "protocol_version": {
+      "const": "1.0.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "frozen": {
+      "const": true,
+      "title": "Frozen",
+      "type": "boolean"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/FailureCaseDefinition"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Cases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocol_id",
+    "protocol_version",
+    "frozen",
+    "cases"
+  ],
+  "title": "FailureCaseDataset",
+  "type": "object"
+}

@@ -48,6 +48,33 @@ def _assert_policy_or_privilege_denied(error: Exception) -> None:
     ), message
 
 
+async def test_runtime_role_has_frozen_least_privilege_attributes(pg_engine):
+    """CI/local provisioning must converge on the same role contract as preflight."""
+    async with pg_engine.connect() as connection:
+        role = (
+            await connection.execute(
+                text(
+                    "SELECT r.rolsuper, r.rolbypassrls, r.rolcreatedb, r.rolcreaterole, "
+                    "r.rolreplication, r.rolinherit, r.rolcanlogin, "
+                    "d.datdba = r.oid AS owns_database "
+                    "FROM pg_roles AS r "
+                    "JOIN pg_database AS d ON d.datname = current_database() "
+                    "WHERE r.rolname = current_user"
+                )
+            )
+        ).one()
+        assert role == (False, False, False, False, False, False, True, False)
+
+        membership_count = await connection.scalar(
+            text(
+                "SELECT count(*) FROM pg_auth_members AS membership "
+                "JOIN pg_roles AS child ON child.oid = membership.member "
+                "WHERE child.rolname = current_user"
+            )
+        )
+        assert membership_count == 0
+
+
 async def test_business_role_cannot_mutate_append_only_audit_tables(pg_engine):
     """业务角色对审计/证据链表只有 SELECT+INSERT，没有 UPDATE/DELETE。"""
     protected = [
@@ -814,6 +841,131 @@ async def test_snapshot_parent_and_children_require_case_membership(pg_engine):
             assert rows == []
 
 
+async def test_snapshot_tables_are_strictly_append_only_for_runtime_role(pg_engine):
+    """冻结根和成员只能 SELECT/INSERT；冻结路径本身不依赖任何 UPDATE。"""
+    from creditlens.application.snapshot_service import freeze_snapshot
+    from creditlens.application.trusted_context import build_trusted_context
+    from creditlens.common.config import get_settings
+    from creditlens.infrastructure.postgres.models import CaseSnapshot
+    from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
+
+    snapshot_tables = (
+        "case_snapshots",
+        "snapshot_documents",
+        "snapshot_indexes",
+        "snapshot_facts",
+    )
+    async with pg_engine.connect() as connection:
+        for table in snapshot_tables:
+            qualified = f"public.{table}"
+            for privilege in ("SELECT", "INSERT"):
+                assert await connection.scalar(
+                    text("SELECT has_table_privilege(current_user, :table, :privilege)"),
+                    {"table": qualified, "privilege": privilege},
+                )
+            for privilege in ("UPDATE", "DELETE"):
+                assert not await connection.scalar(
+                    text("SELECT has_table_privilege(current_user, :table, :privilege)"),
+                    {"table": qualified, "privilege": privilege},
+                )
+            updateable_columns = (
+                (
+                    await connection.execute(
+                        text(
+                            "SELECT column_name FROM information_schema.columns "
+                            "WHERE table_schema = 'public' AND table_name = :table "
+                            "AND has_column_privilege(current_user, "
+                            "format('public.%I', table_name), column_name, 'UPDATE')"
+                        ),
+                        {"table": table},
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            assert updateable_columns == []
+
+        policy_rows = (
+            await connection.execute(
+                text(
+                    "SELECT tablename, policyname, cmd FROM pg_policies "
+                    "WHERE schemaname = 'public' "
+                    "AND tablename = ANY(CAST(:tables AS text[]))"
+                ),
+                {"tables": list(snapshot_tables)},
+            )
+        ).all()
+        assert {(row.tablename, row.policyname, row.cmd) for row in policy_rows} == {
+            ("case_snapshots", "case_snapshot_select", "SELECT"),
+            ("case_snapshots", "case_snapshot_insert", "INSERT"),
+            ("snapshot_documents", "snapshot_parent_select", "SELECT"),
+            ("snapshot_documents", "snapshot_parent_insert", "INSERT"),
+            ("snapshot_indexes", "snapshot_parent_select", "SELECT"),
+            ("snapshot_indexes", "snapshot_parent_insert", "INSERT"),
+            ("snapshot_facts", "snapshot_parent_select", "SELECT"),
+            ("snapshot_facts", "snapshot_parent_insert", "INSERT"),
+        }
+
+    factory = create_session_factory(pg_engine)
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=SEEDED_MEMBER,
+    ) as session:
+        trusted = await build_trusted_context(
+            session,
+            SEEDED_TENANT,
+            SEEDED_CASE,
+            user_id=SEEDED_MEMBER,
+        )
+        frozen = await freeze_snapshot(
+            session,
+            trusted,
+            chunks_collection=get_settings().chunks_collection_name,
+        )
+        snapshot = await session.get(CaseSnapshot, frozen.snapshot_id)
+        assert snapshot is not None
+        assert len(snapshot.snapshot_hash) == 64
+        snapshot_id = snapshot.id
+        snapshot_hash = snapshot.snapshot_hash
+
+    mutation_attempts = (
+        text("UPDATE case_snapshots SET snapshot_hash = repeat('0', 64) WHERE id = :snapshot_id"),
+        text("DELETE FROM case_snapshots WHERE id = :snapshot_id"),
+        text(
+            "UPDATE snapshot_documents SET parse_run_id = parse_run_id "
+            "WHERE snapshot_id = :snapshot_id"
+        ),
+        text("DELETE FROM snapshot_documents WHERE snapshot_id = :snapshot_id"),
+        text(
+            "UPDATE snapshot_indexes SET physical_collection_name = 'tampered' "
+            "WHERE snapshot_id = :snapshot_id"
+        ),
+        text("DELETE FROM snapshot_indexes WHERE snapshot_id = :snapshot_id"),
+        text("UPDATE snapshot_facts SET fact_id = fact_id WHERE snapshot_id = :snapshot_id"),
+        text("DELETE FROM snapshot_facts WHERE snapshot_id = :snapshot_id"),
+    )
+    for statement in mutation_attempts:
+        async with session_scope(
+            factory,
+            tenant_id=SEEDED_TENANT,
+            user_id=SEEDED_MEMBER,
+        ) as session:
+            with pytest.raises(Exception) as exc_info:
+                await session.execute(statement, {"snapshot_id": snapshot_id})
+            await session.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)
+
+    async with session_scope(
+        factory,
+        tenant_id=SEEDED_TENANT,
+        user_id=SEEDED_MEMBER,
+    ) as session:
+        persisted = await session.get(CaseSnapshot, snapshot_id)
+        assert persisted is not None
+        assert persisted.snapshot_hash == snapshot_hash
+
+
 async def test_same_tenant_outsider_cannot_insert_case_scoped_rows(pg_engine):
     """仅持有 tenant_id 不构成写权限；无 Membership 不得创建 Run/Upload。"""
     from creditlens.infrastructure.postgres.models import ReviewRun, UploadSession
@@ -849,8 +1001,8 @@ async def test_same_tenant_outsider_cannot_insert_case_scoped_rows(pg_engine):
         _assert_policy_or_privilege_denied(exc_info.value)
 
 
-async def test_credit_case_creation_is_admin_only_and_borrower_tenant_is_immutable(pg_engine):
-    """业务角色不能造孤儿 Case，也不能把已有 Case 指向另一租户借款人。"""
+async def test_credit_case_creation_is_admin_only_and_root_fields_are_immutable(pg_engine):
+    """业务角色只能更新案件业务白名单，身份、产品、金额和时间根均不可变。"""
     from creditlens.infrastructure.postgres.models import CreditCase, Entity
     from creditlens.infrastructure.postgres.session import create_session_factory, session_scope
 
@@ -860,7 +1012,7 @@ async def test_credit_case_creation_is_admin_only_and_borrower_tenant_is_immutab
             text("SELECT has_table_privilege(current_user, :table, 'SELECT')"),
             {"table": qualified},
         )
-        assert await connection.scalar(
+        assert not await connection.scalar(
             text("SELECT has_table_privilege(current_user, :table, 'UPDATE')"),
             {"table": qualified},
         )
@@ -869,6 +1021,57 @@ async def test_credit_case_creation_is_admin_only_and_borrower_tenant_is_immutab
                 text("SELECT has_table_privilege(current_user, :table, :privilege)"),
                 {"table": qualified, "privilege": privilege},
             )
+        mutable_columns = {
+            "loan_purpose",
+            "industry_code",
+            "region_code",
+            "status",
+            "current_report_id",
+            "updated_at",
+            "version",
+        }
+        immutable_columns = {
+            "id",
+            "tenant_id",
+            "case_number",
+            "borrower_entity_id",
+            "product_code",
+            "requested_amount",
+            "currency",
+            "application_date",
+            "as_of_date",
+            "decision_cutoff_at",
+            "created_by",
+            "created_at",
+        }
+        for column in mutable_columns:
+            assert await connection.scalar(
+                text(
+                    "SELECT has_column_privilege(current_user, 'public.credit_cases', "
+                    ":column, 'UPDATE')"
+                ),
+                {"column": column},
+            )
+        for column in immutable_columns:
+            assert not await connection.scalar(
+                text(
+                    "SELECT has_column_privilege(current_user, 'public.credit_cases', "
+                    ":column, 'UPDATE')"
+                ),
+                {"column": column},
+            )
+        policies = (
+            await connection.execute(
+                text(
+                    "SELECT policyname, cmd FROM pg_policies "
+                    "WHERE schemaname = 'public' AND tablename = 'credit_cases'"
+                )
+            )
+        ).all()
+        assert {(row.policyname, row.cmd) for row in policies} == {
+            ("case_tenant_select", "SELECT"),
+            ("case_tenant_update", "UPDATE"),
+        }
 
     factory = create_session_factory(pg_engine)
     outsider_id = uuid.uuid4()
@@ -917,18 +1120,31 @@ async def test_credit_case_creation_is_admin_only_and_borrower_tenant_is_immutab
         await session.flush()
         await session.rollback()
 
-    async with session_scope(
-        factory,
-        tenant_id=SEEDED_TENANT,
-        user_id=SEEDED_MEMBER,
-    ) as session:
-        case = await session.get(CreditCase, SEEDED_CASE)
-        assert case is not None
-        case.borrower_entity_id = foreign_borrower
-        with pytest.raises(Exception) as exc_info:
-            await session.flush()
-        await session.rollback()
-    _assert_policy_or_privilege_denied(exc_info.value)
+    immutable_mutations = (
+        ("tenant_id", str(SEEDED_TENANT)),
+        ("case_number", "tampered-case-number"),
+        ("borrower_entity_id", str(foreign_borrower)),
+        ("product_code", "tampered-product"),
+        ("requested_amount", Decimal("1")),
+        ("currency", "USD"),
+        ("application_date", date(2026, 7, 1)),
+        ("as_of_date", date(2026, 7, 1)),
+        ("decision_cutoff_at", datetime(2026, 7, 1, tzinfo=UTC)),
+        ("created_by", str(uuid.uuid4())),
+    )
+    for column, value in immutable_mutations:
+        async with session_scope(
+            factory,
+            tenant_id=SEEDED_TENANT,
+            user_id=SEEDED_MEMBER,
+        ) as session:
+            with pytest.raises(Exception) as exc_info:
+                await session.execute(
+                    text(f"UPDATE credit_cases SET {column} = :value WHERE id = :case_id"),
+                    {"value": value, "case_id": SEEDED_CASE},
+                )
+            await session.rollback()
+        _assert_policy_or_privilege_denied(exc_info.value)
 
 
 async def test_snapshot_children_reject_cross_tenant_sources(pg_engine):

@@ -42,6 +42,8 @@ async def build_summary_tree(
     parse_run_id: uuid.UUID,
     target_collection_name: str,
     embedding_version: str,
+    deterministic_identity_namespace: uuid.UUID | None = None,
+    deterministic_identity_key: str | None = None,
 ) -> int:
     """为一个 Parse Run 构建 L0/L1 摘要并写入 Outbox。返回摘要节点数。"""
     sections = (
@@ -65,15 +67,24 @@ async def build_summary_tree(
         level: str, text: str, sources: list[DocumentSection], parent_id: uuid.UUID | None
     ) -> SummaryNode:
         nonlocal created
+        summary_hash = sha256_text(text)
         node = SummaryNode(
-            id=new_id(),
+            id=(
+                uuid.uuid5(
+                    deterministic_identity_namespace,
+                    f"summary:{deterministic_identity_key}:{created}:{level}:{summary_hash}",
+                )
+                if deterministic_identity_namespace is not None
+                and deterministic_identity_key is not None
+                else new_id()
+            ),
             tenant_id=tenant_id,
             document_version_id=document_version_id,
             parse_run_id=parse_run_id,
             parent_summary_id=parent_id,
             summary_level=level,
             summary_text=text,
-            summary_hash=sha256_text(text),
+            summary_hash=summary_hash,
             model_name=SUMMARY_MODEL_NAME,
             grounding_status="VERIFIED",  # 抽取式摘要按构造可回查
             evidence_eligible=False,

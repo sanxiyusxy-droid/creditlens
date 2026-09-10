@@ -21,7 +21,10 @@ from scripts.generate_answer_predictions import (
     _git_metadata,
     _idempotency_key,
     _prediction_from_response,
+    _prediction_metadata,
     _read_bytes_and_sha256,
+    _runtime_profile_contract,
+    _runtime_profile_sha256,
     _RuntimeResources,
     _sha256_json,
     _validate_gold_provenance,
@@ -37,20 +40,38 @@ from creditlens.evaluation.answer_metrics import (
     PredictionStatus,
 )
 from creditlens.evaluation.gold_schema import GoldDataset
+from creditlens.evaluation.source_state import (
+    SOURCE_STATE_ALGORITHM,
+    SOURCE_STATE_SCOPE,
+    EvidenceMaturity,
+    SourceStateEvidence,
+)
 
 
 def _settings(**overrides):
     values = {
         "llm_provider": "openai_compatible",
+        "llm_api_base": "https://llm.example/v1",
         "llm_model": "chat-v1",
         "embedding_provider": "openai_compatible",
+        "embedding_api_base": "https://embedding.example/v1",
         "embedding_model": "embed-v1",
         "effective_embedding_version": "embed-v1@api",
         "embedding_dim": 1024,
         "rerank_provider": "http",
+        "rerank_api_base": "https://rerank.example/v1",
         "rerank_model": "rerank-v1",
         "orchestrator_enable_rerank": True,
+        "orchestrator_enable_summary": True,
+        "orchestrator_enable_exact": True,
+        "context_token_budget": 4096,
+        "context_max_per_document_ratio": 0.6,
+        "context_expand_adjacent": True,
+        "chunks_collection_name": "credit_chunks_v2",
+        "summaries_collection_name": "credit_summaries_v2",
+        "sparse_encoder_version": "bm25-jieba-v1",
         "qa_allow_extractive_fallback": False,
+        "qa_prompt_version": "grounded_qa_v1",
         "qa_max_claims": 6,
         "qa_max_generation_tokens": 2048,
         "qa_max_audit_repairs": 1,
@@ -348,14 +369,25 @@ def test_experiment_hash_covers_all_generation_dimensions():
         _experiment_hash(prompt_version="grounded_qa_v2"),
         _experiment_hash(prompt_sha256="d" * 64),
         _experiment_hash(_settings(llm_provider="disabled")),
+        _experiment_hash(_settings(llm_api_base="https://llm-alt.example/v1")),
         _experiment_hash(_settings(llm_model="chat-v2")),
         _experiment_hash(_settings(embedding_provider="hash_fallback")),
+        _experiment_hash(_settings(embedding_api_base="https://embedding-alt.example/v1")),
         _experiment_hash(_settings(embedding_model="embed-v2")),
         _experiment_hash(_settings(effective_embedding_version="embed-v2@api")),
         _experiment_hash(_settings(embedding_dim=2560)),
         _experiment_hash(_settings(rerank_provider="lexical_fallback")),
+        _experiment_hash(_settings(rerank_api_base="https://rerank-alt.example/v1")),
         _experiment_hash(_settings(rerank_model="rerank-v2")),
         _experiment_hash(_settings(orchestrator_enable_rerank=False)),
+        _experiment_hash(_settings(orchestrator_enable_summary=False)),
+        _experiment_hash(_settings(orchestrator_enable_exact=False)),
+        _experiment_hash(_settings(context_token_budget=2048)),
+        _experiment_hash(_settings(context_max_per_document_ratio=0.5)),
+        _experiment_hash(_settings(context_expand_adjacent=False)),
+        _experiment_hash(_settings(chunks_collection_name="credit_chunks_alt")),
+        _experiment_hash(_settings(summaries_collection_name="credit_summaries_alt")),
+        _experiment_hash(_settings(sparse_encoder_version="bm25-jieba-v2")),
         _experiment_hash(_settings(qa_allow_extractive_fallback=True)),
         _experiment_hash(_settings(qa_max_claims=7)),
         _experiment_hash(_settings(qa_max_generation_tokens=4096)),
@@ -368,12 +400,17 @@ def test_experiment_hash_covers_all_generation_dimensions():
             orchestrator=_orchestrator(embedder=SimpleNamespace(version="embed-runtime-v2"))
         ),
         _experiment_hash(
+            orchestrator=_orchestrator(
+                embedder=SimpleNamespace(version="embed-runtime-v1", dim=2560)
+            )
+        ),
+        _experiment_hash(
             orchestrator=_orchestrator(reranker=SimpleNamespace(version="rerank-runtime-v2"))
         ),
     }
 
     assert baseline not in variants
-    assert len(variants) == 23
+    assert len(variants) == 35
     assert len(_idempotency_key(baseline, "q" + "x" * 10_000)) <= 128
 
 
@@ -388,6 +425,89 @@ def test_experiment_contract_versions_the_prediction_adapter():
     )
 
     assert contract["prediction_adapter_version"] == PREDICTION_ADAPTER_VERSION
+
+
+def test_runtime_profile_is_canonical_and_excludes_dataset_and_execution_identity():
+    first = _experiment_contract(
+        query_dataset_sha256="a" * 64,
+        top_k=8,
+        prompt_version="grounded_qa_v1",
+        prompt_sha256="b" * 64,
+        settings=_settings(),
+        orchestrator=_orchestrator(),
+        execution_nonce="suite-smoke-0001",
+    )
+    second = {
+        **first,
+        "query_dataset_sha256": "c" * 64,
+        "execution_nonce": "suite-full-0002",
+    }
+
+    profile = _runtime_profile_contract(first)
+
+    assert "query_dataset_sha256" not in profile
+    assert "execution_nonce" not in profile
+    assert _runtime_profile_sha256(first) == _runtime_profile_sha256(second)
+    assert _runtime_profile_sha256(first) == _sha256_json(profile)
+
+
+def test_experiment_contract_records_resolved_runtime_embedding_dimension():
+    contract = _experiment_contract(
+        query_dataset_sha256="a" * 64,
+        top_k=8,
+        prompt_version="grounded_qa_v1",
+        prompt_sha256="b" * 64,
+        settings=_settings(embedding_dim=256),
+        orchestrator=_orchestrator(embedder=SimpleNamespace(version="BAAI/bge-m3@api", dim=1024)),
+    )
+
+    assert contract["embedding"]["dimension"] == 1024
+    assert contract["embedding"]["configured_dimension"] == 256
+
+
+def test_prediction_metadata_exposes_runtime_and_configured_embedding_dimensions():
+    source_state = SourceStateEvidence(
+        git_commit=None,
+        git_dirty=True,
+        source_state_sha256="f" * 64,
+        source_state_algorithm=SOURCE_STATE_ALGORITHM,
+        source_state_scope=SOURCE_STATE_SCOPE,
+        source_state_file_count=123,
+        evidence_maturity=EvidenceMaturity.DEVELOPMENT_SOURCE_BOUND,
+    )
+    metadata = _prediction_metadata(
+        query_dataset_sha256="a" * 64,
+        answer_eval_dataset_sha256="b" * 64,
+        source_gold_sha256="c" * 64,
+        experiment_sha256="d" * 64,
+        runtime_profile_sha256="1" * 64,
+        runtime_profile_json='{"profile":"safe"}',
+        execution_nonce="dimension-metadata-run",
+        prompt_sha256="e" * 64,
+        settings=_settings(embedding_dim=256),
+        embedding_dimension=1024,
+        configured_embedding_dimension=256,
+        top_k=8,
+        selected_questions=3,
+        mapping_stats=CitationMappingStats(),
+        source_state=source_state,
+    )
+
+    assert metadata["embedding_dimension"] == 1024
+    assert metadata["configured_embedding_dimension"] == 256
+    assert metadata["runtime_profile_sha256"] == "1" * 64
+    assert metadata["runtime_profile_json"] == '{"profile":"safe"}'
+    assert metadata["git_dirty"] is True
+    assert metadata["source_state_sha256"] == "f" * 64
+    assert metadata["evidence_maturity"] == "DEVELOPMENT_SOURCE_BOUND"
+
+
+def test_execution_nonce_changes_experiment_hash_and_idempotency_key():
+    first = _experiment_hash(execution_nonce="suite-run-smoke-0001")
+    second = _experiment_hash(execution_nonce="suite-run-smoke-0002")
+
+    assert first != second
+    assert _idempotency_key(first, "q001") != _idempotency_key(second, "q001")
 
 
 def test_frozen_input_is_read_once_and_hashes_the_same_bytes():
@@ -759,9 +879,15 @@ async def test_generate_finishes_and_checkpoints_raw_qa_before_loading_gold(
     settings = _settings()
     settings.qa_prompt_version = "grounded_qa_v1"
     settings.rrf_k = 60
+    verified_source_state = []
+
+    def verify_source_state(_project_root, source_state, *, strict_git):
+        verified_source_state.append((source_state.source_state_sha256, strict_git))
+
     monkeypatch.setattr(runner, "get_settings", lambda: settings)
     monkeypatch.setattr(runner, "_prompt_fingerprint", lambda _settings: ("v1", "b" * 64))
     monkeypatch.setattr(runner, "_git_metadata", lambda: (None, None))
+    monkeypatch.setattr(runner, "verify_captured_source_state", verify_source_state)
     monkeypatch.setattr(runner, "_read_bytes_and_sha256", read_frozen)
     monkeypatch.setattr(runner, "create_engine", FakeEngine)
     monkeypatch.setattr(runner, "create_session_factory", lambda _engine: object())
@@ -792,6 +918,10 @@ async def test_generate_finishes_and_checkpoints_raw_qa_before_loading_gold(
         result.metadata["answer_eval_dataset_sha256"] == hashlib.sha256(dataset_bytes).hexdigest()
     )
     assert result.metadata["source_gold_sha256"] == hashlib.sha256(gold_bytes).hexdigest()
+    assert verified_source_state == [
+        (result.metadata["source_state_sha256"], True),
+        (result.metadata["source_state_sha256"], True),
+    ]
     assert [item.status for item in result.predictions] == [
         PredictionStatus.TECHNICAL_FAILURE,
         PredictionStatus.REFUSED,
@@ -800,3 +930,43 @@ async def test_generate_finishes_and_checkpoints_raw_qa_before_loading_gold(
         json.loads(output.read_text(encoding="utf-8"))["predictions"][0]["error_type"]
         == "RuntimeError"
     )
+
+
+@pytest.mark.asyncio
+async def test_generate_rejects_source_baseline_mismatch_before_provider_construction(
+    monkeypatch,
+    tmp_path,
+):
+    import scripts.generate_answer_predictions as runner
+
+    provider_constructed = False
+
+    def unexpected_provider(_settings):
+        nonlocal provider_constructed
+        provider_constructed = True
+        raise AssertionError("provider construction must follow source baseline validation")
+
+    monkeypatch.setattr(runner, "get_settings", lambda: _settings())
+    monkeypatch.setattr(runner, "_git_metadata", lambda: ("a" * 40, True))
+    monkeypatch.setattr(runner, "build_embedding_provider", unexpected_provider)
+
+    with pytest.raises(ValueError, match="differs from smoke baseline"):
+        await runner.generate(
+            argparse.Namespace(
+                query_dataset=DEFAULT_QUERY_DATASET,
+                dataset=DEFAULT_DATASET,
+                gold_dataset=DEFAULT_GOLD,
+                output=tmp_path / "predictions.json",
+                top_k=8,
+                limit=3,
+                execution_nonce="source-baseline-mismatch",
+                allow_disabled_llm=False,
+                expected_runtime_profile_sha256="b" * 64,
+                expected_source_state_sha256="0" * 64,
+                expected_source_state_file_count=1,
+                expected_git_commit="a" * 40,
+                expected_git_dirty="true",
+            )
+        )
+
+    assert provider_constructed is False

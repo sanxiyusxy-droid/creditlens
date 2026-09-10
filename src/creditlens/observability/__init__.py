@@ -25,6 +25,7 @@ from creditlens.observability.invocation import (
     invocation_run_event_payload,
 )
 from creditlens.observability.outbox_worker import (
+    LocalDirectoryTelemetryExporter,
     NoopTelemetryExporter,
     TelemetryDelivery,
     TelemetryExporter,
@@ -55,6 +56,7 @@ __all__ = [
     "InvocationStatus",
     "InvocationTimeQuality",
     "InvocationWriter",
+    "LocalDirectoryTelemetryExporter",
     "ModelPrice",
     "NoopTelemetryExporter",
     "PayloadCanonicalizationError",

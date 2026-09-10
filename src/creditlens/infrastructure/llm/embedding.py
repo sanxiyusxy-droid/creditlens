@@ -117,6 +117,25 @@ def _probe_dim(base_url: str, api_key: str, model: str) -> int:
     return len(response.json()["data"][0]["embedding"])
 
 
+def resolve_embedding_dim(settings) -> int:
+    """Resolve the dimension used by the concrete embedding provider.
+
+    ``embedding_dim`` is the configured dimension for the deterministic hash
+    fallback.  OpenAI-compatible models may have a well-known (or probed)
+    dimension and every collection/preflight caller must use that same value.
+    """
+
+    if settings.embedding_provider == "hash_fallback":
+        return int(settings.embedding_dim)
+    if settings.embedding_provider == "openai_compatible":
+        return KNOWN_EMBEDDING_DIMS.get(settings.embedding_model) or _probe_dim(
+            settings.embedding_api_base,
+            settings.embedding_api_key,
+            settings.embedding_model,
+        )
+    raise NotImplementedError(f"embedding provider {settings.embedding_provider} 未配置")
+
+
 def build_embedding_provider(settings) -> HashEmbedding | OpenAICompatEmbedding:
     from creditlens.common.config import Settings
 
@@ -128,9 +147,7 @@ def build_embedding_provider(settings) -> HashEmbedding | OpenAICompatEmbedding:
             settings.embedding_api_base and settings.embedding_api_key and settings.embedding_model
         ):
             raise ValueError("openai_compatible embedding 需要 EMBEDDING_API_BASE/KEY/MODEL")
-        dim = KNOWN_EMBEDDING_DIMS.get(settings.embedding_model) or _probe_dim(
-            settings.embedding_api_base, settings.embedding_api_key, settings.embedding_model
-        )
+        dim = resolve_embedding_dim(settings)
         return OpenAICompatEmbedding(
             base_url=settings.embedding_api_base,
             api_key=settings.embedding_api_key,

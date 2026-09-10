@@ -1,0 +1,141 @@
+{
+  "protocol_id": "creditlens_multi_agent_ablation_v1",
+  "protocol_version": "1.0.0",
+  "frozen": true,
+  "variants": [
+    {
+      "variant": "FULL",
+      "execution_semantics": "DETERMINISTIC_COMPONENT_HARNESS",
+      "description": "Offline component harness with Challenger conflict assessment, Auditor contract validation and deterministic HITL policy enabled; not a Supervisor or LLM run.",
+      "disabled_components": []
+    },
+    {
+      "variant": "NO_CHALLENGER",
+      "execution_semantics": "DETERMINISTIC_COMPONENT_HARNESS",
+      "description": "The same offline component harness with Challenger conflict assessment disabled.",
+      "disabled_components": ["challenger"]
+    },
+    {
+      "variant": "NO_AUDITOR",
+      "execution_semantics": "DETERMINISTIC_COMPONENT_HARNESS",
+      "description": "The same offline component harness with Auditor validation and auditor-driven HITL disabled; evaluation-only and not deployable.",
+      "disabled_components": ["auditor", "auditor_driven_hitl"]
+    },
+    {
+      "variant": "SINGLE_AGENT_BASELINE",
+      "execution_semantics": "DETERMINISTIC_COMPONENT_HARNESS",
+      "description": "The same offline component harness with Challenger and Auditor decisions disabled; evaluation-only and not a live single-Agent implementation.",
+      "disabled_components": ["challenger", "auditor", "auditor_driven_hitl"]
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "unsupported_numeric_without_fact",
+      "description": "A financial claim contains a number but has no structured fact or calculation binding.",
+      "unsupported_claim_ids": ["uc_numeric_without_fact"],
+      "counter_evidence_target_ids": [],
+      "tags": ["unsupported_claim", "numeric"],
+      "component_harness": {
+        "as_of_date": "2025-12-31",
+        "claim_category": "FINANCIAL",
+        "claim_statement": "2025年资产负债率为72%",
+        "evidence_mode": "DOCUMENT_SPAN",
+        "expected_contract_violation_substrings": {
+          "uc_numeric_without_fact": "NUMERIC_CLAIM_WITHOUT_FACT"
+        },
+        "counter_evidence": []
+      }
+    },
+    {
+      "scenario_id": "prohibited_credit_approval",
+      "description": "A model emits an approval determination that only a human credit officer may make.",
+      "unsupported_claim_ids": ["uc_credit_approval_language"],
+      "counter_evidence_target_ids": [],
+      "tags": ["unsupported_claim", "authority_boundary"],
+      "component_harness": {
+        "as_of_date": "2025-12-31",
+        "claim_category": "ELIGIBILITY",
+        "claim_statement": "依据当前材料批准贷款",
+        "evidence_mode": "POLICY_RULE",
+        "expected_contract_violation_substrings": {
+          "uc_credit_approval_language": "FORBIDDEN_DETERMINATION:批准贷款"
+        },
+        "counter_evidence": []
+      }
+    },
+    {
+      "scenario_id": "unknown_evidence_binding",
+      "description": "A supported claim references an evidence id absent from its artifact.",
+      "unsupported_claim_ids": ["uc_unknown_evidence_binding"],
+      "counter_evidence_target_ids": [],
+      "tags": ["unsupported_claim", "integrity"],
+      "component_harness": {
+        "as_of_date": "2025-12-31",
+        "claim_category": "ELIGIBILITY",
+        "claim_statement": "企业满足准入条件",
+        "evidence_mode": "UNKNOWN_REFERENCE",
+        "expected_contract_violation_substrings": {
+          "uc_unknown_evidence_binding": "UNKNOWN_EVIDENCE"
+        },
+        "counter_evidence": []
+      }
+    },
+    {
+      "scenario_id": "same_period_numeric_conflict",
+      "description": "A high-impact claim and a retrieved source disagree on the same metric, period and unit.",
+      "unsupported_claim_ids": [],
+      "counter_evidence_target_ids": ["ce_same_period_numeric_conflict"],
+      "tags": ["counter_evidence", "hitl"],
+      "component_harness": {
+        "as_of_date": "2025-12-31",
+        "claim_category": "FINANCIAL",
+        "claim_statement": "2025年资产负债率为65%",
+        "evidence_mode": "SQL_FACT",
+        "expected_contract_violation_substrings": {},
+        "counter_evidence": [
+          {
+            "target_id": "ce_same_period_numeric_conflict",
+            "text": "2025年资产负债率为72%",
+            "expected_conflict": true
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "period_mismatch_supplement",
+      "description": "A retrieved adverse figure belongs to another period and must be found but not treated as a direct conflict.",
+      "unsupported_claim_ids": [],
+      "counter_evidence_target_ids": ["ce_period_mismatch_supplement"],
+      "tags": ["counter_evidence", "scope_control"],
+      "component_harness": {
+        "as_of_date": "2025-12-31",
+        "claim_category": "FINANCIAL",
+        "claim_statement": "2024年资产负债率为65%",
+        "evidence_mode": "SQL_FACT",
+        "expected_contract_violation_substrings": {},
+        "counter_evidence": [
+          {
+            "target_id": "ce_period_mismatch_supplement",
+            "text": "2025年资产负债率为72%",
+            "expected_conflict": false
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "fully_supported_policy_claim",
+      "description": "A policy claim is correctly bound to an effective, snapshot-visible provision.",
+      "unsupported_claim_ids": [],
+      "counter_evidence_target_ids": [],
+      "tags": ["control", "supported"],
+      "component_harness": {
+        "as_of_date": "2025-12-31",
+        "claim_category": "ELIGIBILITY",
+        "claim_statement": "企业所属行业符合政策准入要求",
+        "evidence_mode": "POLICY_RULE",
+        "expected_contract_violation_substrings": {},
+        "counter_evidence": []
+      }
+    }
+  ]
+}

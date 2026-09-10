@@ -1,0 +1,94 @@
+{
+  "$defs": {
+    "AnswerSuiteStage": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/AnswerSuiteStageName"
+        },
+        "question_limit": {
+          "exclusiveMinimum": 0,
+          "title": "Question Limit",
+          "type": "integer"
+        },
+        "expected_question_count": {
+          "exclusiveMinimum": 0,
+          "title": "Expected Question Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "question_limit",
+        "expected_question_count"
+      ],
+      "title": "AnswerSuiteStage",
+      "type": "object"
+    },
+    "AnswerSuiteStageName": {
+      "enum": [
+        "smoke",
+        "full"
+      ],
+      "title": "AnswerSuiteStageName",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "protocol_id": {
+      "const": "creditlens_answer_reevaluation_v1",
+      "title": "Protocol Id",
+      "type": "string"
+    },
+    "protocol_version": {
+      "const": "1.0.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "query_dataset": {
+      "title": "Query Dataset",
+      "type": "string"
+    },
+    "answer_dataset": {
+      "title": "Answer Dataset",
+      "type": "string"
+    },
+    "source_gold_dataset": {
+      "title": "Source Gold Dataset",
+      "type": "string"
+    },
+    "top_k": {
+      "default": 8,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Top K",
+      "type": "integer"
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/AnswerSuiteStage"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Stages",
+      "type": "array"
+    },
+    "gold_boundary": {
+      "const": "ONLINE_QUERY_ONLY_THEN_OFFLINE_GOLD_MAPPING",
+      "title": "Gold Boundary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol_id",
+    "protocol_version",
+    "query_dataset",
+    "answer_dataset",
+    "source_gold_dataset",
+    "stages",
+    "gold_boundary"
+  ],
+  "title": "AnswerReevaluationManifest",
+  "type": "object"
+}

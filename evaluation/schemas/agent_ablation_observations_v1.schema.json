@@ -1,0 +1,228 @@
+{
+  "$defs": {
+    "AblationObservationMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "collector_version": {
+          "minLength": 1,
+          "title": "Collector Version",
+          "type": "string"
+        },
+        "git_commit": {
+          "pattern": "^[0-9a-f]{7,64}$",
+          "title": "Git Commit",
+          "type": "string"
+        },
+        "git_dirty": {
+          "title": "Git Dirty",
+          "type": "boolean"
+        },
+        "source_state_sha256": {
+          "title": "Source State Sha256",
+          "type": "string"
+        },
+        "source_state_algorithm": {
+          "const": "sha256-canonical-file-manifest-v1",
+          "title": "Source State Algorithm",
+          "type": "string"
+        },
+        "source_state_scope": {
+          "const": "creditlens-runtime-evidence-v1",
+          "title": "Source State Scope",
+          "type": "string"
+        },
+        "source_state_file_count": {
+          "exclusiveMinimum": 0,
+          "title": "Source State File Count",
+          "type": "integer"
+        },
+        "evidence_maturity": {
+          "$ref": "#/$defs/EvidenceMaturity"
+        },
+        "dataset_sha256": {
+          "title": "Dataset Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "collector_version",
+        "git_commit",
+        "git_dirty",
+        "source_state_sha256",
+        "source_state_algorithm",
+        "source_state_scope",
+        "source_state_file_count",
+        "evidence_maturity",
+        "dataset_sha256"
+      ],
+      "title": "AblationObservationMetadata",
+      "type": "object"
+    },
+    "AblationTrialObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "variant": {
+          "$ref": "#/$defs/AblationVariant"
+        },
+        "execution_semantics": {
+          "$ref": "#/$defs/ExecutionSemantics"
+        },
+        "source_run_id": {
+          "format": "uuid",
+          "title": "Source Run Id",
+          "type": "string"
+        },
+        "source_artifact_path": {
+          "title": "Source Artifact Path",
+          "type": "string"
+        },
+        "source_artifact_sha256": {
+          "title": "Source Artifact Sha256",
+          "type": "string"
+        },
+        "recorded_at": {
+          "format": "date-time",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "unsupported_claim_ids_emitted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Claim Ids Emitted",
+          "type": "array"
+        },
+        "unsupported_claim_ids_intercepted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Claim Ids Intercepted",
+          "type": "array"
+        },
+        "counter_evidence_target_ids_found": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Counter Evidence Target Ids Found",
+          "type": "array"
+        },
+        "hitl_triggered": {
+          "title": "Hitl Triggered",
+          "type": "boolean"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "total_tokens": {
+          "default": null,
+          "title": "Total Tokens",
+          "type": "null"
+        },
+        "estimated_cost": {
+          "default": null,
+          "title": "Estimated Cost",
+          "type": "null"
+        },
+        "cost_currency": {
+          "default": null,
+          "title": "Cost Currency",
+          "type": "null"
+        },
+        "terminal_status": {
+          "enum": [
+            "COMPLETED",
+            "HUMAN_REVIEW",
+            "FAILED",
+            "NEED_MORE_INFO",
+            "DATA_QUALITY_BLOCKED"
+          ],
+          "title": "Terminal Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "variant",
+        "execution_semantics",
+        "source_run_id",
+        "source_artifact_path",
+        "source_artifact_sha256",
+        "recorded_at",
+        "hitl_triggered",
+        "latency_ms",
+        "terminal_status"
+      ],
+      "title": "AblationTrialObservation",
+      "type": "object"
+    },
+    "AblationVariant": {
+      "enum": [
+        "FULL",
+        "NO_CHALLENGER",
+        "NO_AUDITOR",
+        "SINGLE_AGENT_BASELINE"
+      ],
+      "title": "AblationVariant",
+      "type": "string"
+    },
+    "EvidenceMaturity": {
+      "description": "How strongly an artifact may be presented.\n\n``RELEASE_CANDIDATE`` means only that the complete Git checkout was clean at\ncapture time and had a measured commit.  It does not claim that the commit\nwas tagged, reviewed, published, or released.",
+      "enum": [
+        "DEVELOPMENT_SOURCE_BOUND",
+        "RELEASE_CANDIDATE"
+      ],
+      "title": "EvidenceMaturity",
+      "type": "string"
+    },
+    "ExecutionSemantics": {
+      "enum": [
+        "DETERMINISTIC_COMPONENT_HARNESS"
+      ],
+      "title": "ExecutionSemantics",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "observation_set_id": {
+      "minLength": 1,
+      "title": "Observation Set Id",
+      "type": "string"
+    },
+    "protocol_id": {
+      "const": "creditlens_multi_agent_ablation_v1",
+      "title": "Protocol Id",
+      "type": "string"
+    },
+    "protocol_version": {
+      "const": "1.0.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "observations": {
+      "items": {
+        "$ref": "#/$defs/AblationTrialObservation"
+      },
+      "title": "Observations",
+      "type": "array"
+    },
+    "metadata": {
+      "$ref": "#/$defs/AblationObservationMetadata"
+    }
+  },
+  "required": [
+    "observation_set_id",
+    "protocol_id",
+    "protocol_version",
+    "observations",
+    "metadata"
+  ],
+  "title": "AgentAblationObservationSet",
+  "type": "object"
+}

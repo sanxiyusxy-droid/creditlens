@@ -104,6 +104,24 @@ class _FakeOrchestrator:
             query=query,
             candidates=candidates,
             rejected=[],
+            query_spec={
+                "schema_version": "1.0",
+                "original_query": query,
+                "standalone_query": query,
+                "intent": "POLICY_QA",
+                "product_code": "working_capital",
+                "as_of_date": AS_OF.isoformat(),
+                "decision_cutoff_at": CUTOFF.isoformat(),
+                "immutable_numbers": [],
+                "exact_terms": [],
+                "subqueries": [],
+                "query_variants": [],
+                "comparison_contexts": [],
+                "must_not_assume": [],
+                "rewrite_confidence": "HIGH",
+                "MAX_SUBQUERIES": 5,
+                "MAX_VARIANTS_PER_SUBQUERY": 3,
+            },
             trace={"routes": [{"route": "fake", "candidates_count": len(candidates)}]},
             packing=self.packed.model_dump(mode="json") if self.packed.sections else None,
             channel_config={"routes": ["fake"], "packing_tokens": self.packed.total_tokens_est},
@@ -616,6 +634,7 @@ async def test_answered_run_persists_complete_audited_chain(qa_world, monkeypatc
     assert response.answer == "现有材料要求提交最近一期经审计财务报表。"
     assert response.claims[0].citations[0]["section_id"] == str(section.section_id)
     assert response.claims[0].citations[0]["preview_url"]
+    assert response.query_spec["original_query"] == "需要提交哪些财务报表？"
     assert agent.calls == 1
 
     async with qa_world.factory() as session:
@@ -1351,6 +1370,7 @@ async def test_empty_packed_context_completes_as_business_abstention(qa_world):
     assert response.claims == []
     assert response.model_invocation_ids == []
     assert replay.idempotent_replay is True
+    assert replay.query_spec == response.query_spec
     assert replay.refusal_reason_code == response.refusal_reason_code
     assert replay.model_invocation_ids == response.model_invocation_ids
     async with qa_world.factory() as session:
@@ -1800,6 +1820,7 @@ async def test_completed_idempotent_request_replays_without_second_execution(qa_
     assert replay.model_invocation_ids == first.model_invocation_ids
     assert len(replay.model_invocation_ids) == 1
     assert replay.idempotent_replay is True
+    assert replay.query_spec == first.query_spec
     assert replay.candidates == []
     assert replay.channel_config == {"idempotent_replay": True}
     assert agent.calls == 1

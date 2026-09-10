@@ -234,7 +234,7 @@ class IndexWorker:
                     entity_ids.append(str(case.borrower_entity_id))
         # MVP：单产品；政策文件默认适用 working_capital
         product_codes = ["working_capital"]
-        return entity_ids, product_codes
+        return sorted(set(entity_ids)), product_codes
 
 
 async def count_pending(session: AsyncSession) -> int:

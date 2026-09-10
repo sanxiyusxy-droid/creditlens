@@ -1,0 +1,3592 @@
+{
+  "assets": [
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000101",
+          "case_id": "00000000-0000-0000-0000-000000000201",
+          "document_role": "BORROWER_PROVIDED",
+          "is_required": false
+        },
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000103",
+          "case_id": "00000000-0000-0000-0000-000000000203",
+          "document_role": "BORROWER_PROVIDED",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "cd8edd50-6f35-5ec3-85ee-9160c6f1a786",
+      "document_type": "ANNUAL_REPORT",
+      "document_version_id": "8fe0631c-43ff-59c5-acf1-ccf1e9a7552c",
+      "logical_key": "annual_report_2025",
+      "mime_type": "application/pdf",
+      "object_sha256": "201b168a205d062868e5967343a5770060abf35382b646451861ab7b310e4c07",
+      "object_size": 7588,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/cd8edd50-6f35-5ec3-85ee-9160c6f1a786/8fe0631c-43ff-59c5-acf1-ccf1e9a7552c/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "22aaf5dd-f498-50ce-83f8-20518a806c2b",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）"
+          ],
+          "id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "ef90bbf7a26f720ecb25ca9fb22772e1e48999c77e5a0985ac890d7b1d3fe297"
+        },
+        {
+          "heading": null,
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）"
+          ],
+          "id": "4866973e-cf88-529b-b76a-7cb72c85cc19",
+          "next_section_id": "47ba033b-fd37-5644-bc8a-99ad75e2964c",
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": null,
+          "section_type": "PARAGRAPH",
+          "text_hash": "ef90bbf7a26f720ecb25ca9fb22772e1e48999c77e5a0985ac890d7b1d3fe297"
+        },
+        {
+          "heading": "一、公司基本情况",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+            "一、公司基本情况"
+          ],
+          "id": "47ba033b-fd37-5644-bc8a-99ad75e2964c",
+          "next_section_id": "a73cc3bc-4d51-5099-9a41-7f43c4620ec8",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": "4866973e-cf88-529b-b76a-7cb72c85cc19",
+          "section_type": "PARAGRAPH",
+          "text_hash": "bc33bd6d60d76c689da8317ca35fa69b2f85fc3490941ca41dcd49a0ff971b16"
+        },
+        {
+          "heading": "二、经营情况讨论与分析",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+            "二、经营情况讨论与分析"
+          ],
+          "id": "a73cc3bc-4d51-5099-9a41-7f43c4620ec8",
+          "next_section_id": "8daaf639-3ca6-50c3-8a2d-3b0939af58d8",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": "47ba033b-fd37-5644-bc8a-99ad75e2964c",
+          "section_type": "PARAGRAPH",
+          "text_hash": "fb2789699a3159cbc566491754c495af091f0ef1dfa0778a768efef3e505f077"
+        },
+        {
+          "heading": "三、财务概要",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+            "三、财务概要"
+          ],
+          "id": "8daaf639-3ca6-50c3-8a2d-3b0939af58d8",
+          "next_section_id": "3657818d-70cf-5896-b563-515f06244638",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": "a73cc3bc-4d51-5099-9a41-7f43c4620ec8",
+          "section_type": "PARAGRAPH",
+          "text_hash": "9f72bada34cba9697b29eb9db2fc0293ff872f5189af67efc54f170d9396e4b3"
+        },
+        {
+          "heading": "四、主要客户情况",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+            "四、主要客户情况"
+          ],
+          "id": "3657818d-70cf-5896-b563-515f06244638",
+          "next_section_id": "89a55f6c-5bd4-5fe2-80ab-71728ae2a8f6",
+          "ordinal": 5,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": "8daaf639-3ca6-50c3-8a2d-3b0939af58d8",
+          "section_type": "PARAGRAPH",
+          "text_hash": "cc2785716c0a23eed86edf3003f43d885b49f5cb528b4d9c965b7fb3641a9000"
+        },
+        {
+          "heading": "五、风险因素",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+            "五、风险因素"
+          ],
+          "id": "89a55f6c-5bd4-5fe2-80ab-71728ae2a8f6",
+          "next_section_id": "faa5e18d-2e36-5e6a-b46c-38b227ea74db",
+          "ordinal": 6,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": "3657818d-70cf-5896-b563-515f06244638",
+          "section_type": "PARAGRAPH",
+          "text_hash": "b0be89ab14e0a5846482bdcf7108ac138bcc2ebfcc5341fdf0cd20b8b72998c1"
+        },
+        {
+          "heading": "六、审计意见",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+            "六、审计意见"
+          ],
+          "id": "faa5e18d-2e36-5e6a-b46c-38b227ea74db",
+          "next_section_id": "7e801e4b-3487-53cb-84aa-1943f3265a00",
+          "ordinal": 7,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": "89a55f6c-5bd4-5fe2-80ab-71728ae2a8f6",
+          "section_type": "PARAGRAPH",
+          "text_hash": "5a8a2b8cff79ff3eed78f9ae56217cb2768b8e6052f205287cfb1daa15f7479a"
+        },
+        {
+          "heading": "七、重大事项",
+          "heading_path": [
+            "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+            "七、重大事项"
+          ],
+          "id": "7e801e4b-3487-53cb-84aa-1943f3265a00",
+          "next_section_id": null,
+          "ordinal": 8,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "34bee77d-94ae-5347-8b59-719f8108e2e1",
+          "previous_section_id": "faa5e18d-2e36-5e6a-b46c-38b227ea74db",
+          "section_type": "PARAGRAPH",
+          "text_hash": "661a24066310bdf2aedce4feddfa48504ccefcacdc53588a863f3daced39d184"
+        }
+      ],
+      "source_available_at": "2026-04-30T00:00:00+00:00",
+      "source_filename": "annual_report_2025.pdf",
+      "source_text_file": "annual_report_2025.txt",
+      "source_text_sha256": "f9d7368386f7b1bf5db9855cad7408d3a9b8629183202096b6763c77408281bd",
+      "summaries": [
+        {
+          "id": "e95f455d-63ba-53c2-9566-34e1f42c1cac",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "34bee77d-94ae-5347-8b59-719f8108e2e1"
+          ],
+          "summary_hash": "c7946cecd3c1d8d5c903461aed46171b2ebd0d0cf933280dbd54a7fdd1f7c575",
+          "summary_level": "DOCUMENT"
+        }
+      ],
+      "title": "示例制造有限公司 2025 年度报告（节选·合成演示版）",
+      "valid_from": null,
+      "valid_to": null,
+      "version_label": "2025"
+    },
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000102",
+          "case_id": "00000000-0000-0000-0000-000000000202",
+          "document_role": "BORROWER_PROVIDED",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "4665937e-4f99-50c5-bdc7-58b7fec0ccad",
+      "document_type": "ANNUAL_REPORT",
+      "document_version_id": "b9c69943-5d65-513c-a583-cd2ed409d262",
+      "logical_key": "annual_report_tech_2025",
+      "mime_type": "application/pdf",
+      "object_sha256": "78123d76e6dd6797c14ca26f9100a5817fa29613f3efeae75093b6a1210db09c",
+      "object_size": 15315,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/4665937e-4f99-50c5-bdc7-58b7fec0ccad/b9c69943-5d65-513c-a583-cd2ed409d262/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "938f0bc9-bc9c-5a08-9269-5036de753e7f",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）"
+          ],
+          "id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "90849037b7f05850f85300c0987b93f4c8719e77e34b5fb832871973f373d5b7"
+        },
+        {
+          "heading": null,
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）"
+          ],
+          "id": "b720e104-9f8f-58ca-ae54-8e1393464a3f",
+          "next_section_id": "625221d9-78ae-59cc-8570-92ec7d1d915a",
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": null,
+          "section_type": "PARAGRAPH",
+          "text_hash": "159df45369f14b197d4c6615930a201cfbf40cb1f88c78b3b2a9a290297fc3c7"
+        },
+        {
+          "heading": "一、公司基本情况",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+            "一、公司基本情况"
+          ],
+          "id": "625221d9-78ae-59cc-8570-92ec7d1d915a",
+          "next_section_id": "54b4edd2-2f5b-5db0-a050-1a16a9cd36f1",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": "b720e104-9f8f-58ca-ae54-8e1393464a3f",
+          "section_type": "PARAGRAPH",
+          "text_hash": "a4cc1bcc3ff2f8ac076a42cc0b5d4ce0c0d4687e2b185a0942867e31b74957e7"
+        },
+        {
+          "heading": "二、经营情况讨论与分析",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+            "二、经营情况讨论与分析"
+          ],
+          "id": "54b4edd2-2f5b-5db0-a050-1a16a9cd36f1",
+          "next_section_id": "a31dd38f-d25c-509a-92c1-b3e21e8be5bc",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": "625221d9-78ae-59cc-8570-92ec7d1d915a",
+          "section_type": "PARAGRAPH",
+          "text_hash": "479e14dce3a8a7f59f95af2f91bbb02cd3c15b458b3459f9de125b5eb7679648"
+        },
+        {
+          "heading": "三、财务概要",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+            "三、财务概要"
+          ],
+          "id": "a31dd38f-d25c-509a-92c1-b3e21e8be5bc",
+          "next_section_id": "38bacc3f-b69b-5b79-85a8-2c65b062e9b6",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": "54b4edd2-2f5b-5db0-a050-1a16a9cd36f1",
+          "section_type": "PARAGRAPH",
+          "text_hash": "11c6db70fce859e4584504256d752b17bf0a58647b2e507c305ea172c14a1779"
+        },
+        {
+          "heading": "四、主要客户情况",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+            "四、主要客户情况"
+          ],
+          "id": "38bacc3f-b69b-5b79-85a8-2c65b062e9b6",
+          "next_section_id": "77bda9a1-0d03-5d1d-b8aa-bd3fae033e7c",
+          "ordinal": 5,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": "a31dd38f-d25c-509a-92c1-b3e21e8be5bc",
+          "section_type": "PARAGRAPH",
+          "text_hash": "11e2bbe218e14fc2c35f7a8f7970bf7bbf79edbb814dcd358070c22637841fe0"
+        },
+        {
+          "heading": "五、风险因素",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+            "五、风险因素"
+          ],
+          "id": "77bda9a1-0d03-5d1d-b8aa-bd3fae033e7c",
+          "next_section_id": "f64ebe99-da4e-5824-855a-3fd1a1a368a3",
+          "ordinal": 6,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": "38bacc3f-b69b-5b79-85a8-2c65b062e9b6",
+          "section_type": "PARAGRAPH",
+          "text_hash": "5a165a97a5bdb30b59a6f45306f1c41260e91d7dde56758b5c7425a7415fe476"
+        },
+        {
+          "heading": "六、审计意见",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+            "六、审计意见"
+          ],
+          "id": "f64ebe99-da4e-5824-855a-3fd1a1a368a3",
+          "next_section_id": "ad9269c2-6cb8-5f06-b187-6da1da54cad6",
+          "ordinal": 7,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": "77bda9a1-0d03-5d1d-b8aa-bd3fae033e7c",
+          "section_type": "PARAGRAPH",
+          "text_hash": "2335ae3045ce8c5d846459d27ef7b6f33ecf31d481411ab16b7409f63e6dd2b7"
+        },
+        {
+          "heading": "七、重大事项",
+          "heading_path": [
+            "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+            "七、重大事项"
+          ],
+          "id": "ad9269c2-6cb8-5f06-b187-6da1da54cad6",
+          "next_section_id": null,
+          "ordinal": 8,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "18050970-a5a3-5ecc-b45e-d4500d9c480b",
+          "previous_section_id": "f64ebe99-da4e-5824-855a-3fd1a1a368a3",
+          "section_type": "PARAGRAPH",
+          "text_hash": "e6bc17b6f313c8e26e01dc2ff81e4b70066164a9b264a3a05e83e5c6fdd9b4fb"
+        }
+      ],
+      "source_available_at": "2026-04-30T00:00:00+00:00",
+      "source_filename": "annual_report_tech_2025.pdf",
+      "source_text_file": "annual_report_tech_2025.txt",
+      "source_text_sha256": "e9f41fd8cb47e4e18d1ff47c4c94fc700a3c11ac3c2a638c5f6fe404cdeecfff",
+      "summaries": [
+        {
+          "id": "cecbac9c-adaa-5e04-a46f-71dab7f99954",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "18050970-a5a3-5ecc-b45e-d4500d9c480b"
+          ],
+          "summary_hash": "bf31bed13c893cf36f49bea7cad9da1577e1a32ba4a2345109de6b25ba6157de",
+          "summary_level": "DOCUMENT"
+        }
+      ],
+      "title": "星辰微电子科技有限公司 2025 年度报告（合成演示版）",
+      "valid_from": null,
+      "valid_to": null,
+      "version_label": "2025"
+    },
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000101",
+          "case_id": "00000000-0000-0000-0000-000000000201",
+          "document_role": "BANK_POLICY",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "2d81b07e-b7f3-553b-bf42-7ec0bdcdc7f2",
+      "document_type": "INTERNAL_POLICY",
+      "document_version_id": "42e616b2-a2f6-5130-91e9-de23231f406f",
+      "logical_key": "policy_manufacturing_wc",
+      "mime_type": "application/pdf",
+      "object_sha256": "0ef1a229e8d021c2eb97b8108eedd22a737aabce55c64bb7b9be5137bcbcae0b",
+      "object_size": 8108,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/2d81b07e-b7f3-553b-bf42-7ec0bdcdc7f2/42e616b2-a2f6-5130-91e9-de23231f406f/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "4ff627d6-637a-5a9a-ad34-2a981250411c",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）"
+          ],
+          "id": "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "a325cfdefc6248fa2235f73718f5955c1ad35b1465cde2166e93ef3cce6813c1"
+        },
+        {
+          "heading": "第一章 总则",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则"
+          ],
+          "id": "3fd8b800-bb48-5f7a-8f96-0714701e5e47",
+          "next_section_id": null,
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "76c6f9facd16a33d360b9a017670b6b5559d1694b2d0ae346363176b5719af21"
+        },
+        {
+          "heading": "第一条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第一条"
+          ],
+          "id": "8e88d8c9-004b-5043-8893-7b5658a05bc7",
+          "next_section_id": "e4b1295f-6a66-5362-9601-13b3f7650b24",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "3fd8b800-bb48-5f7a-8f96-0714701e5e47",
+          "previous_section_id": null,
+          "section_type": "ARTICLE",
+          "text_hash": "dd50430c3d4c6841a8e375d0bf61838998a90ce85894b576474d0e9af4d44462"
+        },
+        {
+          "heading": "第二条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第二条"
+          ],
+          "id": "e4b1295f-6a66-5362-9601-13b3f7650b24",
+          "next_section_id": "289e3bc5-c4d4-54fc-ac8c-1c00da0da699",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "3fd8b800-bb48-5f7a-8f96-0714701e5e47",
+          "previous_section_id": "8e88d8c9-004b-5043-8893-7b5658a05bc7",
+          "section_type": "ARTICLE",
+          "text_hash": "e6c5154ec8f0a91ed50b0b548ae0d7e272f1752c6f76789d2fa9a02b7d67c5b1"
+        },
+        {
+          "heading": "第三条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第三条"
+          ],
+          "id": "289e3bc5-c4d4-54fc-ac8c-1c00da0da699",
+          "next_section_id": "b6b14ba0-1c50-5e17-a075-425fa4c4b4b1",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "3fd8b800-bb48-5f7a-8f96-0714701e5e47",
+          "previous_section_id": "e4b1295f-6a66-5362-9601-13b3f7650b24",
+          "section_type": "ARTICLE",
+          "text_hash": "0147684c088c6c81543a0cdabb547ae1902ba9b3739ca759f8535ac846569dc0"
+        },
+        {
+          "heading": "第二章 准入条件",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件"
+          ],
+          "id": "bfb409c9-ea22-521a-b585-9d028ccef77f",
+          "next_section_id": null,
+          "ordinal": 5,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "c436cab1d1397882d8cbfbbc0783639011a4889dc1441fe721bd1de5e02840fe"
+        },
+        {
+          "heading": "第四条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第四条"
+          ],
+          "id": "b6b14ba0-1c50-5e17-a075-425fa4c4b4b1",
+          "next_section_id": "0553a731-c387-5feb-81fc-6e20f9bcfaef",
+          "ordinal": 6,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "bfb409c9-ea22-521a-b585-9d028ccef77f",
+          "previous_section_id": "289e3bc5-c4d4-54fc-ac8c-1c00da0da699",
+          "section_type": "ARTICLE",
+          "text_hash": "c8968ac64fa80d9cd9cd7ecceafe0d65360567261303b968269ae5c898122ab2"
+        },
+        {
+          "heading": "第五条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第五条"
+          ],
+          "id": "0553a731-c387-5feb-81fc-6e20f9bcfaef",
+          "next_section_id": "271739a6-1c1b-5077-912d-38c50031e957",
+          "ordinal": 7,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "bfb409c9-ea22-521a-b585-9d028ccef77f",
+          "previous_section_id": "b6b14ba0-1c50-5e17-a075-425fa4c4b4b1",
+          "section_type": "ARTICLE",
+          "text_hash": "fac6e2ba956ab83e627a23c86e5f155e2d559a819fbb4d8fe20a17f0fd4c252a"
+        },
+        {
+          "heading": "第六条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第六条"
+          ],
+          "id": "271739a6-1c1b-5077-912d-38c50031e957",
+          "next_section_id": "9e0e4ef2-c6d9-593c-aeb8-f6f8bfbde55c",
+          "ordinal": 8,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "bfb409c9-ea22-521a-b585-9d028ccef77f",
+          "previous_section_id": "0553a731-c387-5feb-81fc-6e20f9bcfaef",
+          "section_type": "ARTICLE",
+          "text_hash": "ce3697867de2dd3a68ad4bcf95b6ecfebc276013c52603e74c886618f097e0b1"
+        },
+        {
+          "heading": "第七条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第七条"
+          ],
+          "id": "9e0e4ef2-c6d9-593c-aeb8-f6f8bfbde55c",
+          "next_section_id": "53e813b6-c620-51cb-a117-426f783c72ee",
+          "ordinal": 9,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "bfb409c9-ea22-521a-b585-9d028ccef77f",
+          "previous_section_id": "271739a6-1c1b-5077-912d-38c50031e957",
+          "section_type": "ARTICLE",
+          "text_hash": "a4eb0712c3a478db24420d845cc887f9ec1514c58a7f705b9b16dcc65574b657"
+        },
+        {
+          "heading": "第八条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第八条"
+          ],
+          "id": "53e813b6-c620-51cb-a117-426f783c72ee",
+          "next_section_id": "5a066bdc-6506-5dd3-855e-594b7dd01fe3",
+          "ordinal": 10,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "bfb409c9-ea22-521a-b585-9d028ccef77f",
+          "previous_section_id": "9e0e4ef2-c6d9-593c-aeb8-f6f8bfbde55c",
+          "section_type": "ARTICLE",
+          "text_hash": "c8f7496402d96d78fba4cb5c96af22cfe81b956f94c166bfbd9c97ac5452b601"
+        },
+        {
+          "heading": "第三章 额度与期限",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限"
+          ],
+          "id": "45023eb1-e382-52a6-a9c9-80c7ea909f0a",
+          "next_section_id": null,
+          "ordinal": 11,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "ba6f1c472b027abaea31639ee7db07e0e288ef4c9b2a199847de157ba121c36c"
+        },
+        {
+          "heading": "第九条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第九条"
+          ],
+          "id": "5a066bdc-6506-5dd3-855e-594b7dd01fe3",
+          "next_section_id": "61afb463-1054-5b68-88aa-320458389c35",
+          "ordinal": 12,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "45023eb1-e382-52a6-a9c9-80c7ea909f0a",
+          "previous_section_id": "53e813b6-c620-51cb-a117-426f783c72ee",
+          "section_type": "ARTICLE",
+          "text_hash": "931fe310f286044bf42bb8447f23075684d062b36c3530fcbcff1313d1ea41d6"
+        },
+        {
+          "heading": "第十条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十条"
+          ],
+          "id": "61afb463-1054-5b68-88aa-320458389c35",
+          "next_section_id": "a83b45ac-7a9d-5b7a-b6e1-5f78de0d2fe3",
+          "ordinal": 13,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "45023eb1-e382-52a6-a9c9-80c7ea909f0a",
+          "previous_section_id": "5a066bdc-6506-5dd3-855e-594b7dd01fe3",
+          "section_type": "ARTICLE",
+          "text_hash": "e7f0968d019a37593f797030b63b34a5ccb8aa4563b8fde44a4b80e9200f8e8d"
+        },
+        {
+          "heading": "第十一条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十一条"
+          ],
+          "id": "a83b45ac-7a9d-5b7a-b6e1-5f78de0d2fe3",
+          "next_section_id": "73b23b9d-9014-5590-aa3f-10ab4ae01aac",
+          "ordinal": 14,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "45023eb1-e382-52a6-a9c9-80c7ea909f0a",
+          "previous_section_id": "61afb463-1054-5b68-88aa-320458389c35",
+          "section_type": "ARTICLE",
+          "text_hash": "68b15e98ec28298f80edda7475d37debbb3d931bc7182ac17951248855cc6ac2"
+        },
+        {
+          "heading": "第四章 材料要求",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求"
+          ],
+          "id": "1387b0aa-48fe-5a5e-a0af-756156884fa1",
+          "next_section_id": null,
+          "ordinal": 15,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "819c6fdf32fb324e81cf8e4f5fb3c927880acfc3b395f2f510f16d6e12a9f463"
+        },
+        {
+          "heading": "第十二条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十二条"
+          ],
+          "id": "73b23b9d-9014-5590-aa3f-10ab4ae01aac",
+          "next_section_id": "609eae69-e6ee-5012-8592-1ac97bf2654f",
+          "ordinal": 16,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "1387b0aa-48fe-5a5e-a0af-756156884fa1",
+          "previous_section_id": "a83b45ac-7a9d-5b7a-b6e1-5f78de0d2fe3",
+          "section_type": "ARTICLE",
+          "text_hash": "a50a47fad324f4b6691b431dc0c68653cee2dd5eaf4ffc4fd144ff4c7073e43c"
+        },
+        {
+          "heading": "第十三条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十三条"
+          ],
+          "id": "609eae69-e6ee-5012-8592-1ac97bf2654f",
+          "next_section_id": "b46cc6e0-d5e5-5c2a-8362-29e5fe3e8a10",
+          "ordinal": 17,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "1387b0aa-48fe-5a5e-a0af-756156884fa1",
+          "previous_section_id": "73b23b9d-9014-5590-aa3f-10ab4ae01aac",
+          "section_type": "ARTICLE",
+          "text_hash": "61ea7aab9040fe3a96e12d6315dceac70f85b5de2b3504497d066b4e79c7f9c5"
+        },
+        {
+          "heading": "第十四条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十四条"
+          ],
+          "id": "b46cc6e0-d5e5-5c2a-8362-29e5fe3e8a10",
+          "next_section_id": "66cf464b-aa47-5c95-8535-14b7f703cf0e",
+          "ordinal": 18,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "1387b0aa-48fe-5a5e-a0af-756156884fa1",
+          "previous_section_id": "609eae69-e6ee-5012-8592-1ac97bf2654f",
+          "section_type": "ARTICLE",
+          "text_hash": "47fc344cde399e81023da297b7785e9430d60589d8a2d4fea5073b6fd9e58dfe"
+        },
+        {
+          "heading": "第五章 贷后管理",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理"
+          ],
+          "id": "8365a016-a063-5d3f-b819-d3e995e98448",
+          "next_section_id": null,
+          "ordinal": 19,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "777a8a7419face641d4f9edadf65a6df2083e62cb9bb82d854d3741bfcc739f5"
+        },
+        {
+          "heading": "第十五条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十五条"
+          ],
+          "id": "66cf464b-aa47-5c95-8535-14b7f703cf0e",
+          "next_section_id": "3662c2c9-e7ad-507a-840e-194928c86e4d",
+          "ordinal": 20,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "8365a016-a063-5d3f-b819-d3e995e98448",
+          "previous_section_id": "b46cc6e0-d5e5-5c2a-8362-29e5fe3e8a10",
+          "section_type": "ARTICLE",
+          "text_hash": "6b77b20d24610029b4527c380b1e600453ca52d49efc2e219aa0929f9595ccaf"
+        },
+        {
+          "heading": "第十六条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十六条"
+          ],
+          "id": "3662c2c9-e7ad-507a-840e-194928c86e4d",
+          "next_section_id": "dcda5f83-0440-561a-b93b-834fab00d9b2",
+          "ordinal": 21,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "8365a016-a063-5d3f-b819-d3e995e98448",
+          "previous_section_id": "66cf464b-aa47-5c95-8535-14b7f703cf0e",
+          "section_type": "ARTICLE",
+          "text_hash": "d7fa19c7aaeb2fbb137e9cab42bfcf49aaab378efe821f8cfaac1557f2c7ce36"
+        },
+        {
+          "heading": "第十七条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十七条"
+          ],
+          "id": "dcda5f83-0440-561a-b93b-834fab00d9b2",
+          "next_section_id": "347c6cd4-e548-59e2-8a47-5c4bbd3ae162",
+          "ordinal": 22,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "8365a016-a063-5d3f-b819-d3e995e98448",
+          "previous_section_id": "3662c2c9-e7ad-507a-840e-194928c86e4d",
+          "section_type": "ARTICLE",
+          "text_hash": "5c6c73ccf73b9d6bd33976666b17544c1b51f002b80a5c557beced9749468164"
+        },
+        {
+          "heading": "第六章 附则",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则"
+          ],
+          "id": "3bb0f33a-b91c-558e-bde6-16553bef04b4",
+          "next_section_id": null,
+          "ordinal": 23,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "bd593b6cd9fd7da1cbab0aeb7d662b49a41395ca3ef4c75a3216730d6d6841ac"
+        },
+        {
+          "heading": "第十八条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十八条"
+          ],
+          "id": "347c6cd4-e548-59e2-8a47-5c4bbd3ae162",
+          "next_section_id": "c1fdf1c2-ddf0-5964-b4a1-940e6d73befe",
+          "ordinal": 24,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "3bb0f33a-b91c-558e-bde6-16553bef04b4",
+          "previous_section_id": "dcda5f83-0440-561a-b93b-834fab00d9b2",
+          "section_type": "ARTICLE",
+          "text_hash": "d573378ef2af1dfcbc97bcc9a769e38bd723f00849a7d4e60eb9618266b0c0db"
+        },
+        {
+          "heading": "第十九条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十九条"
+          ],
+          "id": "c1fdf1c2-ddf0-5964-b4a1-940e6d73befe",
+          "next_section_id": null,
+          "ordinal": 25,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "3bb0f33a-b91c-558e-bde6-16553bef04b4",
+          "previous_section_id": "347c6cd4-e548-59e2-8a47-5c4bbd3ae162",
+          "section_type": "ARTICLE",
+          "text_hash": "411d0e1085acd10a290dcc89b91bc4c1db3140f51bdaea768bef2cb6ff66a58d"
+        }
+      ],
+      "source_available_at": "2024-01-01T00:00:00+00:00",
+      "source_filename": "policy_manufacturing_wc_v2024.pdf",
+      "source_text_file": "policy_manufacturing_wc_v2024.txt",
+      "source_text_sha256": "f8d4fe45256bfc0821dcdf6966e6a2afb43897faae74b18c5e3ae813c0d23702",
+      "summaries": [
+        {
+          "id": "70078e97-770f-5f4f-8584-7f67d967be6e",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "69f4d0dd-35d1-5299-9888-4ffd8c9eb79f",
+            "3fd8b800-bb48-5f7a-8f96-0714701e5e47",
+            "bfb409c9-ea22-521a-b585-9d028ccef77f",
+            "45023eb1-e382-52a6-a9c9-80c7ea909f0a",
+            "1387b0aa-48fe-5a5e-a0af-756156884fa1",
+            "8365a016-a063-5d3f-b819-d3e995e98448",
+            "3bb0f33a-b91c-558e-bde6-16553bef04b4"
+          ],
+          "summary_hash": "34bf6bf7a3976810f8e92976404649e4eb0bdfd7ef0eadb4a979e9c3c145d995",
+          "summary_level": "DOCUMENT"
+        },
+        {
+          "id": "db758e14-928e-5fca-ab9e-83683abd41c6",
+          "parent_summary_id": "70078e97-770f-5f4f-8584-7f67d967be6e",
+          "source_section_ids": [
+            "8e88d8c9-004b-5043-8893-7b5658a05bc7",
+            "e4b1295f-6a66-5362-9601-13b3f7650b24",
+            "289e3bc5-c4d4-54fc-ac8c-1c00da0da699"
+          ],
+          "summary_hash": "8b885eeca6afbdcc5be7ef3eeeaf80638072b57131a538574a3ba0fa5244297e",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "d76d1a0e-4943-5e5f-83b2-eb24bc96ae72",
+          "parent_summary_id": "70078e97-770f-5f4f-8584-7f67d967be6e",
+          "source_section_ids": [
+            "b6b14ba0-1c50-5e17-a075-425fa4c4b4b1",
+            "0553a731-c387-5feb-81fc-6e20f9bcfaef",
+            "271739a6-1c1b-5077-912d-38c50031e957",
+            "9e0e4ef2-c6d9-593c-aeb8-f6f8bfbde55c",
+            "53e813b6-c620-51cb-a117-426f783c72ee"
+          ],
+          "summary_hash": "ef4239754444e63a62f02854fe8504edcdb55fc6e41c93c0e0563af8bd69243a",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "206215a6-91ca-54c4-aaf8-99d1588c646a",
+          "parent_summary_id": "70078e97-770f-5f4f-8584-7f67d967be6e",
+          "source_section_ids": [
+            "5a066bdc-6506-5dd3-855e-594b7dd01fe3",
+            "61afb463-1054-5b68-88aa-320458389c35",
+            "a83b45ac-7a9d-5b7a-b6e1-5f78de0d2fe3"
+          ],
+          "summary_hash": "5f3b9885cd9e77473d9901b8e6193e7b85aaf8989375c95c8120bab272ad7cfa",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "414ed517-c2ba-513a-b0f4-2db3a6caebd6",
+          "parent_summary_id": "70078e97-770f-5f4f-8584-7f67d967be6e",
+          "source_section_ids": [
+            "73b23b9d-9014-5590-aa3f-10ab4ae01aac",
+            "609eae69-e6ee-5012-8592-1ac97bf2654f",
+            "b46cc6e0-d5e5-5c2a-8362-29e5fe3e8a10"
+          ],
+          "summary_hash": "9ccb680407a5d7f367e62a96be164461e20e6bc734e2ddc9b6d5bb6142314ccc",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "fc437390-83bb-5800-9d62-d4ea09d6863a",
+          "parent_summary_id": "70078e97-770f-5f4f-8584-7f67d967be6e",
+          "source_section_ids": [
+            "66cf464b-aa47-5c95-8535-14b7f703cf0e",
+            "3662c2c9-e7ad-507a-840e-194928c86e4d",
+            "dcda5f83-0440-561a-b93b-834fab00d9b2"
+          ],
+          "summary_hash": "a536ccc80b2e11919914e0c366a7f916940e4b244fc9ba878854f00ba015eedb",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "2c819468-065a-5bf9-a132-68d685d5fc81",
+          "parent_summary_id": "70078e97-770f-5f4f-8584-7f67d967be6e",
+          "source_section_ids": [
+            "347c6cd4-e548-59e2-8a47-5c4bbd3ae162",
+            "c1fdf1c2-ddf0-5964-b4a1-940e6d73befe"
+          ],
+          "summary_hash": "20b8b20ae6d9cb51ad91311b4685781b14a6e4ce04198974d5dc0fb952482b60",
+          "summary_level": "CHAPTER"
+        }
+      ],
+      "title": "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+      "valid_from": "2024-01-01",
+      "valid_to": "2026-01-01",
+      "version_label": "2024"
+    },
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000101",
+          "case_id": "00000000-0000-0000-0000-000000000201",
+          "document_role": "BANK_POLICY",
+          "is_required": false
+        },
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000103",
+          "case_id": "00000000-0000-0000-0000-000000000203",
+          "document_role": "BANK_POLICY",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "2d81b07e-b7f3-553b-bf42-7ec0bdcdc7f2",
+      "document_type": "INTERNAL_POLICY",
+      "document_version_id": "ba2749c7-82ef-53ba-b9e6-1e1868cef0f9",
+      "logical_key": "policy_manufacturing_wc",
+      "mime_type": "application/pdf",
+      "object_sha256": "cc278d135628d8314516404cb6307e8ac188ff6399eaed7c8010aa3be87affaf",
+      "object_size": 12373,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/2d81b07e-b7f3-553b-bf42-7ec0bdcdc7f2/ba2749c7-82ef-53ba-b9e6-1e1868cef0f9/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "4836417f-5002-570e-b7b7-67794bffdd2e",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）"
+          ],
+          "id": "187e9528-087e-57a1-a4d1-d6aad4dec221",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "a325cfdefc6248fa2235f73718f5955c1ad35b1465cde2166e93ef3cce6813c1"
+        },
+        {
+          "heading": "第一章 总则",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则"
+          ],
+          "id": "a44315f9-64e9-5cdf-a666-d6a0289d252d",
+          "next_section_id": null,
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "187e9528-087e-57a1-a4d1-d6aad4dec221",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "76c6f9facd16a33d360b9a017670b6b5559d1694b2d0ae346363176b5719af21"
+        },
+        {
+          "heading": "第一条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第一条"
+          ],
+          "id": "05aa95a7-0444-52fb-9c11-fce73218aa5e",
+          "next_section_id": "7732317c-ca30-5cc1-8a3e-f62e8479c487",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "a44315f9-64e9-5cdf-a666-d6a0289d252d",
+          "previous_section_id": null,
+          "section_type": "ARTICLE",
+          "text_hash": "c20409519d29f56d9009e090bc1ac464f72679ffd586a01b6281530d1813f967"
+        },
+        {
+          "heading": "第二条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第二条"
+          ],
+          "id": "7732317c-ca30-5cc1-8a3e-f62e8479c487",
+          "next_section_id": "2322d47d-8d77-55c4-b75f-61ad791d0a31",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "a44315f9-64e9-5cdf-a666-d6a0289d252d",
+          "previous_section_id": "05aa95a7-0444-52fb-9c11-fce73218aa5e",
+          "section_type": "ARTICLE",
+          "text_hash": "f78775449c77329b062c1e0abf8c6eb868f1f4368ea17a80fa5b9123ddfcdc70"
+        },
+        {
+          "heading": "第三条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第三条"
+          ],
+          "id": "2322d47d-8d77-55c4-b75f-61ad791d0a31",
+          "next_section_id": "27076018-e6bf-52ee-aa04-1e14c8dfe090",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "a44315f9-64e9-5cdf-a666-d6a0289d252d",
+          "previous_section_id": "7732317c-ca30-5cc1-8a3e-f62e8479c487",
+          "section_type": "ARTICLE",
+          "text_hash": "d337f6cd0661b5fb14caf14be84fee99e8ef4dc330d75b8669009ebe97536dd5"
+        },
+        {
+          "heading": "第二章 准入条件",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件"
+          ],
+          "id": "84e6ac84-0821-5e04-877b-92a5379821d4",
+          "next_section_id": null,
+          "ordinal": 5,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "187e9528-087e-57a1-a4d1-d6aad4dec221",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "c436cab1d1397882d8cbfbbc0783639011a4889dc1441fe721bd1de5e02840fe"
+        },
+        {
+          "heading": "第四条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第四条"
+          ],
+          "id": "27076018-e6bf-52ee-aa04-1e14c8dfe090",
+          "next_section_id": "431fac75-d4f9-527c-ab70-2bb7ff1feb41",
+          "ordinal": 6,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "84e6ac84-0821-5e04-877b-92a5379821d4",
+          "previous_section_id": "2322d47d-8d77-55c4-b75f-61ad791d0a31",
+          "section_type": "ARTICLE",
+          "text_hash": "6a4b7c312c2b72226d4f854408940e04924fd27fd10579b231b6fe376e7a1bd8"
+        },
+        {
+          "heading": "第五条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第五条"
+          ],
+          "id": "431fac75-d4f9-527c-ab70-2bb7ff1feb41",
+          "next_section_id": "2f1efc9f-0059-52bb-86ae-d6365bb93b7f",
+          "ordinal": 7,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "84e6ac84-0821-5e04-877b-92a5379821d4",
+          "previous_section_id": "27076018-e6bf-52ee-aa04-1e14c8dfe090",
+          "section_type": "ARTICLE",
+          "text_hash": "d9d416eda46675987edd9decf99884407061b2da131d2620a2de4274823de8e0"
+        },
+        {
+          "heading": "第六条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第六条"
+          ],
+          "id": "2f1efc9f-0059-52bb-86ae-d6365bb93b7f",
+          "next_section_id": "66abbe0b-e4fa-5aed-9e78-dc53f27f1fc8",
+          "ordinal": 8,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "84e6ac84-0821-5e04-877b-92a5379821d4",
+          "previous_section_id": "431fac75-d4f9-527c-ab70-2bb7ff1feb41",
+          "section_type": "ARTICLE",
+          "text_hash": "c14ca4aeb684bfbd835489cf99664b07e08e7873d69900fb66a85cc4982821dd"
+        },
+        {
+          "heading": "第七条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第七条"
+          ],
+          "id": "66abbe0b-e4fa-5aed-9e78-dc53f27f1fc8",
+          "next_section_id": "236e4810-6fad-5dd9-b700-2871609695eb",
+          "ordinal": 9,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "84e6ac84-0821-5e04-877b-92a5379821d4",
+          "previous_section_id": "2f1efc9f-0059-52bb-86ae-d6365bb93b7f",
+          "section_type": "ARTICLE",
+          "text_hash": "209ad3880bb148d04664701eef95a38ae3fad7fc75cededbd19cdc91cf174824"
+        },
+        {
+          "heading": "第八条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第八条"
+          ],
+          "id": "236e4810-6fad-5dd9-b700-2871609695eb",
+          "next_section_id": "e742ec9c-d0cc-5b22-b76b-b86e6060acf2",
+          "ordinal": 10,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "84e6ac84-0821-5e04-877b-92a5379821d4",
+          "previous_section_id": "66abbe0b-e4fa-5aed-9e78-dc53f27f1fc8",
+          "section_type": "ARTICLE",
+          "text_hash": "ae6871dc9a653d0ccc6d4e975d624d1038b3be996e5f3cef42e93fcf234078a9"
+        },
+        {
+          "heading": "第三章 额度与期限",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限"
+          ],
+          "id": "f5810a57-dc14-5e4c-adc4-042337a0ac5b",
+          "next_section_id": null,
+          "ordinal": 11,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "187e9528-087e-57a1-a4d1-d6aad4dec221",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "ba6f1c472b027abaea31639ee7db07e0e288ef4c9b2a199847de157ba121c36c"
+        },
+        {
+          "heading": "第九条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第九条"
+          ],
+          "id": "e742ec9c-d0cc-5b22-b76b-b86e6060acf2",
+          "next_section_id": "9dbe25d2-bfd4-5a42-b856-534649504bf8",
+          "ordinal": 12,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f5810a57-dc14-5e4c-adc4-042337a0ac5b",
+          "previous_section_id": "236e4810-6fad-5dd9-b700-2871609695eb",
+          "section_type": "ARTICLE",
+          "text_hash": "75312f0206504c87f620b5fdedc72ea156a9a416ee6e148bbfed944780eeacd5"
+        },
+        {
+          "heading": "第十条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十条"
+          ],
+          "id": "9dbe25d2-bfd4-5a42-b856-534649504bf8",
+          "next_section_id": "09166f4f-db1a-5d83-8901-523ffa7c48a1",
+          "ordinal": 13,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f5810a57-dc14-5e4c-adc4-042337a0ac5b",
+          "previous_section_id": "e742ec9c-d0cc-5b22-b76b-b86e6060acf2",
+          "section_type": "ARTICLE",
+          "text_hash": "c72b4f1df1511d2efb85adfb0d60e706c6b2100c43d88c71f8a3e1500020dbde"
+        },
+        {
+          "heading": "第十一条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十一条"
+          ],
+          "id": "09166f4f-db1a-5d83-8901-523ffa7c48a1",
+          "next_section_id": "80dae221-fb77-5a59-818a-8061dabcd708",
+          "ordinal": 14,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f5810a57-dc14-5e4c-adc4-042337a0ac5b",
+          "previous_section_id": "9dbe25d2-bfd4-5a42-b856-534649504bf8",
+          "section_type": "ARTICLE",
+          "text_hash": "1f014eb8b98421ebec61822c1a23c4b8e465601968d6fda3e77e92a6aa4608b3"
+        },
+        {
+          "heading": "第四章 材料要求",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求"
+          ],
+          "id": "e396cd85-4a84-5405-8ce2-1103daf54718",
+          "next_section_id": null,
+          "ordinal": 15,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": "187e9528-087e-57a1-a4d1-d6aad4dec221",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "819c6fdf32fb324e81cf8e4f5fb3c927880acfc3b395f2f510f16d6e12a9f463"
+        },
+        {
+          "heading": "第十二条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十二条"
+          ],
+          "id": "80dae221-fb77-5a59-818a-8061dabcd708",
+          "next_section_id": "30b8a9a4-e5af-528b-8ea6-771880a6c402",
+          "ordinal": 16,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": "e396cd85-4a84-5405-8ce2-1103daf54718",
+          "previous_section_id": "09166f4f-db1a-5d83-8901-523ffa7c48a1",
+          "section_type": "ARTICLE",
+          "text_hash": "e71dbca4decad7d3235eae9656328442caf1c4d14467d6035f3af5f5856d4200"
+        },
+        {
+          "heading": "第十三条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十三条"
+          ],
+          "id": "30b8a9a4-e5af-528b-8ea6-771880a6c402",
+          "next_section_id": "1c02b103-d5fa-5a00-9224-2fd7d49e7a0b",
+          "ordinal": 17,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "e396cd85-4a84-5405-8ce2-1103daf54718",
+          "previous_section_id": "80dae221-fb77-5a59-818a-8061dabcd708",
+          "section_type": "ARTICLE",
+          "text_hash": "2f4e73a9ce4a9e973a6ceb617881b7ad06e5f249f1843a0940077edbc8ca3f64"
+        },
+        {
+          "heading": "第十四条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十四条"
+          ],
+          "id": "1c02b103-d5fa-5a00-9224-2fd7d49e7a0b",
+          "next_section_id": "a893e9db-b64e-5b36-905a-d6654910773a",
+          "ordinal": 18,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "e396cd85-4a84-5405-8ce2-1103daf54718",
+          "previous_section_id": "30b8a9a4-e5af-528b-8ea6-771880a6c402",
+          "section_type": "ARTICLE",
+          "text_hash": "cc544e379f42133cc4ce2840d64eebeb35ddffa65e7fd6a4cb8cea088de18763"
+        },
+        {
+          "heading": "第五章 贷后管理",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理"
+          ],
+          "id": "c8aec522-a672-5e78-bf13-8890f4d3c535",
+          "next_section_id": null,
+          "ordinal": 19,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "187e9528-087e-57a1-a4d1-d6aad4dec221",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "777a8a7419face641d4f9edadf65a6df2083e62cb9bb82d854d3741bfcc739f5"
+        },
+        {
+          "heading": "第十五条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十五条"
+          ],
+          "id": "a893e9db-b64e-5b36-905a-d6654910773a",
+          "next_section_id": "5fbd1c5f-c6f0-5286-b6bb-46eaa7e0372e",
+          "ordinal": 20,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "c8aec522-a672-5e78-bf13-8890f4d3c535",
+          "previous_section_id": "1c02b103-d5fa-5a00-9224-2fd7d49e7a0b",
+          "section_type": "ARTICLE",
+          "text_hash": "3d1bcb71ccc70deae0a75c3acd886076bce952613e6cc5d12e14214571a92cfe"
+        },
+        {
+          "heading": "第十六条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十六条"
+          ],
+          "id": "5fbd1c5f-c6f0-5286-b6bb-46eaa7e0372e",
+          "next_section_id": "caef64e1-3d88-5350-9d08-3a41ea921e43",
+          "ordinal": 21,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "c8aec522-a672-5e78-bf13-8890f4d3c535",
+          "previous_section_id": "a893e9db-b64e-5b36-905a-d6654910773a",
+          "section_type": "ARTICLE",
+          "text_hash": "1f53416e8214b676be2494b16fd31e10099d531b4fbb683b0f62c5beb8bb7316"
+        },
+        {
+          "heading": "第十七条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十七条"
+          ],
+          "id": "caef64e1-3d88-5350-9d08-3a41ea921e43",
+          "next_section_id": "43255a16-8e14-5a2b-b660-96b8c4c089ab",
+          "ordinal": 22,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "c8aec522-a672-5e78-bf13-8890f4d3c535",
+          "previous_section_id": "5fbd1c5f-c6f0-5286-b6bb-46eaa7e0372e",
+          "section_type": "ARTICLE",
+          "text_hash": "600d7b867ccbd84237c6f9fa07a97ab355979e9ad295171be581d655bb29a783"
+        },
+        {
+          "heading": "第六章 附则",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则"
+          ],
+          "id": "59b94634-53f6-5211-9e93-06a5941d454a",
+          "next_section_id": null,
+          "ordinal": 23,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "187e9528-087e-57a1-a4d1-d6aad4dec221",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "bd593b6cd9fd7da1cbab0aeb7d662b49a41395ca3ef4c75a3216730d6d6841ac"
+        },
+        {
+          "heading": "第十八条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十八条"
+          ],
+          "id": "43255a16-8e14-5a2b-b660-96b8c4c089ab",
+          "next_section_id": "1054f96d-a2a0-54fd-9954-25fabdce471e",
+          "ordinal": 24,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "59b94634-53f6-5211-9e93-06a5941d454a",
+          "previous_section_id": "caef64e1-3d88-5350-9d08-3a41ea921e43",
+          "section_type": "ARTICLE",
+          "text_hash": "d573378ef2af1dfcbc97bcc9a769e38bd723f00849a7d4e60eb9618266b0c0db"
+        },
+        {
+          "heading": "第十九条",
+          "heading_path": [
+            "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十九条"
+          ],
+          "id": "1054f96d-a2a0-54fd-9954-25fabdce471e",
+          "next_section_id": null,
+          "ordinal": 25,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "59b94634-53f6-5211-9e93-06a5941d454a",
+          "previous_section_id": "43255a16-8e14-5a2b-b660-96b8c4c089ab",
+          "section_type": "ARTICLE",
+          "text_hash": "ba65bc1bd8375d021f4dfebd96c8751ca7420d0c482584d93f6df1f1391b5eeb"
+        }
+      ],
+      "source_available_at": "2026-01-01T00:00:00+00:00",
+      "source_filename": "policy_manufacturing_wc_v2026.pdf",
+      "source_text_file": "policy_manufacturing_wc_v2026.txt",
+      "source_text_sha256": "8432a31ef43958ce74c9eafac41415ab1c19e09b6e82bd54c06a668a389c52d7",
+      "summaries": [
+        {
+          "id": "298c7296-ba96-5340-9f81-272d6059b331",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "187e9528-087e-57a1-a4d1-d6aad4dec221",
+            "a44315f9-64e9-5cdf-a666-d6a0289d252d",
+            "84e6ac84-0821-5e04-877b-92a5379821d4",
+            "f5810a57-dc14-5e4c-adc4-042337a0ac5b",
+            "e396cd85-4a84-5405-8ce2-1103daf54718",
+            "c8aec522-a672-5e78-bf13-8890f4d3c535",
+            "59b94634-53f6-5211-9e93-06a5941d454a"
+          ],
+          "summary_hash": "34bf6bf7a3976810f8e92976404649e4eb0bdfd7ef0eadb4a979e9c3c145d995",
+          "summary_level": "DOCUMENT"
+        },
+        {
+          "id": "3844f621-f97d-503b-9add-192af6577f43",
+          "parent_summary_id": "298c7296-ba96-5340-9f81-272d6059b331",
+          "source_section_ids": [
+            "05aa95a7-0444-52fb-9c11-fce73218aa5e",
+            "7732317c-ca30-5cc1-8a3e-f62e8479c487",
+            "2322d47d-8d77-55c4-b75f-61ad791d0a31"
+          ],
+          "summary_hash": "8e755a5ce86aa44527292f5645ff3f1585c243fff383ed79feafa35dcf6fd74f",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "092f968e-0963-55c9-9b6e-0546eb3a79b7",
+          "parent_summary_id": "298c7296-ba96-5340-9f81-272d6059b331",
+          "source_section_ids": [
+            "27076018-e6bf-52ee-aa04-1e14c8dfe090",
+            "431fac75-d4f9-527c-ab70-2bb7ff1feb41",
+            "2f1efc9f-0059-52bb-86ae-d6365bb93b7f",
+            "66abbe0b-e4fa-5aed-9e78-dc53f27f1fc8",
+            "236e4810-6fad-5dd9-b700-2871609695eb"
+          ],
+          "summary_hash": "46c690c383957275f1b69395be69f44606f9dd392804e2d757658c4bf548a5ba",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "de20928c-2354-5808-90fc-dfbd979a9246",
+          "parent_summary_id": "298c7296-ba96-5340-9f81-272d6059b331",
+          "source_section_ids": [
+            "e742ec9c-d0cc-5b22-b76b-b86e6060acf2",
+            "9dbe25d2-bfd4-5a42-b856-534649504bf8",
+            "09166f4f-db1a-5d83-8901-523ffa7c48a1"
+          ],
+          "summary_hash": "3ee9c24332ac7f41f2dc2f99aff004409318904e79a1587fe548b5ac783c7270",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "7753b441-ede5-53e1-9415-3cc2d4de4bd4",
+          "parent_summary_id": "298c7296-ba96-5340-9f81-272d6059b331",
+          "source_section_ids": [
+            "80dae221-fb77-5a59-818a-8061dabcd708",
+            "30b8a9a4-e5af-528b-8ea6-771880a6c402",
+            "1c02b103-d5fa-5a00-9224-2fd7d49e7a0b"
+          ],
+          "summary_hash": "d1901ed7ddc89833533e879c06b3f677b3ffd63b45900670ec14d5b76c7945fc",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "b00998a3-8eb0-5eea-b324-902e1025bb96",
+          "parent_summary_id": "298c7296-ba96-5340-9f81-272d6059b331",
+          "source_section_ids": [
+            "a893e9db-b64e-5b36-905a-d6654910773a",
+            "5fbd1c5f-c6f0-5286-b6bb-46eaa7e0372e",
+            "caef64e1-3d88-5350-9d08-3a41ea921e43"
+          ],
+          "summary_hash": "44c84fa55aaaa095cb15e27be2a06b7ae245fd9044440ab78b843f758a39c7f3",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "02ddc448-5062-523a-a021-ab9c3c4f8fa0",
+          "parent_summary_id": "298c7296-ba96-5340-9f81-272d6059b331",
+          "source_section_ids": [
+            "43255a16-8e14-5a2b-b660-96b8c4c089ab",
+            "1054f96d-a2a0-54fd-9954-25fabdce471e"
+          ],
+          "summary_hash": "7fa0e428e0bd233e1e64ea5e7c006fff85d74293ba9d72c75e3b485997fc5aec",
+          "summary_level": "CHAPTER"
+        }
+      ],
+      "title": "示例银行小微企业流动资金贷款管理办法（合成演示版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null,
+      "version_label": "2026"
+    },
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000102",
+          "case_id": "00000000-0000-0000-0000-000000000202",
+          "document_role": "BANK_POLICY",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "523174fc-3bd2-5346-861c-b91dffc0f0bd",
+      "document_type": "INTERNAL_POLICY",
+      "document_version_id": "fab91d8f-b2b2-5960-9877-4a27cbc98847",
+      "logical_key": "policy_tech_wc",
+      "mime_type": "application/pdf",
+      "object_sha256": "20d08e53a6862031b1cf8d38bd86f3fab88b4e4e7ce18cedaf5b151df4569e65",
+      "object_size": 8430,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/523174fc-3bd2-5346-861c-b91dffc0f0bd/fab91d8f-b2b2-5960-9877-4a27cbc98847/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "cbd9c254-7bfa-5813-bf32-dd42e8df4108",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）"
+          ],
+          "id": "495f28e7-9926-52ef-a340-4ad0e920c513",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "4841ae2fa687072c2b543088219a2f415f675f1c39e8001d3b2d1ece74aa7ad7"
+        },
+        {
+          "heading": "第一章 总则",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则"
+          ],
+          "id": "beec5f35-2385-5bd7-b7ae-3d4ec53d99a4",
+          "next_section_id": null,
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "495f28e7-9926-52ef-a340-4ad0e920c513",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "76c6f9facd16a33d360b9a017670b6b5559d1694b2d0ae346363176b5719af21"
+        },
+        {
+          "heading": "第一条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第一条"
+          ],
+          "id": "da1a8098-6652-50c0-be09-ce3f259934c8",
+          "next_section_id": "cebc06cc-f52a-567a-b3c4-56eb9fd66f48",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "beec5f35-2385-5bd7-b7ae-3d4ec53d99a4",
+          "previous_section_id": null,
+          "section_type": "ARTICLE",
+          "text_hash": "f09b20ae1cfb0d2572e0091c615fff664f083171d62cb57410ee6333598857d6"
+        },
+        {
+          "heading": "第二条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第二条"
+          ],
+          "id": "cebc06cc-f52a-567a-b3c4-56eb9fd66f48",
+          "next_section_id": "5d47c3ed-7a1c-5ad3-bcb2-16618fbd9f41",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "beec5f35-2385-5bd7-b7ae-3d4ec53d99a4",
+          "previous_section_id": "da1a8098-6652-50c0-be09-ce3f259934c8",
+          "section_type": "ARTICLE",
+          "text_hash": "126775d7d53411a3b38b67159c9c848c021fe502c21390937ba1ef875b4e3d77"
+        },
+        {
+          "heading": "第三条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第三条"
+          ],
+          "id": "5d47c3ed-7a1c-5ad3-bcb2-16618fbd9f41",
+          "next_section_id": "4b0f1da6-e3ae-5c2e-8d70-0f1698ae2142",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "beec5f35-2385-5bd7-b7ae-3d4ec53d99a4",
+          "previous_section_id": "cebc06cc-f52a-567a-b3c4-56eb9fd66f48",
+          "section_type": "ARTICLE",
+          "text_hash": "2a1bac33ed6815628f3dba6ac40d8a4eddfb466d56c7f7df7a6b25afb92da08f"
+        },
+        {
+          "heading": "第二章 准入条件",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件"
+          ],
+          "id": "f933da4e-2634-5fb9-b0e0-a655382cf06c",
+          "next_section_id": null,
+          "ordinal": 5,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "495f28e7-9926-52ef-a340-4ad0e920c513",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "c436cab1d1397882d8cbfbbc0783639011a4889dc1441fe721bd1de5e02840fe"
+        },
+        {
+          "heading": "第四条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第四条"
+          ],
+          "id": "4b0f1da6-e3ae-5c2e-8d70-0f1698ae2142",
+          "next_section_id": "196d578b-6ca2-5355-9d6e-fc68c56ecd01",
+          "ordinal": 6,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f933da4e-2634-5fb9-b0e0-a655382cf06c",
+          "previous_section_id": "5d47c3ed-7a1c-5ad3-bcb2-16618fbd9f41",
+          "section_type": "ARTICLE",
+          "text_hash": "dca9a6fb68eb29b6a09c717dba2476a5a724157261c71b2344c1f6924cfcde3e"
+        },
+        {
+          "heading": "第五条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第五条"
+          ],
+          "id": "196d578b-6ca2-5355-9d6e-fc68c56ecd01",
+          "next_section_id": "de6cd7ac-97e8-563b-8909-8e2510ab682a",
+          "ordinal": 7,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f933da4e-2634-5fb9-b0e0-a655382cf06c",
+          "previous_section_id": "4b0f1da6-e3ae-5c2e-8d70-0f1698ae2142",
+          "section_type": "ARTICLE",
+          "text_hash": "5e2807bfc77d5fa657e22fd5842976ecb76787f46214e01209db94a70fe3318d"
+        },
+        {
+          "heading": "第六条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第六条"
+          ],
+          "id": "de6cd7ac-97e8-563b-8909-8e2510ab682a",
+          "next_section_id": "8b084475-af1d-5c85-afd8-73e72042955f",
+          "ordinal": 8,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f933da4e-2634-5fb9-b0e0-a655382cf06c",
+          "previous_section_id": "196d578b-6ca2-5355-9d6e-fc68c56ecd01",
+          "section_type": "ARTICLE",
+          "text_hash": "73b5e8943e406e9094fa63b01c72e728971bd21e54b76523bdf9172da93f9bd1"
+        },
+        {
+          "heading": "第七条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第七条"
+          ],
+          "id": "8b084475-af1d-5c85-afd8-73e72042955f",
+          "next_section_id": "1de81b9f-8cc6-575c-85e4-ae3b14d4dad7",
+          "ordinal": 9,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f933da4e-2634-5fb9-b0e0-a655382cf06c",
+          "previous_section_id": "de6cd7ac-97e8-563b-8909-8e2510ab682a",
+          "section_type": "ARTICLE",
+          "text_hash": "a2e8f050a6c10ef21f74fb429cc08b7ebd4f0d663a4cb965e93b62a4f2446393"
+        },
+        {
+          "heading": "第八条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第八条"
+          ],
+          "id": "1de81b9f-8cc6-575c-85e4-ae3b14d4dad7",
+          "next_section_id": "3ddf4b58-b923-571f-9093-c6928d38c7ba",
+          "ordinal": 10,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f933da4e-2634-5fb9-b0e0-a655382cf06c",
+          "previous_section_id": "8b084475-af1d-5c85-afd8-73e72042955f",
+          "section_type": "ARTICLE",
+          "text_hash": "3ba5eb7a2ddd9ed08231f62d90a2e3fcebff14ebdefc9ceada859c5538cb167a"
+        },
+        {
+          "heading": "第三章 额度与期限",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限"
+          ],
+          "id": "11e47dc9-b12d-5262-9783-3e089eba2e17",
+          "next_section_id": null,
+          "ordinal": 11,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "495f28e7-9926-52ef-a340-4ad0e920c513",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "ba6f1c472b027abaea31639ee7db07e0e288ef4c9b2a199847de157ba121c36c"
+        },
+        {
+          "heading": "第九条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第九条"
+          ],
+          "id": "3ddf4b58-b923-571f-9093-c6928d38c7ba",
+          "next_section_id": "887b7070-b019-55b5-92b3-3e0af588374f",
+          "ordinal": 12,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "11e47dc9-b12d-5262-9783-3e089eba2e17",
+          "previous_section_id": "1de81b9f-8cc6-575c-85e4-ae3b14d4dad7",
+          "section_type": "ARTICLE",
+          "text_hash": "ff8823a141f92e7b009b8c5e6f1a27e2315de877013a7bd173248b9cc2d4cdeb"
+        },
+        {
+          "heading": "第十条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十条"
+          ],
+          "id": "887b7070-b019-55b5-92b3-3e0af588374f",
+          "next_section_id": "7acfd87c-d775-5a75-9814-5c787d0a525d",
+          "ordinal": 13,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "11e47dc9-b12d-5262-9783-3e089eba2e17",
+          "previous_section_id": "3ddf4b58-b923-571f-9093-c6928d38c7ba",
+          "section_type": "ARTICLE",
+          "text_hash": "91d27a8d385cb5436a3ae76bf9d8c99b4a2f6f6568e42cc5507fdd21297ad842"
+        },
+        {
+          "heading": "第十一条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十一条"
+          ],
+          "id": "7acfd87c-d775-5a75-9814-5c787d0a525d",
+          "next_section_id": "cbd6b11f-b311-5d84-a74e-642e040a36e4",
+          "ordinal": 14,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "11e47dc9-b12d-5262-9783-3e089eba2e17",
+          "previous_section_id": "887b7070-b019-55b5-92b3-3e0af588374f",
+          "section_type": "ARTICLE",
+          "text_hash": "bc86dcbfa128473e087340105bbe03a55dc909c3c1c7ad2fccf751df83c2c944"
+        },
+        {
+          "heading": "第四章 材料要求",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求"
+          ],
+          "id": "f86218d0-82bd-51e9-b72f-33105d846b44",
+          "next_section_id": null,
+          "ordinal": 15,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "495f28e7-9926-52ef-a340-4ad0e920c513",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "819c6fdf32fb324e81cf8e4f5fb3c927880acfc3b395f2f510f16d6e12a9f463"
+        },
+        {
+          "heading": "第十二条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十二条"
+          ],
+          "id": "cbd6b11f-b311-5d84-a74e-642e040a36e4",
+          "next_section_id": "98d37c0d-83fa-5f03-a5de-ecf3cd525689",
+          "ordinal": 16,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f86218d0-82bd-51e9-b72f-33105d846b44",
+          "previous_section_id": "7acfd87c-d775-5a75-9814-5c787d0a525d",
+          "section_type": "ARTICLE",
+          "text_hash": "6a02f0d39f14a48b89b9eba485bc84291bc6322d04ca2980698f41b7c70117e0"
+        },
+        {
+          "heading": "第十三条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十三条"
+          ],
+          "id": "98d37c0d-83fa-5f03-a5de-ecf3cd525689",
+          "next_section_id": "bb845db3-098f-5003-9918-efed8ba41ebd",
+          "ordinal": 17,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f86218d0-82bd-51e9-b72f-33105d846b44",
+          "previous_section_id": "cbd6b11f-b311-5d84-a74e-642e040a36e4",
+          "section_type": "ARTICLE",
+          "text_hash": "6f8c224bcf9a6b425cf1dcb30eab642a294895fd2ba2a50be300a52ed2f59939"
+        },
+        {
+          "heading": "第十四条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十四条"
+          ],
+          "id": "bb845db3-098f-5003-9918-efed8ba41ebd",
+          "next_section_id": "aba1b6d1-73cc-5ec7-8e1e-c3f9d9df6bc7",
+          "ordinal": 18,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "f86218d0-82bd-51e9-b72f-33105d846b44",
+          "previous_section_id": "98d37c0d-83fa-5f03-a5de-ecf3cd525689",
+          "section_type": "ARTICLE",
+          "text_hash": "bf3318ac78f734c1095632e97e59c217bfbeef9397be5d2bb492bfbb0b1d0308"
+        },
+        {
+          "heading": "第五章 贷后管理",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理"
+          ],
+          "id": "ab991d35-540f-55bc-9706-8be9150fdc18",
+          "next_section_id": null,
+          "ordinal": 19,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "495f28e7-9926-52ef-a340-4ad0e920c513",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "777a8a7419face641d4f9edadf65a6df2083e62cb9bb82d854d3741bfcc739f5"
+        },
+        {
+          "heading": "第十五条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十五条"
+          ],
+          "id": "aba1b6d1-73cc-5ec7-8e1e-c3f9d9df6bc7",
+          "next_section_id": "2a5df175-bf6b-5681-84e2-570bc3028f0c",
+          "ordinal": 20,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "ab991d35-540f-55bc-9706-8be9150fdc18",
+          "previous_section_id": "bb845db3-098f-5003-9918-efed8ba41ebd",
+          "section_type": "ARTICLE",
+          "text_hash": "5ea7d7ae26f11bb838855bd2181f5d939930d5b86e5e56e583ad40ac589ac578"
+        },
+        {
+          "heading": "第十六条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十六条"
+          ],
+          "id": "2a5df175-bf6b-5681-84e2-570bc3028f0c",
+          "next_section_id": "832a724b-a485-560d-b6f5-3c607d258cbf",
+          "ordinal": 21,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "ab991d35-540f-55bc-9706-8be9150fdc18",
+          "previous_section_id": "aba1b6d1-73cc-5ec7-8e1e-c3f9d9df6bc7",
+          "section_type": "ARTICLE",
+          "text_hash": "4759ed451793b33c3cf1e427edf28c3859d1677449e9242ebd8d39fc778eb060"
+        },
+        {
+          "heading": "第十七条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十七条"
+          ],
+          "id": "832a724b-a485-560d-b6f5-3c607d258cbf",
+          "next_section_id": "26a561ae-6b60-5328-af73-cc3a95256439",
+          "ordinal": 22,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "ab991d35-540f-55bc-9706-8be9150fdc18",
+          "previous_section_id": "2a5df175-bf6b-5681-84e2-570bc3028f0c",
+          "section_type": "ARTICLE",
+          "text_hash": "d8d317e09bbcf615821edb953cce9b8adb708345ed784dab2cf53556bef23f8a"
+        },
+        {
+          "heading": "第六章 附则",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则"
+          ],
+          "id": "7b16ac67-77a6-54cb-8488-7f8ec52d379a",
+          "next_section_id": null,
+          "ordinal": 23,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "495f28e7-9926-52ef-a340-4ad0e920c513",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "bd593b6cd9fd7da1cbab0aeb7d662b49a41395ca3ef4c75a3216730d6d6841ac"
+        },
+        {
+          "heading": "第十八条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十八条"
+          ],
+          "id": "26a561ae-6b60-5328-af73-cc3a95256439",
+          "next_section_id": "5aaab19b-4624-5a15-92b3-bb40573249aa",
+          "ordinal": 24,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "7b16ac67-77a6-54cb-8488-7f8ec52d379a",
+          "previous_section_id": "832a724b-a485-560d-b6f5-3c607d258cbf",
+          "section_type": "ARTICLE",
+          "text_hash": "d573378ef2af1dfcbc97bcc9a769e38bd723f00849a7d4e60eb9618266b0c0db"
+        },
+        {
+          "heading": "第十九条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十九条"
+          ],
+          "id": "5aaab19b-4624-5a15-92b3-bb40573249aa",
+          "next_section_id": null,
+          "ordinal": 25,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "7b16ac67-77a6-54cb-8488-7f8ec52d379a",
+          "previous_section_id": "26a561ae-6b60-5328-af73-cc3a95256439",
+          "section_type": "ARTICLE",
+          "text_hash": "82978da3aecb23a22f31dd2c57e3061267f84e0ee3142f5aa63af7488d8983bb"
+        }
+      ],
+      "source_available_at": "2024-01-01T00:00:00+00:00",
+      "source_filename": "policy_tech_wc_v2024.pdf",
+      "source_text_file": "policy_tech_wc_v2024.txt",
+      "source_text_sha256": "e1381da50f1266a2638bc288f889c85278f800d41251439a7ba35f71e626a6bd",
+      "summaries": [
+        {
+          "id": "b5cf9fa2-9930-573b-8c06-494e33271303",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "495f28e7-9926-52ef-a340-4ad0e920c513",
+            "beec5f35-2385-5bd7-b7ae-3d4ec53d99a4",
+            "f933da4e-2634-5fb9-b0e0-a655382cf06c",
+            "11e47dc9-b12d-5262-9783-3e089eba2e17",
+            "f86218d0-82bd-51e9-b72f-33105d846b44",
+            "ab991d35-540f-55bc-9706-8be9150fdc18",
+            "7b16ac67-77a6-54cb-8488-7f8ec52d379a"
+          ],
+          "summary_hash": "de168e951478d6faddaa7ffc83435d5056cf3ec81dc12d84da006aef0263cb6e",
+          "summary_level": "DOCUMENT"
+        },
+        {
+          "id": "6347e2a2-310e-561e-ac23-79d5954fc4d6",
+          "parent_summary_id": "b5cf9fa2-9930-573b-8c06-494e33271303",
+          "source_section_ids": [
+            "da1a8098-6652-50c0-be09-ce3f259934c8",
+            "cebc06cc-f52a-567a-b3c4-56eb9fd66f48",
+            "5d47c3ed-7a1c-5ad3-bcb2-16618fbd9f41"
+          ],
+          "summary_hash": "9ab6424721b25f5b4903c0e3b16a7ca5bf2ab9237347c539b13521e23430c168",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "5ebac3c4-9dda-5b26-943f-0ad894db7f5d",
+          "parent_summary_id": "b5cf9fa2-9930-573b-8c06-494e33271303",
+          "source_section_ids": [
+            "4b0f1da6-e3ae-5c2e-8d70-0f1698ae2142",
+            "196d578b-6ca2-5355-9d6e-fc68c56ecd01",
+            "de6cd7ac-97e8-563b-8909-8e2510ab682a",
+            "8b084475-af1d-5c85-afd8-73e72042955f",
+            "1de81b9f-8cc6-575c-85e4-ae3b14d4dad7"
+          ],
+          "summary_hash": "f3f9ae88f096db2269e9a8dee320798a1a349ee781c4bb86c5140e21351e936e",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "9d9afe99-9bcc-593b-a533-30802f7f3f55",
+          "parent_summary_id": "b5cf9fa2-9930-573b-8c06-494e33271303",
+          "source_section_ids": [
+            "3ddf4b58-b923-571f-9093-c6928d38c7ba",
+            "887b7070-b019-55b5-92b3-3e0af588374f",
+            "7acfd87c-d775-5a75-9814-5c787d0a525d"
+          ],
+          "summary_hash": "4f594b69b0bf4a7adf1f6273315ed99c0afddaaeee527e6e461613aa600a995f",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "a430f87b-c703-54c9-aabd-297c9923a647",
+          "parent_summary_id": "b5cf9fa2-9930-573b-8c06-494e33271303",
+          "source_section_ids": [
+            "cbd6b11f-b311-5d84-a74e-642e040a36e4",
+            "98d37c0d-83fa-5f03-a5de-ecf3cd525689",
+            "bb845db3-098f-5003-9918-efed8ba41ebd"
+          ],
+          "summary_hash": "aa7b62182ad882e6e0ffe97a47c8f9977ff9f60f550f56d63057420545f65de3",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "16425dd1-2b2b-5612-95c9-40c04aa6a24d",
+          "parent_summary_id": "b5cf9fa2-9930-573b-8c06-494e33271303",
+          "source_section_ids": [
+            "aba1b6d1-73cc-5ec7-8e1e-c3f9d9df6bc7",
+            "2a5df175-bf6b-5681-84e2-570bc3028f0c",
+            "832a724b-a485-560d-b6f5-3c607d258cbf"
+          ],
+          "summary_hash": "291c8ebb1fd829b03bd8722529e294696a8c6b7096b138e5b1da1a0494b7ef3a",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "bd43e4e2-da7f-5248-890c-8cde391021fb",
+          "parent_summary_id": "b5cf9fa2-9930-573b-8c06-494e33271303",
+          "source_section_ids": [
+            "26a561ae-6b60-5328-af73-cc3a95256439",
+            "5aaab19b-4624-5a15-92b3-bb40573249aa"
+          ],
+          "summary_hash": "13e3c2a6a1d799ea3236e03fe40a3bd39565d938de55af8276611b3bf000e81e",
+          "summary_level": "CHAPTER"
+        }
+      ],
+      "title": "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+      "valid_from": "2024-01-01",
+      "valid_to": "2026-01-01",
+      "version_label": "2024"
+    },
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000102",
+          "case_id": "00000000-0000-0000-0000-000000000202",
+          "document_role": "BANK_POLICY",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "523174fc-3bd2-5346-861c-b91dffc0f0bd",
+      "document_type": "INTERNAL_POLICY",
+      "document_version_id": "2603c922-b390-534b-a4f8-66d733ccf44b",
+      "logical_key": "policy_tech_wc",
+      "mime_type": "application/pdf",
+      "object_sha256": "66f3613cf07d33c7b307d18fc10d3d3ba7ef92ad7fba9fae971a94a4fb225334",
+      "object_size": 12203,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/523174fc-3bd2-5346-861c-b91dffc0f0bd/2603c922-b390-534b-a4f8-66d733ccf44b/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "9713607c-f55b-5485-acbe-7230ae9970f6",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）"
+          ],
+          "id": "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "4841ae2fa687072c2b543088219a2f415f675f1c39e8001d3b2d1ece74aa7ad7"
+        },
+        {
+          "heading": "第一章 总则",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则"
+          ],
+          "id": "a837c0b3-5878-5f57-bbaf-3a0c4ad4035f",
+          "next_section_id": null,
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "76c6f9facd16a33d360b9a017670b6b5559d1694b2d0ae346363176b5719af21"
+        },
+        {
+          "heading": "第一条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第一条"
+          ],
+          "id": "04247d82-f1c9-5619-999c-c56fd297d97d",
+          "next_section_id": "7cc7019c-41c5-5997-8c0b-5997f70505e9",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "a837c0b3-5878-5f57-bbaf-3a0c4ad4035f",
+          "previous_section_id": null,
+          "section_type": "ARTICLE",
+          "text_hash": "f38c0846e944b8fe92f99377849d133945856885a8fb1a4b2ede216c8e7c20fc"
+        },
+        {
+          "heading": "第二条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第二条"
+          ],
+          "id": "7cc7019c-41c5-5997-8c0b-5997f70505e9",
+          "next_section_id": "9104d628-d879-5071-99b6-3ffd3081aca7",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "a837c0b3-5878-5f57-bbaf-3a0c4ad4035f",
+          "previous_section_id": "04247d82-f1c9-5619-999c-c56fd297d97d",
+          "section_type": "ARTICLE",
+          "text_hash": "b65a6e0ce6d587eb3a23f60737e56aa0adee233f905a06b246a75837db04db2c"
+        },
+        {
+          "heading": "第三条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第一章 总则",
+            "第三条"
+          ],
+          "id": "9104d628-d879-5071-99b6-3ffd3081aca7",
+          "next_section_id": "85ae1983-1691-5c2e-bc32-e807846aaa04",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "a837c0b3-5878-5f57-bbaf-3a0c4ad4035f",
+          "previous_section_id": "7cc7019c-41c5-5997-8c0b-5997f70505e9",
+          "section_type": "ARTICLE",
+          "text_hash": "0f2868a48abcbd8327d436896cfbae7b80dc049ddd3b72ed3c36135350c5920c"
+        },
+        {
+          "heading": "第二章 准入条件",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件"
+          ],
+          "id": "ecd604b3-6db7-5d87-a237-79bba06082d4",
+          "next_section_id": null,
+          "ordinal": 5,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "c436cab1d1397882d8cbfbbc0783639011a4889dc1441fe721bd1de5e02840fe"
+        },
+        {
+          "heading": "第四条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第四条"
+          ],
+          "id": "85ae1983-1691-5c2e-bc32-e807846aaa04",
+          "next_section_id": "45b9fc31-6f50-55d8-be0f-d5ce974fd742",
+          "ordinal": 6,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "ecd604b3-6db7-5d87-a237-79bba06082d4",
+          "previous_section_id": "9104d628-d879-5071-99b6-3ffd3081aca7",
+          "section_type": "ARTICLE",
+          "text_hash": "9eb5a00f0dff77ed75d7af014a92df7ca9e05b7d45ccedb2ff4266a29edb282c"
+        },
+        {
+          "heading": "第五条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第五条"
+          ],
+          "id": "45b9fc31-6f50-55d8-be0f-d5ce974fd742",
+          "next_section_id": "8333feff-7938-5660-9d7b-8facafa70c54",
+          "ordinal": 7,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "ecd604b3-6db7-5d87-a237-79bba06082d4",
+          "previous_section_id": "85ae1983-1691-5c2e-bc32-e807846aaa04",
+          "section_type": "ARTICLE",
+          "text_hash": "b566cf8e2b530377164061ecc07884950ed59bf0d1ce03039df0840958f07c1f"
+        },
+        {
+          "heading": "第六条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第六条"
+          ],
+          "id": "8333feff-7938-5660-9d7b-8facafa70c54",
+          "next_section_id": "472ba4dd-8a09-5039-b251-74690efabf28",
+          "ordinal": 8,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "ecd604b3-6db7-5d87-a237-79bba06082d4",
+          "previous_section_id": "45b9fc31-6f50-55d8-be0f-d5ce974fd742",
+          "section_type": "ARTICLE",
+          "text_hash": "66001ab9424d22309a3eddeae0bfb1cd065f844442623ae9776041c1c6bf7504"
+        },
+        {
+          "heading": "第七条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第七条"
+          ],
+          "id": "472ba4dd-8a09-5039-b251-74690efabf28",
+          "next_section_id": "49cb7273-0e0f-599a-9a28-504cbcd77cdb",
+          "ordinal": 9,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "ecd604b3-6db7-5d87-a237-79bba06082d4",
+          "previous_section_id": "8333feff-7938-5660-9d7b-8facafa70c54",
+          "section_type": "ARTICLE",
+          "text_hash": "71be4023ae10faac9269b1820e94ee861396d4ce2781da88ed094d7dc8acc2cd"
+        },
+        {
+          "heading": "第八条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第二章 准入条件",
+            "第八条"
+          ],
+          "id": "49cb7273-0e0f-599a-9a28-504cbcd77cdb",
+          "next_section_id": "e76ce052-8d67-5772-9e80-f30523f59a30",
+          "ordinal": 10,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "ecd604b3-6db7-5d87-a237-79bba06082d4",
+          "previous_section_id": "472ba4dd-8a09-5039-b251-74690efabf28",
+          "section_type": "ARTICLE",
+          "text_hash": "3c3743dc4311c7becc2f039f95fd173c81ecf1a7b5dc8552c60f3d49844ee2ee"
+        },
+        {
+          "heading": "第三章 额度与期限",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限"
+          ],
+          "id": "892237e4-55a9-5784-a6bf-9dd887da3e25",
+          "next_section_id": null,
+          "ordinal": 11,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "ba6f1c472b027abaea31639ee7db07e0e288ef4c9b2a199847de157ba121c36c"
+        },
+        {
+          "heading": "第九条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第九条"
+          ],
+          "id": "e76ce052-8d67-5772-9e80-f30523f59a30",
+          "next_section_id": "9a313198-b5c5-5288-a485-24f946b8cbfb",
+          "ordinal": 12,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "892237e4-55a9-5784-a6bf-9dd887da3e25",
+          "previous_section_id": "49cb7273-0e0f-599a-9a28-504cbcd77cdb",
+          "section_type": "ARTICLE",
+          "text_hash": "0b38ea5f740a63527053fbab603be6a92d1b9670ea210c731137c60e81524e3e"
+        },
+        {
+          "heading": "第十条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十条"
+          ],
+          "id": "9a313198-b5c5-5288-a485-24f946b8cbfb",
+          "next_section_id": "e6c8c588-a0fe-58e5-8bf9-d3e0df1099a7",
+          "ordinal": 13,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "892237e4-55a9-5784-a6bf-9dd887da3e25",
+          "previous_section_id": "e76ce052-8d67-5772-9e80-f30523f59a30",
+          "section_type": "ARTICLE",
+          "text_hash": "19d735a21664e64edabfdd2738280da22fae9c27d5f724e403252e7b164a34a5"
+        },
+        {
+          "heading": "第十一条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第三章 额度与期限",
+            "第十一条"
+          ],
+          "id": "e6c8c588-a0fe-58e5-8bf9-d3e0df1099a7",
+          "next_section_id": "9cce91b2-c89d-5cf8-944e-ab5c8307280e",
+          "ordinal": 14,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "892237e4-55a9-5784-a6bf-9dd887da3e25",
+          "previous_section_id": "9a313198-b5c5-5288-a485-24f946b8cbfb",
+          "section_type": "ARTICLE",
+          "text_hash": "cbd606a551863f2c1f394432539d3c11e3085a638f473d53c78f955487c70fa7"
+        },
+        {
+          "heading": "第四章 材料要求",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求"
+          ],
+          "id": "6f28416e-126d-5c1c-9e46-59353e7c9291",
+          "next_section_id": null,
+          "ordinal": 15,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "819c6fdf32fb324e81cf8e4f5fb3c927880acfc3b395f2f510f16d6e12a9f463"
+        },
+        {
+          "heading": "第十二条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十二条"
+          ],
+          "id": "9cce91b2-c89d-5cf8-944e-ab5c8307280e",
+          "next_section_id": "b685b0ef-6c25-5231-b57d-444c0ebcd778",
+          "ordinal": 16,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "6f28416e-126d-5c1c-9e46-59353e7c9291",
+          "previous_section_id": "e6c8c588-a0fe-58e5-8bf9-d3e0df1099a7",
+          "section_type": "ARTICLE",
+          "text_hash": "c6d32eb5dc04dd51f1bd8469979e78c1e89c7c3b4a7948be7b7b091b527469e6"
+        },
+        {
+          "heading": "第十三条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十三条"
+          ],
+          "id": "b685b0ef-6c25-5231-b57d-444c0ebcd778",
+          "next_section_id": "4291e4b9-9d61-50cd-a173-1c53996e1519",
+          "ordinal": 17,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "6f28416e-126d-5c1c-9e46-59353e7c9291",
+          "previous_section_id": "9cce91b2-c89d-5cf8-944e-ab5c8307280e",
+          "section_type": "ARTICLE",
+          "text_hash": "4e7898a5568ad7485191f236b23774182204439904d4d9f8fe8e2742558857ca"
+        },
+        {
+          "heading": "第十四条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第四章 材料要求",
+            "第十四条"
+          ],
+          "id": "4291e4b9-9d61-50cd-a173-1c53996e1519",
+          "next_section_id": "4da8577b-bb14-5d7a-bf84-04aa863e0f82",
+          "ordinal": 18,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "6f28416e-126d-5c1c-9e46-59353e7c9291",
+          "previous_section_id": "b685b0ef-6c25-5231-b57d-444c0ebcd778",
+          "section_type": "ARTICLE",
+          "text_hash": "7d34510537ce9a91223220c1ae0560f16b46af7f529695163007bed51605e228"
+        },
+        {
+          "heading": "第五章 贷后管理",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理"
+          ],
+          "id": "c55e06a3-d322-57ba-a8ac-5fe699ff08b5",
+          "next_section_id": null,
+          "ordinal": 19,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "777a8a7419face641d4f9edadf65a6df2083e62cb9bb82d854d3741bfcc739f5"
+        },
+        {
+          "heading": "第十五条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十五条"
+          ],
+          "id": "4da8577b-bb14-5d7a-bf84-04aa863e0f82",
+          "next_section_id": "45551689-28bb-5da3-9f91-0f0df1ae972f",
+          "ordinal": 20,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "c55e06a3-d322-57ba-a8ac-5fe699ff08b5",
+          "previous_section_id": "4291e4b9-9d61-50cd-a173-1c53996e1519",
+          "section_type": "ARTICLE",
+          "text_hash": "0c8ca7485798dcd4191a39993114c4a667c66720bdf5b6fa1096b0207b4d819f"
+        },
+        {
+          "heading": "第十六条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十六条"
+          ],
+          "id": "45551689-28bb-5da3-9f91-0f0df1ae972f",
+          "next_section_id": "1cccf36a-ab2a-5094-ada9-1e4a4c900b2a",
+          "ordinal": 21,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "c55e06a3-d322-57ba-a8ac-5fe699ff08b5",
+          "previous_section_id": "4da8577b-bb14-5d7a-bf84-04aa863e0f82",
+          "section_type": "ARTICLE",
+          "text_hash": "ae97e552b977ea28b611876cfaf7cee7bc463d03c2c377783c99d442ba54c778"
+        },
+        {
+          "heading": "第十七条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第五章 贷后管理",
+            "第十七条"
+          ],
+          "id": "1cccf36a-ab2a-5094-ada9-1e4a4c900b2a",
+          "next_section_id": "6060e2f8-c240-5325-839c-33ef9ceadd61",
+          "ordinal": 22,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "c55e06a3-d322-57ba-a8ac-5fe699ff08b5",
+          "previous_section_id": "45551689-28bb-5da3-9f91-0f0df1ae972f",
+          "section_type": "ARTICLE",
+          "text_hash": "35cffd5a53a984af83ad5de35a0613409534800fbbb5862ac4c5f11ff1ef4cf3"
+        },
+        {
+          "heading": "第六章 附则",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则"
+          ],
+          "id": "7e8ce0e2-9849-51b0-a78e-a390d70deb9a",
+          "next_section_id": null,
+          "ordinal": 23,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "bd593b6cd9fd7da1cbab0aeb7d662b49a41395ca3ef4c75a3216730d6d6841ac"
+        },
+        {
+          "heading": "第十八条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十八条"
+          ],
+          "id": "6060e2f8-c240-5325-839c-33ef9ceadd61",
+          "next_section_id": "9e827bac-6694-5b7c-876d-529d51572d17",
+          "ordinal": 24,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "7e8ce0e2-9849-51b0-a78e-a390d70deb9a",
+          "previous_section_id": "1cccf36a-ab2a-5094-ada9-1e4a4c900b2a",
+          "section_type": "ARTICLE",
+          "text_hash": "65227b5c2c21c5c2584e50bbe372364b785f067d47c7f3415f4532cf7c3337f9"
+        },
+        {
+          "heading": "第十九条",
+          "heading_path": [
+            "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+            "第六章 附则",
+            "第十九条"
+          ],
+          "id": "9e827bac-6694-5b7c-876d-529d51572d17",
+          "next_section_id": null,
+          "ordinal": 25,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "7e8ce0e2-9849-51b0-a78e-a390d70deb9a",
+          "previous_section_id": "6060e2f8-c240-5325-839c-33ef9ceadd61",
+          "section_type": "ARTICLE",
+          "text_hash": "27fed106d892edba1473ec1f9897d154b645b7ca982e44229333924d55c6fd9f"
+        }
+      ],
+      "source_available_at": "2026-01-01T00:00:00+00:00",
+      "source_filename": "policy_tech_wc_v2026.pdf",
+      "source_text_file": "policy_tech_wc_v2026.txt",
+      "source_text_sha256": "4819a6a14410e6dfbfa86249c2f0cdd4d27a4a05b7b3af31e8980bba1d746ec8",
+      "summaries": [
+        {
+          "id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "90aeb29f-3bb4-55b4-b1a5-04f0ccfeeba4",
+            "a837c0b3-5878-5f57-bbaf-3a0c4ad4035f",
+            "ecd604b3-6db7-5d87-a237-79bba06082d4",
+            "892237e4-55a9-5784-a6bf-9dd887da3e25",
+            "6f28416e-126d-5c1c-9e46-59353e7c9291",
+            "c55e06a3-d322-57ba-a8ac-5fe699ff08b5",
+            "7e8ce0e2-9849-51b0-a78e-a390d70deb9a"
+          ],
+          "summary_hash": "de168e951478d6faddaa7ffc83435d5056cf3ec81dc12d84da006aef0263cb6e",
+          "summary_level": "DOCUMENT"
+        },
+        {
+          "id": "21bf2514-5394-57ca-97a2-d52eb6d9f171",
+          "parent_summary_id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
+          "source_section_ids": [
+            "04247d82-f1c9-5619-999c-c56fd297d97d",
+            "7cc7019c-41c5-5997-8c0b-5997f70505e9",
+            "9104d628-d879-5071-99b6-3ffd3081aca7"
+          ],
+          "summary_hash": "bf6fd56fc637365ba07eba8379d911987963a9908c2678f35429b03e0fd56a18",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "5da12aba-f73e-5216-b2d7-f0adb430cecf",
+          "parent_summary_id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
+          "source_section_ids": [
+            "85ae1983-1691-5c2e-bc32-e807846aaa04",
+            "45b9fc31-6f50-55d8-be0f-d5ce974fd742",
+            "8333feff-7938-5660-9d7b-8facafa70c54",
+            "472ba4dd-8a09-5039-b251-74690efabf28",
+            "49cb7273-0e0f-599a-9a28-504cbcd77cdb"
+          ],
+          "summary_hash": "e785b2f4000b19fab6295db7a7a129987d00dca6a00b7d3ef490dd3825679d36",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "2c881241-ef63-53f3-b146-f7d98cded36d",
+          "parent_summary_id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
+          "source_section_ids": [
+            "e76ce052-8d67-5772-9e80-f30523f59a30",
+            "9a313198-b5c5-5288-a485-24f946b8cbfb",
+            "e6c8c588-a0fe-58e5-8bf9-d3e0df1099a7"
+          ],
+          "summary_hash": "012143c53bf8f5d5e09bfa42f8cbf734bf747ce1cbb3898301f6f003c723264b",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "0eb3a4e1-8cb8-5643-82d0-930dc7e1221c",
+          "parent_summary_id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
+          "source_section_ids": [
+            "9cce91b2-c89d-5cf8-944e-ab5c8307280e",
+            "b685b0ef-6c25-5231-b57d-444c0ebcd778",
+            "4291e4b9-9d61-50cd-a173-1c53996e1519"
+          ],
+          "summary_hash": "a59018a86678d4e16144b9eb4e0bc2b15ea12a4e6de8ad0db0f8a2ea2c6c2e78",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "f5fe34f8-9dfb-5063-84dc-04f1769ff568",
+          "parent_summary_id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
+          "source_section_ids": [
+            "4da8577b-bb14-5d7a-bf84-04aa863e0f82",
+            "45551689-28bb-5da3-9f91-0f0df1ae972f",
+            "1cccf36a-ab2a-5094-ada9-1e4a4c900b2a"
+          ],
+          "summary_hash": "19eb431ab50d05bf763f0c578afde051a58a935cd875da1417796b5bfafee89c",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "5b5307a3-c493-5e93-9749-081a93da4880",
+          "parent_summary_id": "ef71c0f5-c8a1-574e-9a59-314261e5638e",
+          "source_section_ids": [
+            "6060e2f8-c240-5325-839c-33ef9ceadd61",
+            "9e827bac-6694-5b7c-876d-529d51572d17"
+          ],
+          "summary_hash": "bfc2f5234c65b2fdfe14e3d1d70dbc5ea993f9d4b9beadbdfac7727217fb6914",
+          "summary_level": "CHAPTER"
+        }
+      ],
+      "title": "示例银行科技型企业流动资金贷款管理办法（合成演示版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null,
+      "version_label": "2026"
+    },
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000103",
+          "case_id": "00000000-0000-0000-0000-000000000203",
+          "document_role": "REGULATORY",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "bfcd8f68-0019-5493-8686-bdeb9deb983a",
+      "document_type": "REGULATION",
+      "document_version_id": "a6aab6e0-e3d7-5950-908b-4cb17660ab3e",
+      "logical_key": "regulation_factoring",
+      "mime_type": "application/pdf",
+      "object_sha256": "379440f15a249dacd51c164223237ef7a309b53ca0e35647f6daa8250d0fa495",
+      "object_size": 10033,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/bfcd8f68-0019-5493-8686-bdeb9deb983a/a6aab6e0-e3d7-5950-908b-4cb17660ab3e/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "8fd2a674-3fc1-591b-8154-2f523cf406d0",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "商业保理业务监督管理指引（合成演示版）",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）"
+          ],
+          "id": "2034bf40-4ed3-5e6c-a596-0704ecc92907",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "c46c99577125e6090df451bb2fa1eec682665c5a5ba8b1870524bd1de3d0bc6a"
+        },
+        {
+          "heading": "第一章 总则",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第一章 总则"
+          ],
+          "id": "44427003-815a-54f4-b9b9-e53d8dc9ede9",
+          "next_section_id": null,
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "2034bf40-4ed3-5e6c-a596-0704ecc92907",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "76c6f9facd16a33d360b9a017670b6b5559d1694b2d0ae346363176b5719af21"
+        },
+        {
+          "heading": "第一条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第一章 总则",
+            "第一条"
+          ],
+          "id": "a6842c18-af05-5197-b2fe-ed9b67ad230b",
+          "next_section_id": "8d11078c-a346-5d74-9270-b3c7ed4060d0",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "44427003-815a-54f4-b9b9-e53d8dc9ede9",
+          "previous_section_id": null,
+          "section_type": "ARTICLE",
+          "text_hash": "3953e07fc7a9b81b71c0aa729877ff2739eaa65c994c3f80d70fb437ec8bf0ae"
+        },
+        {
+          "heading": "第二条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第一章 总则",
+            "第二条"
+          ],
+          "id": "8d11078c-a346-5d74-9270-b3c7ed4060d0",
+          "next_section_id": "14868556-b055-5b41-bb17-93c6786196b5",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "44427003-815a-54f4-b9b9-e53d8dc9ede9",
+          "previous_section_id": "a6842c18-af05-5197-b2fe-ed9b67ad230b",
+          "section_type": "ARTICLE",
+          "text_hash": "dc61253f75a134291280784061ddd9e0dcd30784ca6df902e540754bb5a0ad04"
+        },
+        {
+          "heading": "第三条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第一章 总则",
+            "第三条"
+          ],
+          "id": "14868556-b055-5b41-bb17-93c6786196b5",
+          "next_section_id": "7f793cbd-98f8-58af-8b65-64008f02098c",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "44427003-815a-54f4-b9b9-e53d8dc9ede9",
+          "previous_section_id": "8d11078c-a346-5d74-9270-b3c7ed4060d0",
+          "section_type": "ARTICLE",
+          "text_hash": "6ed7647dcc900f07383ef1af4a769fe520e270a82ee15e25542db63e75004be3"
+        },
+        {
+          "heading": "第二章 业务规则",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第二章 业务规则"
+          ],
+          "id": "32220018-95ca-51d3-a569-b181ff7e2187",
+          "next_section_id": null,
+          "ordinal": 5,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "2034bf40-4ed3-5e6c-a596-0704ecc92907",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "61ae0ce05a5a574bef23406c37c9eb5e439ff74eb968d208a6fda1239751477b"
+        },
+        {
+          "heading": "第四条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第二章 业务规则",
+            "第四条"
+          ],
+          "id": "7f793cbd-98f8-58af-8b65-64008f02098c",
+          "next_section_id": "a8765b10-391e-5651-8d32-af118dca8d46",
+          "ordinal": 6,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "32220018-95ca-51d3-a569-b181ff7e2187",
+          "previous_section_id": "14868556-b055-5b41-bb17-93c6786196b5",
+          "section_type": "ARTICLE",
+          "text_hash": "d2dba720c1bd54161b84e4a4425540d589b0d8c849f796ec7fdc03a3afd62d90"
+        },
+        {
+          "heading": "第五条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第二章 业务规则",
+            "第五条"
+          ],
+          "id": "a8765b10-391e-5651-8d32-af118dca8d46",
+          "next_section_id": "3c6c8ab0-8ed6-5c1a-9877-0de34e8e2a4a",
+          "ordinal": 7,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "32220018-95ca-51d3-a569-b181ff7e2187",
+          "previous_section_id": "7f793cbd-98f8-58af-8b65-64008f02098c",
+          "section_type": "ARTICLE",
+          "text_hash": "b5b39f4eff8ea829f20f86acd6990c99ab53189ddff5c74aa891dafe34b8f3c7"
+        },
+        {
+          "heading": "第六条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第二章 业务规则",
+            "第六条"
+          ],
+          "id": "3c6c8ab0-8ed6-5c1a-9877-0de34e8e2a4a",
+          "next_section_id": "cb5157ef-d3fc-526e-82a2-59cc96a2160a",
+          "ordinal": 8,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "32220018-95ca-51d3-a569-b181ff7e2187",
+          "previous_section_id": "a8765b10-391e-5651-8d32-af118dca8d46",
+          "section_type": "ARTICLE",
+          "text_hash": "8307c9aedf5f26395ed61657e6288d45ffe24abb51b15e8a9ae5cd365a545683"
+        },
+        {
+          "heading": "第七条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第二章 业务规则",
+            "第七条"
+          ],
+          "id": "cb5157ef-d3fc-526e-82a2-59cc96a2160a",
+          "next_section_id": "578926ae-9e09-53d2-b5d1-caadf4c0b24e",
+          "ordinal": 9,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "32220018-95ca-51d3-a569-b181ff7e2187",
+          "previous_section_id": "3c6c8ab0-8ed6-5c1a-9877-0de34e8e2a4a",
+          "section_type": "ARTICLE",
+          "text_hash": "278e763072d048f29b69d6e47fd34f89b33afb4ea8a4093094310a63188c379b"
+        },
+        {
+          "heading": "第八条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第二章 业务规则",
+            "第八条"
+          ],
+          "id": "578926ae-9e09-53d2-b5d1-caadf4c0b24e",
+          "next_section_id": "5144747b-17d1-52d3-9591-68addd385114",
+          "ordinal": 10,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "32220018-95ca-51d3-a569-b181ff7e2187",
+          "previous_section_id": "cb5157ef-d3fc-526e-82a2-59cc96a2160a",
+          "section_type": "ARTICLE",
+          "text_hash": "723503b2d2046998b0a68a3cf985418a9e243966319c4e8933a9aa3129824da4"
+        },
+        {
+          "heading": "第三章 风险管理",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第三章 风险管理"
+          ],
+          "id": "15a3e2bf-803f-526d-ae23-0761fadd16b0",
+          "next_section_id": null,
+          "ordinal": 11,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "2034bf40-4ed3-5e6c-a596-0704ecc92907",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "b3abb14fe4c9e215935fd7b57c31aa3077f1caf5682dcabee0c2530badc0ec96"
+        },
+        {
+          "heading": "第九条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第三章 风险管理",
+            "第九条"
+          ],
+          "id": "5144747b-17d1-52d3-9591-68addd385114",
+          "next_section_id": "82331557-95b3-59c4-b5dd-2ea60d8cd5cf",
+          "ordinal": 12,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "15a3e2bf-803f-526d-ae23-0761fadd16b0",
+          "previous_section_id": "578926ae-9e09-53d2-b5d1-caadf4c0b24e",
+          "section_type": "ARTICLE",
+          "text_hash": "91b3b8089182e57c611f4ac7bf04fcad906592db092e63a230755899ba342936"
+        },
+        {
+          "heading": "第十条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第三章 风险管理",
+            "第十条"
+          ],
+          "id": "82331557-95b3-59c4-b5dd-2ea60d8cd5cf",
+          "next_section_id": "acff083d-e9ac-5820-96c3-45da89b47348",
+          "ordinal": 13,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "15a3e2bf-803f-526d-ae23-0761fadd16b0",
+          "previous_section_id": "5144747b-17d1-52d3-9591-68addd385114",
+          "section_type": "ARTICLE",
+          "text_hash": "b683ef8cbc63ce04afdf0c4b311ce28826f94ee956b1582eb1d8acce3b3dfc2f"
+        },
+        {
+          "heading": "第十一条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第三章 风险管理",
+            "第十一条"
+          ],
+          "id": "acff083d-e9ac-5820-96c3-45da89b47348",
+          "next_section_id": "f1058685-434e-5f03-bcb6-f5832bf4f462",
+          "ordinal": 14,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "15a3e2bf-803f-526d-ae23-0761fadd16b0",
+          "previous_section_id": "82331557-95b3-59c4-b5dd-2ea60d8cd5cf",
+          "section_type": "ARTICLE",
+          "text_hash": "da1d75a3d5dd04ecf31809784962087e85793586b12840fa2e1466c9f15c6057"
+        },
+        {
+          "heading": "第十二条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第三章 风险管理",
+            "第十二条"
+          ],
+          "id": "f1058685-434e-5f03-bcb6-f5832bf4f462",
+          "next_section_id": "54092278-644a-5f97-94a8-f37039630b20",
+          "ordinal": 15,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "15a3e2bf-803f-526d-ae23-0761fadd16b0",
+          "previous_section_id": "acff083d-e9ac-5820-96c3-45da89b47348",
+          "section_type": "ARTICLE",
+          "text_hash": "9676f232ac699ef381bfc316aba8ea22efd6fc23f232a6a6a7eadec037aa359b"
+        },
+        {
+          "heading": "第四章 监督管理",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第四章 监督管理"
+          ],
+          "id": "7d679f47-769b-5dc9-83b4-83847552d0c3",
+          "next_section_id": null,
+          "ordinal": 16,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": "2034bf40-4ed3-5e6c-a596-0704ecc92907",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "cebc58232fa44c915ca08118f79c1e0a733a0382a84011fec6f61b6b8f427eed"
+        },
+        {
+          "heading": "第十三条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第四章 监督管理",
+            "第十三条"
+          ],
+          "id": "54092278-644a-5f97-94a8-f37039630b20",
+          "next_section_id": "cc3e625e-ff89-53ba-a851-1095e5fd56c9",
+          "ordinal": 17,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": "7d679f47-769b-5dc9-83b4-83847552d0c3",
+          "previous_section_id": "f1058685-434e-5f03-bcb6-f5832bf4f462",
+          "section_type": "ARTICLE",
+          "text_hash": "69900308111addc13ab21c4ebd476ee4d18636c21846fe6bbd41f78ef494c8e1"
+        },
+        {
+          "heading": "第十四条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第四章 监督管理",
+            "第十四条"
+          ],
+          "id": "cc3e625e-ff89-53ba-a851-1095e5fd56c9",
+          "next_section_id": "15f16953-9c95-5440-9ecf-b1127efb9d07",
+          "ordinal": 18,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "7d679f47-769b-5dc9-83b4-83847552d0c3",
+          "previous_section_id": "54092278-644a-5f97-94a8-f37039630b20",
+          "section_type": "ARTICLE",
+          "text_hash": "caca6ee3b6a55374197da5fbc7b187f8f49d13b00e2c5a8e3dab85aa5284489c"
+        },
+        {
+          "heading": "第十五条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第四章 监督管理",
+            "第十五条"
+          ],
+          "id": "15f16953-9c95-5440-9ecf-b1127efb9d07",
+          "next_section_id": "d1223443-1957-5412-8a2b-ac8239bf5df4",
+          "ordinal": 19,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "7d679f47-769b-5dc9-83b4-83847552d0c3",
+          "previous_section_id": "cc3e625e-ff89-53ba-a851-1095e5fd56c9",
+          "section_type": "ARTICLE",
+          "text_hash": "52f35e225c957e0b5f54c7c84a268e42ef5695deadb3f0618b7773c5a9e6be53"
+        },
+        {
+          "heading": "第五章 附则",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第五章 附则"
+          ],
+          "id": "08004ee8-f3ea-526f-af71-0acc0c350d6d",
+          "next_section_id": null,
+          "ordinal": 20,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "2034bf40-4ed3-5e6c-a596-0704ecc92907",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "f2e594022e586876077c39261bbf04110ef2e19896153a264a98d033046392eb"
+        },
+        {
+          "heading": "第十六条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第五章 附则",
+            "第十六条"
+          ],
+          "id": "d1223443-1957-5412-8a2b-ac8239bf5df4",
+          "next_section_id": "dcf0374c-a359-5a17-8d31-048a29131745",
+          "ordinal": 21,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "08004ee8-f3ea-526f-af71-0acc0c350d6d",
+          "previous_section_id": "15f16953-9c95-5440-9ecf-b1127efb9d07",
+          "section_type": "ARTICLE",
+          "text_hash": "03677d4e8c7b536ac0ccc9cf93fe3c30b9bd81f1b9ee0e76a7f614f5dde9638c"
+        },
+        {
+          "heading": "第十七条",
+          "heading_path": [
+            "商业保理业务监督管理指引（合成演示版）",
+            "第五章 附则",
+            "第十七条"
+          ],
+          "id": "dcf0374c-a359-5a17-8d31-048a29131745",
+          "next_section_id": null,
+          "ordinal": 22,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "08004ee8-f3ea-526f-af71-0acc0c350d6d",
+          "previous_section_id": "d1223443-1957-5412-8a2b-ac8239bf5df4",
+          "section_type": "ARTICLE",
+          "text_hash": "e931d0c4d2dcc842476720f08f1434edf46cbd85d6b6dec525deb00660f86519"
+        }
+      ],
+      "source_available_at": "2024-06-01T00:00:00+00:00",
+      "source_filename": "regulation_factoring.pdf",
+      "source_text_file": "regulation_factoring.txt",
+      "source_text_sha256": "f3425e0ec1ac8d51bd37409ec09d3f7e3930c020c1b819d49d87bf3646236f1d",
+      "summaries": [
+        {
+          "id": "c7399199-83d6-5064-90a9-b90a7624f1da",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "2034bf40-4ed3-5e6c-a596-0704ecc92907",
+            "44427003-815a-54f4-b9b9-e53d8dc9ede9",
+            "32220018-95ca-51d3-a569-b181ff7e2187",
+            "15a3e2bf-803f-526d-ae23-0761fadd16b0",
+            "7d679f47-769b-5dc9-83b4-83847552d0c3",
+            "08004ee8-f3ea-526f-af71-0acc0c350d6d"
+          ],
+          "summary_hash": "8dd4074aed343ca9d1e23e17ac11d4a5dd0ba1484f4aa5e0a43e77ecdd18145d",
+          "summary_level": "DOCUMENT"
+        },
+        {
+          "id": "ec993797-a37a-50e8-8f77-d3180dc3cd52",
+          "parent_summary_id": "c7399199-83d6-5064-90a9-b90a7624f1da",
+          "source_section_ids": [
+            "a6842c18-af05-5197-b2fe-ed9b67ad230b",
+            "8d11078c-a346-5d74-9270-b3c7ed4060d0",
+            "14868556-b055-5b41-bb17-93c6786196b5"
+          ],
+          "summary_hash": "663bf9d0b2f7dabc5f242e9ba8ec64152db6a5811fad49252d63e75c61761f61",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "94aed0a2-a3a3-53fb-a1b7-418e716d341a",
+          "parent_summary_id": "c7399199-83d6-5064-90a9-b90a7624f1da",
+          "source_section_ids": [
+            "7f793cbd-98f8-58af-8b65-64008f02098c",
+            "a8765b10-391e-5651-8d32-af118dca8d46",
+            "3c6c8ab0-8ed6-5c1a-9877-0de34e8e2a4a",
+            "cb5157ef-d3fc-526e-82a2-59cc96a2160a",
+            "578926ae-9e09-53d2-b5d1-caadf4c0b24e"
+          ],
+          "summary_hash": "bd791d2260d0e51481734bbf21857531b81342393aee3e75edd25481d48cae00",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "ba9ce2c1-b0da-5a5e-b64e-0a0da4dc7395",
+          "parent_summary_id": "c7399199-83d6-5064-90a9-b90a7624f1da",
+          "source_section_ids": [
+            "5144747b-17d1-52d3-9591-68addd385114",
+            "82331557-95b3-59c4-b5dd-2ea60d8cd5cf",
+            "acff083d-e9ac-5820-96c3-45da89b47348",
+            "f1058685-434e-5f03-bcb6-f5832bf4f462"
+          ],
+          "summary_hash": "5ca08e1f400a07871a3d2581f5b599480971412e66f29ef0f7489b24c53364d8",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "1208f81a-9a12-507a-8258-898355e64ac5",
+          "parent_summary_id": "c7399199-83d6-5064-90a9-b90a7624f1da",
+          "source_section_ids": [
+            "54092278-644a-5f97-94a8-f37039630b20",
+            "cc3e625e-ff89-53ba-a851-1095e5fd56c9",
+            "15f16953-9c95-5440-9ecf-b1127efb9d07"
+          ],
+          "summary_hash": "1bec7bd6857cbaded4306ca10b4d2bfb9259d293b0ad0afa464b33027fbd93b0",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "a97577a4-671b-57ae-a247-c508d993edcc",
+          "parent_summary_id": "c7399199-83d6-5064-90a9-b90a7624f1da",
+          "source_section_ids": [
+            "d1223443-1957-5412-8a2b-ac8239bf5df4",
+            "dcf0374c-a359-5a17-8d31-048a29131745"
+          ],
+          "summary_hash": "c0fc2babb3df4bea1f51819bcb55f849c3d2a2f1d692e3d43c668a35016bbffb",
+          "summary_level": "CHAPTER"
+        }
+      ],
+      "title": "商业保理业务监督管理指引（合成演示版）",
+      "valid_from": "2024-06-01",
+      "valid_to": null,
+      "version_label": "2024"
+    },
+    {
+      "bindings": [
+        {
+          "borrower_entity_id": "00000000-0000-0000-0000-000000000101",
+          "case_id": "00000000-0000-0000-0000-000000000201",
+          "document_role": "REGULATORY",
+          "is_required": false
+        }
+      ],
+      "confidentiality": "INTERNAL",
+      "document_id": "579c289d-7332-5d93-bb2e-7a6b795f33c9",
+      "document_type": "REGULATION",
+      "document_version_id": "16ff6adb-3a26-519c-b065-87707e110946",
+      "logical_key": "regulation_wc_admin",
+      "mime_type": "application/pdf",
+      "object_sha256": "d98ba8d9e354cc4409faad4b46e1035f5e75cb7789e17375a536c9a0a839a4ea",
+      "object_size": 8856,
+      "object_uri": "s3://creditlens-raw/00000000-0000-0000-0000-000000000001/579c289d-7332-5d93-bb2e-7a6b795f33c9/16ff6adb-3a26-519c-b065-87707e110946/original.pdf",
+      "page_count": 2,
+      "parse_run_id": "41a995f3-380d-581e-9843-0d01d9c5d489",
+      "parser_config_hash": "3d41e90013061f26626e6ecb0c9ca8730ad946d0c424e79fbc7e31db7ffa746f",
+      "parser_name": "pymupdf",
+      "parser_version": "1.28.0:",
+      "sections": [
+        {
+          "heading": "流动资金贷款管理监管指引（合成演示版）",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）"
+          ],
+          "id": "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+          "next_section_id": null,
+          "ordinal": 0,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": null,
+          "previous_section_id": null,
+          "section_type": "DOCUMENT",
+          "text_hash": "8fbb12935ad671182e4aa60f6e1a433e02849b3e52d916d38aac66890c5612f4"
+        },
+        {
+          "heading": "第一章 总则",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第一章 总则"
+          ],
+          "id": "1cb96f64-31ce-5ea2-ae79-56af24a5cc46",
+          "next_section_id": null,
+          "ordinal": 1,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "76c6f9facd16a33d360b9a017670b6b5559d1694b2d0ae346363176b5719af21"
+        },
+        {
+          "heading": "第一条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第一章 总则",
+            "第一条"
+          ],
+          "id": "02daea0d-6da7-5f10-a2d0-5bacc1a65421",
+          "next_section_id": "c469f591-528f-5912-abcb-ecf18471d2cc",
+          "ordinal": 2,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "1cb96f64-31ce-5ea2-ae79-56af24a5cc46",
+          "previous_section_id": null,
+          "section_type": "ARTICLE",
+          "text_hash": "313549d67c9f7ba2f0dd0404ffdaed4108193cac92c9fa60e5d5e4469698c5e6"
+        },
+        {
+          "heading": "第二条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第一章 总则",
+            "第二条"
+          ],
+          "id": "c469f591-528f-5912-abcb-ecf18471d2cc",
+          "next_section_id": "937fd743-fa08-5ed7-b8ee-bda96f50f447",
+          "ordinal": 3,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "1cb96f64-31ce-5ea2-ae79-56af24a5cc46",
+          "previous_section_id": "02daea0d-6da7-5f10-a2d0-5bacc1a65421",
+          "section_type": "ARTICLE",
+          "text_hash": "c590a6f4b85d33f463122654464f7a8cd96a376c1a2275ee69a37a4b80e4a7c8"
+        },
+        {
+          "heading": "第三条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第一章 总则",
+            "第三条"
+          ],
+          "id": "937fd743-fa08-5ed7-b8ee-bda96f50f447",
+          "next_section_id": "5b77264f-e57b-521c-86b4-b84355d7ff02",
+          "ordinal": 4,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "1cb96f64-31ce-5ea2-ae79-56af24a5cc46",
+          "previous_section_id": "c469f591-528f-5912-abcb-ecf18471d2cc",
+          "section_type": "ARTICLE",
+          "text_hash": "5f7bd1c0fab8375639c147f6fc7c4dc51dfc31be161f7619ec4ce6867943c3ba"
+        },
+        {
+          "heading": "第二章 贷前调查",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第二章 贷前调查"
+          ],
+          "id": "9b75e8b2-050e-5986-974f-814211a0ad32",
+          "next_section_id": null,
+          "ordinal": 5,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "11c8f225dfd8bf0db556d4eb70bb7abbf3db1fb96d83fecdef2576cec81b029d"
+        },
+        {
+          "heading": "第四条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第二章 贷前调查",
+            "第四条"
+          ],
+          "id": "5b77264f-e57b-521c-86b4-b84355d7ff02",
+          "next_section_id": "89ba8ae7-91f0-550d-921f-d33c5e6977c1",
+          "ordinal": 6,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "9b75e8b2-050e-5986-974f-814211a0ad32",
+          "previous_section_id": "937fd743-fa08-5ed7-b8ee-bda96f50f447",
+          "section_type": "ARTICLE",
+          "text_hash": "d3b462f151dff28e46f1fba7d3ac29df10613d80d4bcd6a7497713cdd2818da6"
+        },
+        {
+          "heading": "第五条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第二章 贷前调查",
+            "第五条"
+          ],
+          "id": "89ba8ae7-91f0-550d-921f-d33c5e6977c1",
+          "next_section_id": "40d1c744-82ea-5820-be5f-98b97dc17144",
+          "ordinal": 7,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "9b75e8b2-050e-5986-974f-814211a0ad32",
+          "previous_section_id": "5b77264f-e57b-521c-86b4-b84355d7ff02",
+          "section_type": "ARTICLE",
+          "text_hash": "2500c5f0909e4e7c7d00936485657c68066226d5cbee09d5eecc80092a1d8106"
+        },
+        {
+          "heading": "第六条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第二章 贷前调查",
+            "第六条"
+          ],
+          "id": "40d1c744-82ea-5820-be5f-98b97dc17144",
+          "next_section_id": "744cbdab-c22d-5fec-9aec-6a521b826597",
+          "ordinal": 8,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "9b75e8b2-050e-5986-974f-814211a0ad32",
+          "previous_section_id": "89ba8ae7-91f0-550d-921f-d33c5e6977c1",
+          "section_type": "ARTICLE",
+          "text_hash": "49dde5fd6a6b3bff65afb41a3f55b62fb25dcfc317c5d5c9e4a9dd5b65214850"
+        },
+        {
+          "heading": "第三章 用途管理",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第三章 用途管理"
+          ],
+          "id": "803e994a-6b06-52fa-9dd0-9b2abf131920",
+          "next_section_id": null,
+          "ordinal": 9,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "f0cd52eb33bf7ee260d572bb842f8027f1b78cc040ee1f5ee4787346a53e11d2"
+        },
+        {
+          "heading": "第七条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第三章 用途管理",
+            "第七条"
+          ],
+          "id": "744cbdab-c22d-5fec-9aec-6a521b826597",
+          "next_section_id": "d8416259-9a45-5742-84c6-c0daaab3641d",
+          "ordinal": 10,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "803e994a-6b06-52fa-9dd0-9b2abf131920",
+          "previous_section_id": "40d1c744-82ea-5820-be5f-98b97dc17144",
+          "section_type": "ARTICLE",
+          "text_hash": "99e47dd843b9257a7faa355c8600bff55504be52359e77ed69a103e15c33eef9"
+        },
+        {
+          "heading": "第八条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第三章 用途管理",
+            "第八条"
+          ],
+          "id": "d8416259-9a45-5742-84c6-c0daaab3641d",
+          "next_section_id": "3a5774df-7aa5-5523-98ff-f6aee3f83a90",
+          "ordinal": 11,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "803e994a-6b06-52fa-9dd0-9b2abf131920",
+          "previous_section_id": "744cbdab-c22d-5fec-9aec-6a521b826597",
+          "section_type": "ARTICLE",
+          "text_hash": "ebb55b1f2795490e3b02cc926fb4902eac5bdeb6b8e072ae224d444f2ad62f68"
+        },
+        {
+          "heading": "第九条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第三章 用途管理",
+            "第九条"
+          ],
+          "id": "3a5774df-7aa5-5523-98ff-f6aee3f83a90",
+          "next_section_id": "1eb39389-a33e-593b-9bdb-b473658babab",
+          "ordinal": 12,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "803e994a-6b06-52fa-9dd0-9b2abf131920",
+          "previous_section_id": "d8416259-9a45-5742-84c6-c0daaab3641d",
+          "section_type": "ARTICLE",
+          "text_hash": "de7f663efdc5ef32e1110c72bbe6e35520c2e9edac453885d78517602c20074b"
+        },
+        {
+          "heading": "第四章 支付管理",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第四章 支付管理"
+          ],
+          "id": "77450a30-6f6b-57d3-afe7-7463e4066122",
+          "next_section_id": null,
+          "ordinal": 13,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "0e450f24d43bf47d64c0b7c74e4384259266aff81e682f32f1d40be26e35cea9"
+        },
+        {
+          "heading": "第十条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第四章 支付管理",
+            "第十条"
+          ],
+          "id": "1eb39389-a33e-593b-9bdb-b473658babab",
+          "next_section_id": "d8d32ba7-74bf-5342-a873-23ea49ea22f1",
+          "ordinal": 14,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "77450a30-6f6b-57d3-afe7-7463e4066122",
+          "previous_section_id": "3a5774df-7aa5-5523-98ff-f6aee3f83a90",
+          "section_type": "ARTICLE",
+          "text_hash": "fc2d74038fdfc3126291d9a000eff8d3c0c1723c985caed6bf1e2638ef351536"
+        },
+        {
+          "heading": "第十一条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第四章 支付管理",
+            "第十一条"
+          ],
+          "id": "d8d32ba7-74bf-5342-a873-23ea49ea22f1",
+          "next_section_id": "eb6bc206-2f93-59aa-a2b8-4af104d8f409",
+          "ordinal": 15,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "77450a30-6f6b-57d3-afe7-7463e4066122",
+          "previous_section_id": "1eb39389-a33e-593b-9bdb-b473658babab",
+          "section_type": "ARTICLE",
+          "text_hash": "b173f87245fc43b23fad352b8ab2315b80cec16edf782f57b2bd88cced3cbc9e"
+        },
+        {
+          "heading": "第十二条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第四章 支付管理",
+            "第十二条"
+          ],
+          "id": "eb6bc206-2f93-59aa-a2b8-4af104d8f409",
+          "next_section_id": "1a6a9cd6-fdac-5f19-83f1-f1fae090de47",
+          "ordinal": 16,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "77450a30-6f6b-57d3-afe7-7463e4066122",
+          "previous_section_id": "d8d32ba7-74bf-5342-a873-23ea49ea22f1",
+          "section_type": "ARTICLE",
+          "text_hash": "3246d228df60f79c2cfcdcd300231e52876dba928a0a9d4b0a42fbf2a27b521b"
+        },
+        {
+          "heading": "第五章 贷后管理",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第五章 贷后管理"
+          ],
+          "id": "dc1d1793-948c-5112-b9bb-10a65ef9c6b9",
+          "next_section_id": null,
+          "ordinal": 17,
+          "page_end": 2,
+          "page_start": 1,
+          "parent_section_id": "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "777a8a7419face641d4f9edadf65a6df2083e62cb9bb82d854d3741bfcc739f5"
+        },
+        {
+          "heading": "第十三条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第五章 贷后管理",
+            "第十三条"
+          ],
+          "id": "1a6a9cd6-fdac-5f19-83f1-f1fae090de47",
+          "next_section_id": "952b3c5c-f8f6-5d6b-b40f-c1a9053326cc",
+          "ordinal": 18,
+          "page_end": 1,
+          "page_start": 1,
+          "parent_section_id": "dc1d1793-948c-5112-b9bb-10a65ef9c6b9",
+          "previous_section_id": "eb6bc206-2f93-59aa-a2b8-4af104d8f409",
+          "section_type": "ARTICLE",
+          "text_hash": "0b8175006b43c68c604926f0ead0a22efe663efdad5d46eb9712e3d018112a8d"
+        },
+        {
+          "heading": "第十四条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第五章 贷后管理",
+            "第十四条"
+          ],
+          "id": "952b3c5c-f8f6-5d6b-b40f-c1a9053326cc",
+          "next_section_id": "9c3255fa-75b0-5e07-9823-fb5eb2bb6dc7",
+          "ordinal": 19,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "dc1d1793-948c-5112-b9bb-10a65ef9c6b9",
+          "previous_section_id": "1a6a9cd6-fdac-5f19-83f1-f1fae090de47",
+          "section_type": "ARTICLE",
+          "text_hash": "e41cd61e8fd2acc9843ee40b312c9541140d75b1e2796c5c24865c0d3ca859ad"
+        },
+        {
+          "heading": "第十五条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第五章 贷后管理",
+            "第十五条"
+          ],
+          "id": "9c3255fa-75b0-5e07-9823-fb5eb2bb6dc7",
+          "next_section_id": "2cd0ec4a-5f48-5cfb-842a-a4aacbf14f11",
+          "ordinal": 20,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "dc1d1793-948c-5112-b9bb-10a65ef9c6b9",
+          "previous_section_id": "952b3c5c-f8f6-5d6b-b40f-c1a9053326cc",
+          "section_type": "ARTICLE",
+          "text_hash": "01fd10609791bd807f780946c27b752e9230e5fbd9d5ac014f713378760d367e"
+        },
+        {
+          "heading": "第六章 附则",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第六章 附则"
+          ],
+          "id": "2ce6f789-6907-5bb8-8eaa-16df2e967ff0",
+          "next_section_id": null,
+          "ordinal": 21,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+          "previous_section_id": null,
+          "section_type": "CHAPTER",
+          "text_hash": "bd593b6cd9fd7da1cbab0aeb7d662b49a41395ca3ef4c75a3216730d6d6841ac"
+        },
+        {
+          "heading": "第十六条",
+          "heading_path": [
+            "流动资金贷款管理监管指引（合成演示版）",
+            "第六章 附则",
+            "第十六条"
+          ],
+          "id": "2cd0ec4a-5f48-5cfb-842a-a4aacbf14f11",
+          "next_section_id": null,
+          "ordinal": 22,
+          "page_end": 2,
+          "page_start": 2,
+          "parent_section_id": "2ce6f789-6907-5bb8-8eaa-16df2e967ff0",
+          "previous_section_id": "9c3255fa-75b0-5e07-9823-fb5eb2bb6dc7",
+          "section_type": "ARTICLE",
+          "text_hash": "b8a2f95ffac7a3cbd44bdb1e44fb317703bdf5d88697c996e74b7f52469e4efe"
+        }
+      ],
+      "source_available_at": "2024-03-01T00:00:00+00:00",
+      "source_filename": "regulation_wc_admin.pdf",
+      "source_text_file": "regulation_wc_admin.txt",
+      "source_text_sha256": "3a0d5a668ed5b9887036dea83d52ee1b189576b06ffe2d81fe4cb096c94f4c05",
+      "summaries": [
+        {
+          "id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
+          "parent_summary_id": null,
+          "source_section_ids": [
+            "db507f0a-c900-5bfb-86f9-11f4a56e840c",
+            "1cb96f64-31ce-5ea2-ae79-56af24a5cc46",
+            "9b75e8b2-050e-5986-974f-814211a0ad32",
+            "803e994a-6b06-52fa-9dd0-9b2abf131920",
+            "77450a30-6f6b-57d3-afe7-7463e4066122",
+            "dc1d1793-948c-5112-b9bb-10a65ef9c6b9",
+            "2ce6f789-6907-5bb8-8eaa-16df2e967ff0"
+          ],
+          "summary_hash": "c5f43dc3fb952e8c97b5920f1b9c8c82e61190bce9eac6b96f9f4da03b05d4d3",
+          "summary_level": "DOCUMENT"
+        },
+        {
+          "id": "5e4d724b-e5c9-5f1b-b09f-8ee6904bce3c",
+          "parent_summary_id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
+          "source_section_ids": [
+            "02daea0d-6da7-5f10-a2d0-5bacc1a65421",
+            "c469f591-528f-5912-abcb-ecf18471d2cc",
+            "937fd743-fa08-5ed7-b8ee-bda96f50f447"
+          ],
+          "summary_hash": "420ad726b60773e9db868ea2c2dbbf3eec2dfe1ef61e684095c85cbaf05f0b99",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "1a069e97-35b7-51e1-9ef2-64bb87ea72cc",
+          "parent_summary_id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
+          "source_section_ids": [
+            "5b77264f-e57b-521c-86b4-b84355d7ff02",
+            "89ba8ae7-91f0-550d-921f-d33c5e6977c1",
+            "40d1c744-82ea-5820-be5f-98b97dc17144"
+          ],
+          "summary_hash": "88a5d1d6b891e0e6a0a69cf1f30f366db68dc78afc68a78d57786e506a877fbc",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "626aaf36-2595-59dc-ac17-f57b6be55cd2",
+          "parent_summary_id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
+          "source_section_ids": [
+            "744cbdab-c22d-5fec-9aec-6a521b826597",
+            "d8416259-9a45-5742-84c6-c0daaab3641d",
+            "3a5774df-7aa5-5523-98ff-f6aee3f83a90"
+          ],
+          "summary_hash": "8ba79ba805262a2677d538bdeb7ca0d1d027e14a42074f6a4e42a59813270280",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "6e4e2309-25b1-5071-94ff-41e47395e229",
+          "parent_summary_id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
+          "source_section_ids": [
+            "1eb39389-a33e-593b-9bdb-b473658babab",
+            "d8d32ba7-74bf-5342-a873-23ea49ea22f1",
+            "eb6bc206-2f93-59aa-a2b8-4af104d8f409"
+          ],
+          "summary_hash": "fdc77f3aafc4c802112c2244c40841aeb7e97a582dec4996a565edf6a61ea785",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "a653471c-2cb8-51c9-9434-a243f3d89273",
+          "parent_summary_id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
+          "source_section_ids": [
+            "1a6a9cd6-fdac-5f19-83f1-f1fae090de47",
+            "952b3c5c-f8f6-5d6b-b40f-c1a9053326cc",
+            "9c3255fa-75b0-5e07-9823-fb5eb2bb6dc7"
+          ],
+          "summary_hash": "4e2a079b02bdc887680aa0ebf9fd586a6192570f0a9080e125616f51f36d10ea",
+          "summary_level": "CHAPTER"
+        },
+        {
+          "id": "4acac53b-a94e-569c-a07c-c6847543bccc",
+          "parent_summary_id": "c25a9053-a4ec-5d14-9502-eaf217b39938",
+          "source_section_ids": [
+            "2cd0ec4a-5f48-5cfb-842a-a4aacbf14f11"
+          ],
+          "summary_hash": "14732c9a7a1494b150129cd8a05f3c034da3198cfbb916ed6b4a3dac9c0b4772",
+          "summary_level": "CHAPTER"
+        }
+      ],
+      "title": "流动资金贷款管理监管指引（合成演示版）",
+      "valid_from": "2024-03-01",
+      "valid_to": null,
+      "version_label": "2024"
+    }
+  ],
+  "identity_namespace": "1b5a9d87-8fe3-5e45-8f50-ec2f70b6f8c1",
+  "raw_bucket": "creditlens-raw",
+  "schema_version": "creditlens.demo-assets.v1",
+  "source_text_hash_algorithm": "sha256-utf8-lf-v1",
+  "tenant_id": "00000000-0000-0000-0000-000000000001"
+}

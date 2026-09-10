@@ -14,21 +14,32 @@
 import asyncio
 import sys
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import fitz
+from sqlalchemy import select
 
 from creditlens.common.config import get_settings
+from creditlens.common.ids import deterministic_point_id
+from creditlens.demo_manifest import (
+    DEMO_ASSET_NAMESPACE,
+    expected_demo_qdrant_points,
+    load_demo_asset_manifest,
+)
 from creditlens.infrastructure.llm.embedding import build_embedding_provider
 from creditlens.infrastructure.objectstore import build_object_store
 from creditlens.infrastructure.postgres.models import (
     Base,
     CreditCase,
+    DocumentSection,
+    DocumentVersion,
     Entity,
+    IndexOutbox,
+    SummaryNode,
     Tenant,
 )
 from creditlens.infrastructure.postgres.session import (
@@ -51,6 +62,24 @@ BORROWER_ID = uuid.UUID("00000000-0000-0000-0000-000000000101")
 CASE_ID = uuid.UUID("00000000-0000-0000-0000-000000000201")
 # 演示用户：MVP 无登录层，API 以此固定身份模拟"已验证 Token"（RLS Membership 需要）
 DEMO_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000301")
+
+
+def _asset_identity(spec: dict) -> str:
+    return f"{spec['logical_key']}@{spec['version_label']}"
+
+
+def _frozen_asset(spec: dict) -> dict:
+    manifest = load_demo_asset_manifest(PROJECT_ROOT)
+    matches = [
+        item
+        for item in manifest["assets"]
+        if item["logical_key"] == spec["logical_key"]
+        and item["version_label"] == spec["version_label"]
+    ]
+    if len(matches) != 1:
+        raise RuntimeError("frozen demo asset identity is missing or ambiguous")
+    return matches[0]
+
 
 # ---- 案件 002：科技型企业 ----
 BORROWER_ID_002 = uuid.UUID("00000000-0000-0000-0000-000000000102")
@@ -205,7 +234,9 @@ def text_to_pdf(text_path: Path, pdf_path: Path) -> bytes:
             page.insert_text((50, y), chunk, fontsize=11, fontname="china-s")
             y += 18
         y += 4
-    data = doc.tobytes()
+    # Remove MuPDF's per-write trailer UUID so committed input always yields
+    # the object hash frozen in the demo asset manifest.
+    data = doc.tobytes(no_new_id=True)
     pdf_path.write_bytes(data)
     doc.close()
     return data
@@ -220,8 +251,9 @@ async def _ingest_corpus(
     from creditlens.infrastructure.postgres.models import Document, DocumentVersion
 
     for spec in corpus:
+        frozen = _frozen_asset(spec)
         existing = await session.scalar(
-            sa_select(DocumentVersion.id)
+            sa_select(DocumentVersion)
             .join(Document, Document.id == DocumentVersion.document_id)
             .where(
                 Document.tenant_id == TENANT_ID,
@@ -231,7 +263,28 @@ async def _ingest_corpus(
             .limit(1)
         )
         if existing is not None:
-            print(f"  {spec['logical_key']}@{spec['version_label']}: 已存在，跳过")
+            if (
+                existing.id != uuid.UUID(frozen["document_version_id"])
+                or existing.document_id != uuid.UUID(frozen["document_id"])
+                or existing.content_hash != frozen["object_sha256"]
+            ):
+                raise RuntimeError("existing synthetic asset conflicts with frozen manifest")
+            # A document can be shared by more than one demo case.  Its Qdrant
+            # payload includes the complete case/entity scope, so establish the
+            # current case binding before asking the exact-payload repair path to
+            # compare against the frozen final manifest.  Otherwise the first
+            # pass for a shared asset can only reproduce the earlier case scope
+            # and is guaranteed to fail its own post-write verification.
+            await _bind_existing_documents(session, case_id, [spec])
+            repaired = await _repair_existing_index(
+                session,
+                existing,
+                worker,
+                settings,
+            )
+            print(
+                f"  {spec['logical_key']}@{spec['version_label']}: 已存在，索引核验/修复={repaired}"
+            )
             continue
         txt_path = SYNTH_DIR / spec["txt"]
         pdf_bytes = text_to_pdf(txt_path, txt_path.with_suffix(".pdf"))
@@ -251,9 +304,16 @@ async def _ingest_corpus(
                 valid_from=spec["valid_from"],
                 valid_to=spec["valid_to"],
                 source_available_at=spec["source_available_at"],
+                expected_sha256=frozen["object_sha256"],
+                document_id=uuid.UUID(frozen["document_id"]),
+                document_version_id=uuid.UUID(frozen["document_version_id"]),
             ),
         )
-        ingest = await pipeline.ingest(session, result.document_version_id)
+        ingest = await pipeline.ingest(
+            session,
+            result.document_version_id,
+            deterministic_identity_key=_asset_identity(spec),
+        )
         while await count_pending(session) > 0:
             stats = await worker.process_batch(session)
             if stats.processed == 0 and stats.failed == 0:
@@ -264,6 +324,191 @@ async def _ingest_corpus(
             f"sections={ingest.section_count} outbox={ingest.outbox_count} "
             f"activated={activated} reused={ingest.reused}"
         )
+
+
+async def _repair_existing_index(session, version, worker, settings) -> int:
+    """Reconcile one existing active parse against the current embedding profile.
+
+    The old seed path skipped an existing DocumentVersion wholesale, which made
+    a missing point or a changed embedding version look ready forever.  This
+    repair path re-enqueues only missing deterministic points and leaves the
+    existing document/version/volume intact.
+    """
+
+    if version.active_parse_run_id is None:
+        raise RuntimeError("existing synthetic document has no active parse run")
+    parse_run_id = version.active_parse_run_id
+    expected: list[tuple[str, uuid.UUID, str, str, str | None]] = []
+    sections = (
+        await session.scalars(
+            select(DocumentSection).where(
+                DocumentSection.parse_run_id == parse_run_id,
+                DocumentSection.section_type.in_(["ARTICLE", "PARAGRAPH"]),
+            )
+        )
+    ).all()
+    expected.extend(
+        (
+            "SECTION",
+            section.id,
+            section.text_hash,
+            settings.chunks_collection_name,
+            settings.sparse_encoder_version,
+        )
+        for section in sections
+    )
+    summaries = (
+        await session.scalars(
+            select(SummaryNode).where(
+                SummaryNode.parse_run_id == parse_run_id,
+                SummaryNode.grounding_status == "VERIFIED",
+            )
+        )
+    ).all()
+    expected.extend(
+        (
+            "SUMMARY",
+            node.id,
+            node.summary_hash,
+            settings.summaries_collection_name,
+            None,
+        )
+        for node in summaries
+    )
+    if not sections or not summaries:
+        raise RuntimeError("existing synthetic parse is incomplete")
+
+    manifest_points = expected_demo_qdrant_points(load_demo_asset_manifest(PROJECT_ROOT), settings)
+    repaired = 0
+    now = datetime.now(UTC)
+    lease_cutoff = now - timedelta(minutes=5)
+    for aggregate_type, aggregate_id, content_hash, collection, sparse_version in expected:
+        point_id = deterministic_point_id(
+            aggregate_id,
+            content_hash,
+            settings.effective_embedding_version,
+        )
+        found = worker._qdrant.retrieve(
+            collection,
+            ids=[str(point_id)],
+            with_payload=True,
+        )
+        expected_payload = manifest_points.get(collection, {}).get(str(point_id))
+        point_is_exact = bool(
+            expected_payload is not None
+            and len(found) == 1
+            and str(found[0].id) == str(point_id)
+            and (found[0].payload or {}) == expected_payload
+        )
+        ledgers = (
+            await session.scalars(
+                select(IndexOutbox)
+                .where(
+                    IndexOutbox.aggregate_type == aggregate_type,
+                    IndexOutbox.aggregate_id == aggregate_id,
+                    IndexOutbox.operation == "UPSERT",
+                    IndexOutbox.content_hash == content_hash,
+                    IndexOutbox.target_collection_name == collection,
+                    IndexOutbox.embedding_version == settings.effective_embedding_version,
+                )
+                .order_by(IndexOutbox.created_at.desc())
+            )
+        ).all()
+        completed = next((row for row in ledgers if row.status == "COMPLETED"), None)
+        if point_is_exact:
+            if completed is None:
+                adoptable = next(
+                    (row for row in ledgers if row.status in {"PENDING", "PROCESSING"}),
+                    None,
+                )
+                if adoptable is None:
+                    adoptable = IndexOutbox(
+                        tenant_id=version.tenant_id,
+                        aggregate_type=aggregate_type,
+                        aggregate_id=aggregate_id,
+                        operation="UPSERT",
+                        content_hash=content_hash,
+                        target_collection_name=collection,
+                        embedding_version=settings.effective_embedding_version,
+                        sparse_encoder_version=sparse_version,
+                    )
+                    session.add(adoptable)
+                adoptable.status = "COMPLETED"
+                adoptable.attempts = max(adoptable.attempts or 0, 1)
+                adoptable.locked_at = None
+                adoptable.last_error = None
+                adoptable.completed_at = now
+                repaired += 1
+            continue
+
+        pending = next((row for row in ledgers if row.status == "PENDING"), None)
+        processing = next((row for row in ledgers if row.status == "PROCESSING"), None)
+        fresh_processing = False
+        if processing is not None:
+            locked_at = processing.locked_at
+            if locked_at is not None and locked_at.tzinfo is None:
+                locked_at = locked_at.replace(tzinfo=UTC)
+            if locked_at is None or locked_at <= lease_cutoff:
+                processing.status = "PENDING"
+                processing.available_at = now
+                processing.locked_at = None
+                processing.last_error = None
+                pending = processing
+                repaired += 1
+            else:
+                fresh_processing = True
+        if pending is None and not fresh_processing:
+            pending = IndexOutbox(
+                tenant_id=version.tenant_id,
+                aggregate_type=aggregate_type,
+                aggregate_id=aggregate_id,
+                operation="UPSERT",
+                content_hash=content_hash,
+                target_collection_name=collection,
+                embedding_version=settings.effective_embedding_version,
+                sparse_encoder_version=sparse_version,
+            )
+            session.add(pending)
+            repaired += 1
+    await session.flush()
+    while await count_pending(session) > 0:
+        stats = await worker.process_batch(session)
+        if stats.processed == 0 and stats.failed == 0:
+            break
+    expected_completed = 0
+    for aggregate_type, aggregate_id, content_hash, collection, _sparse_version in expected:
+        point_id = deterministic_point_id(
+            aggregate_id,
+            content_hash,
+            settings.effective_embedding_version,
+        )
+        found = worker._qdrant.retrieve(collection, ids=[str(point_id)], with_payload=True)
+        expected_payload = manifest_points.get(collection, {}).get(str(point_id))
+        if (
+            len(found) != 1
+            or str(found[0].id) != str(point_id)
+            or (found[0].payload or {}) != expected_payload
+        ):
+            raise RuntimeError("existing synthetic index repair is incomplete")
+        completed = await session.scalar(
+            select(IndexOutbox.id)
+            .where(
+                IndexOutbox.aggregate_type == aggregate_type,
+                IndexOutbox.aggregate_id == aggregate_id,
+                IndexOutbox.operation == "UPSERT",
+                IndexOutbox.content_hash == content_hash,
+                IndexOutbox.target_collection_name == collection,
+                IndexOutbox.embedding_version == settings.effective_embedding_version,
+                IndexOutbox.status == "COMPLETED",
+            )
+            .limit(1)
+        )
+        if completed is None:
+            raise RuntimeError("existing synthetic index ledger repair is incomplete")
+        expected_completed += 1
+    if expected_completed != len(expected):
+        raise RuntimeError("existing synthetic index reconciliation cardinality mismatch")
+    return repaired
 
 
 async def _bind_existing_documents(session, case_id, corpus: list[dict]) -> None:
@@ -430,6 +675,7 @@ async def seed_environment(factory, store, qdrant, settings) -> None:
             embedding_version=settings.effective_embedding_version,
             sparse_encoder_version=settings.sparse_encoder_version,
             summary_collection_name=summaries_collection,
+            deterministic_identity_namespace=DEMO_ASSET_NAMESPACE,
         )
         worker = IndexWorker(qdrant, embedder)
 
@@ -455,6 +701,21 @@ async def seed_environment(factory, store, qdrant, settings) -> None:
         )
         # 确保共享文档也绑定到案件 003
         await _bind_existing_documents(session, CASE_ID_003, CORPUS_CASE_003)
+
+        # Bindings participate in the section payload (entity scope).  Re-run
+        # exact reconciliation after every shared binding exists so a crash or
+        # an earlier single-case payload cannot survive as a false-ready point.
+        unique_specs = {
+            _asset_identity(spec): spec
+            for spec in [*CORPUS_CASE_001, *CORPUS_CASE_002, *CORPUS_CASE_003]
+        }
+        for spec in unique_specs.values():
+            frozen = _frozen_asset(spec)
+            version = await session.get(DocumentVersion, uuid.UUID(frozen["document_version_id"]))
+            if version is None:
+                raise RuntimeError("frozen synthetic version missing after seed")
+            print(f"  {_asset_identity(spec)}: final exact-index reconciliation")
+            await _repair_existing_index(session, version, worker, settings)
 
         print("[5/5] 全部语料入库完成")
     print("种子数据完成（3 案件）。")

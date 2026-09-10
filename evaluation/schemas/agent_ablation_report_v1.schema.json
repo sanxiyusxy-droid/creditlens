@@ -1,0 +1,301 @@
+{
+  "$defs": {
+    "AblationVariant": {
+      "enum": [
+        "FULL",
+        "NO_CHALLENGER",
+        "NO_AUDITOR",
+        "SINGLE_AGENT_BASELINE"
+      ],
+      "title": "AblationVariant",
+      "type": "string"
+    },
+    "AblationVariantMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "variant": {
+          "$ref": "#/$defs/AblationVariant"
+        },
+        "execution_semantics": {
+          "const": "DETERMINISTIC_COMPONENT_HARNESS",
+          "title": "Execution Semantics",
+          "type": "string"
+        },
+        "trials": {
+          "const": 6,
+          "title": "Trials",
+          "type": "integer"
+        },
+        "unsupported_claims_emitted": {
+          "minimum": 0,
+          "title": "Unsupported Claims Emitted",
+          "type": "integer"
+        },
+        "unsupported_claims_intercepted": {
+          "minimum": 0,
+          "title": "Unsupported Claims Intercepted",
+          "type": "integer"
+        },
+        "unsupported_claim_interception_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unsupported Claim Interception Rate"
+        },
+        "counter_evidence_targets": {
+          "minimum": 0,
+          "title": "Counter Evidence Targets",
+          "type": "integer"
+        },
+        "counter_evidence_targets_found": {
+          "minimum": 0,
+          "title": "Counter Evidence Targets Found",
+          "type": "integer"
+        },
+        "counter_evidence_recall": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Counter Evidence Recall"
+        },
+        "hitl_trials": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Hitl Trials",
+          "type": "integer"
+        },
+        "hitl_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Hitl Rate",
+          "type": "number"
+        },
+        "p95_latency_ms": {
+          "minimum": 0,
+          "title": "P95 Latency Ms",
+          "type": "number"
+        },
+        "total_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total Tokens"
+        },
+        "mean_tokens_per_trial": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean Tokens Per Trial"
+        },
+        "token_coverage": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Token Coverage",
+          "type": "number"
+        },
+        "estimated_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Estimated Cost"
+        },
+        "cost_currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cost Currency"
+        },
+        "cost_coverage": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Cost Coverage",
+          "type": "number"
+        }
+      },
+      "required": [
+        "variant",
+        "execution_semantics",
+        "trials",
+        "unsupported_claims_emitted",
+        "unsupported_claims_intercepted",
+        "counter_evidence_targets",
+        "counter_evidence_targets_found",
+        "hitl_trials",
+        "hitl_rate",
+        "p95_latency_ms",
+        "total_tokens",
+        "mean_tokens_per_trial",
+        "token_coverage",
+        "estimated_cost",
+        "cost_currency",
+        "cost_coverage"
+      ],
+      "title": "AblationVariantMetrics",
+      "type": "object"
+    },
+    "EvidenceMaturity": {
+      "description": "How strongly an artifact may be presented.\n\n``RELEASE_CANDIDATE`` means only that the complete Git checkout was clean at\ncapture time and had a measured commit.  It does not claim that the commit\nwas tagged, reviewed, published, or released.",
+      "enum": [
+        "DEVELOPMENT_SOURCE_BOUND",
+        "RELEASE_CANDIDATE"
+      ],
+      "title": "EvidenceMaturity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "report_type": {
+      "const": "multi_agent_ablation",
+      "default": "multi_agent_ablation",
+      "title": "Report Type",
+      "type": "string"
+    },
+    "protocol_id": {
+      "const": "creditlens_multi_agent_ablation_v1",
+      "title": "Protocol Id",
+      "type": "string"
+    },
+    "protocol_version": {
+      "const": "1.0.0",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "title": "Dataset Sha256",
+      "type": "string"
+    },
+    "observations_sha256": {
+      "title": "Observations Sha256",
+      "type": "string"
+    },
+    "observation_set_id": {
+      "title": "Observation Set Id",
+      "type": "string"
+    },
+    "git_commit": {
+      "pattern": "^[0-9a-f]{7,64}$",
+      "title": "Git Commit",
+      "type": "string"
+    },
+    "git_dirty": {
+      "title": "Git Dirty",
+      "type": "boolean"
+    },
+    "source_state_sha256": {
+      "title": "Source State Sha256",
+      "type": "string"
+    },
+    "source_state_algorithm": {
+      "const": "sha256-canonical-file-manifest-v1",
+      "title": "Source State Algorithm",
+      "type": "string"
+    },
+    "source_state_scope": {
+      "const": "creditlens-runtime-evidence-v1",
+      "title": "Source State Scope",
+      "type": "string"
+    },
+    "source_state_file_count": {
+      "exclusiveMinimum": 0,
+      "title": "Source State File Count",
+      "type": "integer"
+    },
+    "evidence_maturity": {
+      "$ref": "#/$defs/EvidenceMaturity"
+    },
+    "comparison_valid": {
+      "const": true,
+      "default": true,
+      "title": "Comparison Valid",
+      "type": "boolean"
+    },
+    "comparison_scope": {
+      "const": "WITHIN_DETERMINISTIC_COMPONENT_HARNESS",
+      "default": "WITHIN_DETERMINISTIC_COMPONENT_HARNESS",
+      "title": "Comparison Scope",
+      "type": "string"
+    },
+    "artifact_verification": {
+      "const": "ALL_SIDECARS_SCHEMA_SHA256_AND_PRIMITIVE_RECOMPUTATION_VERIFIED",
+      "default": "ALL_SIDECARS_SCHEMA_SHA256_AND_PRIMITIVE_RECOMPUTATION_VERIFIED",
+      "title": "Artifact Verification",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/AblationVariantMetrics"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Metrics",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocol_id",
+    "protocol_version",
+    "dataset_sha256",
+    "observations_sha256",
+    "observation_set_id",
+    "git_commit",
+    "git_dirty",
+    "source_state_sha256",
+    "source_state_algorithm",
+    "source_state_scope",
+    "source_state_file_count",
+    "evidence_maturity",
+    "limitations",
+    "metrics"
+  ],
+  "title": "AgentAblationReport",
+  "type": "object"
+}

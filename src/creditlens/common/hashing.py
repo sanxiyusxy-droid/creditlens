@@ -12,6 +12,14 @@ def sha256_text(text: str) -> str:
     return sha256_bytes(text.encode("utf-8"))
 
 
+def sha256_canonical_utf8_text(data: bytes) -> str:
+    """Hash UTF-8 text after canonicalizing CRLF and CR line endings to LF."""
+
+    text = data.decode("utf-8")
+    canonical_text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return sha256_text(canonical_text)
+
+
 async def sha256_stream(chunks: AsyncIterator[bytes]) -> tuple[str, int]:
     """流式哈希，返回 (hex_digest, total_size)；用于上传 finalize 校验。"""
     hasher = hashlib.sha256()

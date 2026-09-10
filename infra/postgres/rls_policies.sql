@@ -48,6 +48,9 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'creditlens_app') THEN
     EXECUTE 'REVOKE INSERT, UPDATE, DELETE ON public.tenants, public.app_users, public.financial_metric_definitions, public.search_index_versions, public.alembic_version FROM creditlens_app';
+    EXECUTE 'REVOKE UPDATE, DELETE ON public.case_snapshots, public.snapshot_documents, public.snapshot_indexes, public.snapshot_facts FROM creditlens_app';
+    EXECUTE 'REVOKE INSERT, UPDATE, DELETE ON public.credit_cases FROM creditlens_app';
+    EXECUTE 'GRANT UPDATE (loan_purpose, industry_code, region_code, status, current_report_id, updated_at, version) ON public.credit_cases TO creditlens_app';
   END IF;
 END $$;
 
@@ -137,7 +140,10 @@ ALTER TABLE case_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE case_snapshots FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON case_snapshots;
 DROP POLICY IF EXISTS case_membership_isolation ON case_snapshots;
-CREATE POLICY case_membership_isolation ON case_snapshots
+DROP POLICY IF EXISTS case_snapshot_select ON case_snapshots;
+DROP POLICY IF EXISTS case_snapshot_insert ON case_snapshots;
+CREATE POLICY case_snapshot_select ON case_snapshots
+  FOR SELECT
   USING (
     tenant_id = app_current_tenant()
     AND app_has_case_access(case_snapshots.case_id)
@@ -147,7 +153,9 @@ CREATE POLICY case_membership_isolation ON case_snapshots
         AND c.tenant_id = case_snapshots.tenant_id
         AND c.borrower_entity_id = case_snapshots.borrower_entity_id
     )
-  )
+  );
+CREATE POLICY case_snapshot_insert ON case_snapshots
+  FOR INSERT
   WITH CHECK (
     tenant_id = app_current_tenant()
     AND app_has_case_access(case_snapshots.case_id)
@@ -166,12 +174,15 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS snapshot_parent_access ON %I', t);
+    EXECUTE format('DROP POLICY IF EXISTS snapshot_parent_select ON %I', t);
+    EXECUTE format('DROP POLICY IF EXISTS snapshot_parent_insert ON %I', t);
   END LOOP;
 END $$;
 
 -- 冻结文档只能来自该案件已绑定、同租户的 DocumentVersion；ParseRun 必须
 -- 属于同一版本且在写入冻结点仍为该版本的 active ParseRun。
-CREATE POLICY snapshot_parent_access ON snapshot_documents
+CREATE POLICY snapshot_parent_select ON snapshot_documents
+  FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM case_snapshots AS s
@@ -179,7 +190,9 @@ CREATE POLICY snapshot_parent_access ON snapshot_documents
         AND s.tenant_id = app_current_tenant()
         AND app_has_case_access(s.case_id)
     )
-  )
+  );
+CREATE POLICY snapshot_parent_insert ON snapshot_documents
+  FOR INSERT
   WITH CHECK (
     EXISTS (
       SELECT 1
@@ -207,7 +220,8 @@ CREATE POLICY snapshot_parent_access ON snapshot_documents
 -- search_index_versions 当前没有 tenant_id/case_id，数据库无法证明某个版本归属
 -- 当前案件。故业务写入 fail-closed：只允许现有冻结流程使用的 NULL 引用；在模型
 -- 增加租户归属外键前，不允许挂接任何不可证明归属的 index_version_id。
-CREATE POLICY snapshot_parent_access ON snapshot_indexes
+CREATE POLICY snapshot_parent_select ON snapshot_indexes
+  FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM case_snapshots AS s
@@ -215,7 +229,9 @@ CREATE POLICY snapshot_parent_access ON snapshot_indexes
         AND s.tenant_id = app_current_tenant()
         AND app_has_case_access(s.case_id)
     )
-  )
+  );
+CREATE POLICY snapshot_parent_insert ON snapshot_indexes
+  FOR INSERT
   WITH CHECK (
     snapshot_indexes.index_version_id IS NULL
     AND snapshot_indexes.index_family IN ('CHUNKS', 'SUMMARIES')
@@ -230,7 +246,8 @@ CREATE POLICY snapshot_parent_access ON snapshot_indexes
 
 -- Fact 必须与 Snapshot 的租户、借款主体、案件范围和 decision cutoff 一致；
 -- 被拒绝或在冻结时已经被重述替代的 Fact 不得挂接。
-CREATE POLICY snapshot_parent_access ON snapshot_facts
+CREATE POLICY snapshot_parent_select ON snapshot_facts
+  FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM case_snapshots AS s
@@ -238,7 +255,9 @@ CREATE POLICY snapshot_parent_access ON snapshot_facts
         AND s.tenant_id = app_current_tenant()
         AND app_has_case_access(s.case_id)
     )
-  )
+  );
+CREATE POLICY snapshot_parent_insert ON snapshot_facts
+  FOR INSERT
   WITH CHECK (
     EXISTS (
       SELECT 1
@@ -265,7 +284,21 @@ CREATE POLICY snapshot_parent_access ON snapshot_facts
 ALTER TABLE credit_cases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_cases FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS case_tenant_isolation ON credit_cases;
-CREATE POLICY case_tenant_isolation ON credit_cases
+DROP POLICY IF EXISTS case_tenant_select ON credit_cases;
+DROP POLICY IF EXISTS case_tenant_update ON credit_cases;
+CREATE POLICY case_tenant_select ON credit_cases
+  FOR SELECT
+  USING (
+    tenant_id = app_current_tenant()
+    AND app_has_case_access(credit_cases.id)
+    AND EXISTS (
+      SELECT 1 FROM entities AS borrower
+      WHERE borrower.id = credit_cases.borrower_entity_id
+        AND borrower.tenant_id = credit_cases.tenant_id
+    )
+  );
+CREATE POLICY case_tenant_update ON credit_cases
+  FOR UPDATE
   USING (
     tenant_id = app_current_tenant()
     AND app_has_case_access(credit_cases.id)

@@ -1,320 +1,352 @@
-# CreditLens
+# CreditLens：面向小微企业授信预审业务的 RAG 系统原型
 
 [![CI](https://github.com/sanxiyusxy-droid/creditlens/actions/workflows/ci.yml/badge.svg)](https://github.com/sanxiyusxy-droid/creditlens/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
-小微企业授信尽调与审查 Multi-Agent 系统 —— 证据优先的深度 RAG 实现。
+## 项目简介
+CreditLens 关注的是授信审查过程中“**政策必须使用正确版本、历史审查不能偷看未来材料、任意财务数字必须可重算、冲突问题交给人工复核**”的问题。将分散在授信政策、监管文件、企业年报和财务事实中的信息组织为可追溯证据，
+通过多路检索、中心化 Agent 编排、人工复核和完整调用 Trace，生成“有依据、可回放、
+能拒答”的审查辅助结果。
 
-> 本项目为技术演示，使用合成数据；系统只做"授信审查辅助与证据整理"，
-> 不自动作出授信、拒贷、定价或额度决定。
+> 本项目只使用合成数据，用于技术演示和面试交流。系统不自动作出授信、拒贷、定价、
+> 额度或放款决定，最终结论必须由具备权限的人员复核。
 
-## 当前版本口径
+## 项目亮点
 
-- **当前已发布版本**：`v1.5.0`。GitHub 实现提交
-  `494be48dd0ed1456dd01fc7a0e3e86903e7a847c`；PR #3 Head
-  `6808b75fcd4d691a516b79817ae2f037abe0ed1e` 的 run `32448510063`、合并提交
-  `37ab216cb86317decadd340138585ec6b00c25a2` 的 main run `32448707192`、发布收口提交
-  `f18067485912b7a225104a1b97964edb85bd06ee` 的 main run `32449518133`，以及 annotated tag
-  `v1.5.0` 的 run `32449707187` 均为 lint/unit/integration 三项成功。tag object
-  `2db09ca6239b1b9ce64e8f564d1eb42e8f731181` 指向该发布收口提交；GitLab 未推送。本段为
-  tag 后证据回填，因此该 tag 不包含本次文档回填，尤其不可能包含随后取得的 tag CI run。
-  本版将已接线的 structured Model 与 ToolGateway 四类终态统一写入
-  `InvocationEnvelope v2`、追加写 `invocation_records` 和同事务 `telemetry_outbox`；新增
-  at-least-once Worker（lease/reclaim/backoff/dead-letter）与 Trace 完整性复核。本地 Ruff
-  check/format、`uv lock --check --offline` 全绿；非集成
-  **487 passed / 16 skipped / 20 deselected**，真实 PostgreSQL/Qdrant/RLS 栈
-  **20 passed / 22 deselected，0 skip/fail**。
-- **上一已发布版本（历史）**：`v1.4.0`。PR #2 完成评审，`main` 以 fast-forward 合入 Head
-  `7853bd2940e2240956883109e5a5133c2eab9045`；发布收口提交
-  `fd44f04572ed091fd693d27cb0b31c1df5ba1347` 的 main CI run `32447310637` 与 annotated tag
-  CI run `32447459543` 均为 lint/unit/integration 三项成功。GitLab 未推送。本版补齐失败
-  幂等重放的稳定分类、
-  结构化输出的安全 Schema
-  指纹、受控分发式 Claim-Evidence Semantic Entailment 人工评审协议，以及 FULL_REVIEW Tool
-  Invocation Envelope → `run_events` best-effort sink。本地 Ruff check/format、
-  `uv lock --check --offline` 全绿；非集成 **433 passed / 16 skipped / 19 deselected**，其中
-  16 skip 均因本机无 symlink 权限；真实 PG/Qdrant/RLS 为 **19 passed / 22 deselected**，
-  0 skip、0 fail。
-- **上一评测版本**：标签 `v1.3.0`。第二轮被测源码为 `c4289a1`，正式预测、报告与
-  发布文档由发布收口提交及 tag 承载；两类溯源职责不同，不能混写。
-  已完成 Grounded QA、Evidence/Claim/Artifact 可审计闭环、业务拒答/人工复核/技术失败
-  分流、模型调用脱敏 Trace、请求幂等与两阶段 gold 隔离评测。当前本地门禁为 Ruff 全绿、
-  **300 项 unit/security + 19 项真实 PG/Qdrant/RLS 集成**通过。41 题第二轮正式报告见
-  `evaluation/reports/answer_eval_v1_c4289a1_20260810T125108Z.json`。GitHub PR #1 的
-  CI run `31599090053` 与合并后 main run `31599459084` 均为 lint/unit/integration
-  三阶段全绿。
-- **更早发布版本**：`v1.2.0` 的实现提交为 `58f5487` + `41742cf`，评测源码提交为
-  `9e64dbb`；其冻结检索正式指标与历史证据继续保留。
+| 能力 | 实现方式 | 解决的问题 |
+|---|---|---|
+| 深度 RAG | QuerySpec、Query Rewrite、Dense/Sparse/Summary/Exact 多路召回、RRF、精排、Context Packing | 单一向量检索容易漏掉专有名词、数字、跨文档证据和长文档深层条款 |
+| 时点正确性 | `as_of_date`、`decision_cutoff_at`、`source_available_at`、版本有效期和 Snapshot | 防止历史审查误用未来政策或事后入库材料 |
+| 证据闭环 | EvidenceRef、页码/段落定位、内容 Hash、PostgreSQL 回表复核、PDF 原文预览 | 避免模型引用不存在、越权或已失效的证据 |
+| 中心化 Multi-Agent | Supervisor 固定 DAG 编排 Policy、Financial、Risk、Challenger、Auditor、Report 六类职责 | 将复杂审查拆成可控步骤，避免 Agent 自由协作导致流程和权限失控 |
+| Grounded QA | 模型只生成受限 Claim 草稿，服务端校验证据白名单、数字、阈值方向和状态转换 | 技术失败、证据不足和业务拒答不再混为一类 |
+| Human-in-the-loop | 阻断项、行锁、乐观锁、幂等键、冻结审批白名单 | AI 只提供审查辅助，关键决定保留人工责任边界 |
+| 可审计调用链 | Invocation Ledger、Telemetry Outbox、RunEvent、Trace 完整性校验 | 可以回答“调用了什么、是否成功、证据从哪来、遥测是否送达” |
+| 可复现评测 | 冻结数据集、稳定证据锚点、Git/语料/配置 Hash、Leakage 审计、消融实验 | 防止调参污染测试集、重复种子和历史结果冒充新评测 |
 
-## 架构概览
+## 系统架构
 
-- **PostgreSQL**：业务事实源（案件、文档版本、Parse Run、Section、审计）
-- **Qdrant**：可重建检索索引（Dense + BM25 Sparse，Named Vectors，Alias 蓝绿切换）
-- **MinIO**：不可变原始文件与解析产物
-- **FastAPI + SQLAlchemy 2 + Alembic**：API 与迁移
-- **Transactional Outbox + Index Worker**：双库一致性
-- **Invocation Ledger + Telemetry Outbox**：Model/Tool 脱敏调用事实、可靠投递与 Trace 完整性
-- 详细设计见 [CreditLens_技术实现文档.md](./CreditLens_技术实现文档.md)
-- 交付进度、文档符合性对比与评测结果见 [docs/进度报告.md](./docs/进度报告.md)（每版本同步更新）
+```mermaid
+flowchart LR
+    U[审查人员 / Streamlit] --> API[FastAPI]
+
+    subgraph DATA[数据与索引]
+        OBJ[MinIO<br/>原始文件与解析产物]
+        PG[(PostgreSQL<br/>业务事实、版本、审计、RLS)]
+        OB[Transactional Outbox]
+        QD[(Qdrant<br/>Dense + Sparse + Summary)]
+        OBJ --> ING[解析 / 结构切分 / 摘要]
+        ING --> PG
+        PG --> OB
+        OB --> IW[Index Worker]
+        IW --> QD
+    end
+
+    API --> QA[Grounded QA]
+    API --> SUP[Supervisor]
+    QA --> RET[Retrieval Orchestrator]
+    SUP --> PA[Policy Agent]
+    SUP --> FA[Financial Agent]
+    SUP --> RA[Risk Agent]
+    SUP --> CH[Challenger]
+    SUP --> AU[Auditor]
+    SUP --> RP[Report Agent]
+    PA & FA & RA --> RET
+    RET --> QD
+    RET --> PG
+    RET --> PACK[RRF → Rerank → Context Packing]
+    PACK --> QA
+    PACK --> PA
+    CH --> AU
+    AU --> HITL[人工复核]
+    HITL --> RP
+
+    QA & SUP --> LEDGER[(Invocation Ledger)]
+    LEDGER --> TO[Telemetry Outbox]
+    TO --> EXP[幂等 Exporter]
+    LEDGER --> TRACE[Trace API / 可视化]
+```
+
+### 一次审查如何运行
+
+1. 上传材料后，系统保存不可变原始文件，解析标题层级、页码、段落和财务事实。
+2. PostgreSQL 作为事实源提交文档版本和 Outbox；Index Worker 将可重建索引写入 Qdrant。
+3. 问题先被解析为 QuerySpec，再生成多种查询表达，进入 Dense、Sparse、Summary 和 Exact 通道。
+4. 候选在召回前执行租户、ACL、时点、版本和质量硬过滤，融合后再精排和打包上下文。
+5. 专业 Agent 只能基于验证后的 Evidence 生成结构化中间结果；Challenger 主动寻找反证，
+   Auditor 检查引用、数字和禁止结论。
+6. 存在阻断项时流程进入 `HUMAN_REVIEW`；只有人工解决全部阻断项后才生成
+   `APPROVED_DRAFT` 报告。
+7. Model、Tool、RunEvent 和遥测投递状态可通过 Trace 页面回放。
+
+## 一次任务如何完成
+- Phase 1：材料入库
+  - 用户上传尽调材料，FastAPI 接收后保存原件到 MinIO，PostgreSQL 保存文档版本、租户和案件、入库时间、用户权限等
+  - 文档 Chunking，建立索引，生成 Dense 和 BM25 Sparse 向量
+- Phase 2：创建任务
+  - 用户点击“开始完整审查”，前端调用 [POST /api/v1/cases/{case_id}/runs]
+  - FastAPI 检查：当前用户属于哪个租户、是否有权限访问、案件是否存在、参数是否合法
+- Phase 3：Supervisor 创建任务上下文
+  - 创建并冻结本次 Run 的上下文，如案件、产品、审查日期、材料截止时间等。
+  - 冻结快照主要为了防止任务过程中上传了新文件，导致同一个 Run 前后可能看到不同材料的问题
+  - Supervisor 按照固定的 DAG 调用子 Agent
+- Phase 4：Policy 分析政策并检索得出结论
+  - Policy 负责回答：适用哪个版本的政策、企业是否满足政策准入要求，查询时调用 Retrieval Orchestrator
+  - Query → QuerySpec → Query Rewrite → Dense/Sparse/Summary/Exact → 时点、租户、案件过滤 → RRF → Rerank → Context Packing → Evidence
+  - 最终生成结构化的结果 Claim：政策要求、当前结论、证据
+- Phase 5：Financial 分析财务
+  - 获取财务事实、计算指标、分析偿债能力等
+  - 输出：指标、结果、计算公式、状态是否完整
+- Phase 6：Risk：综合风险
+  - 消费 Policy 和 Financial 的结构化结果，生成高风险观察
+  - 比较指标和政策阈值，识别接近临界值的情况、生成风险点
+- Phase 7：主动找反证
+  - 专门寻找：是否存在相反证据、是否遗漏政策、财务数据是否互相矛盾、是否证据不足、是否有材料在审查截止事件之后入库
+  - 如有反证会输出：发现潜在反证，虽然资产负债率满足政策阈值，但现金流和短期债务趋势可能削弱偿债能力，当前正面结论需要补充说明
+- Phase 8：Auditor 门禁
+  - 检查每一条 Claim 的：Evidence ID、案件和租户、时点、Hash、页码是否一致
+- Phase 9：人工复核
+  - 如果 Auditor 发现以下情况会进入 HUMAN_REVIEW：数据缺失；证据冲突；数字与引用不一致；存在无法自动解决的反证；模型输出越权决定；关键 Claim 证据不足
+  - 并且前端显示阻断并输出建议动作
+- Phase 10：Report 生成报告
+  - Auditor 通过后消费已被批准的结构化内容，整理成报告
+  - 系统还会为报告生成：报告版本；Canonical Hash；关联 Run；使用的 Evidence；人工复核记录
+- Phase 11：Trace 记录全过程
+  - 记录信息包括：调用 ID；Agent 类型；Model 或 Tool；父调用 ID；开始和结束时间；SUCCESS、FAILED、DENIED 或 CANCELLED；输入输出 HMAC 指纹；Token 和成本信息是否完整；Telemetry Outbox 是否成功投递
+
+## 各个 Agent 的输入输出
+| Agent | 输入 | 输出 |
+|---|---|---|
+| Supervisor | 案件、审查日期、截止时间、任务类型 | 执行计划、Run 状态、子任务调度 |
+| Policy Agent | 产品、行业、政策证据 | 适用政策、准入条件、例外条款 |
+| Financial Agent | 年报、财务事实、确定性公式 | 指标、趋势、数据质量问题 |
+| Risk Agent | 政策结果、财务结果、其他证据 | 风险观察、待核实事项 |
+| Challenger | 当前所有 Claim 和 Evidence | 反证、遗漏、冲突 |
+| Auditor | Claim、Evidence、计算结果、反证 | PASS、NEEDS_REWORK、HUMAN_REVIEW |
+| Report Agent | 已通过审核的结构化结果 | APPROVED_DRAFT 报告 |
+
+## 技术栈
+
+| 层次 | 选型 |
+|---|---|
+| API 与数据模型 | FastAPI、Pydantic v2 |
+| 关系数据库 | PostgreSQL 16、SQLAlchemy 2、Alembic、Row Level Security |
+| 向量与稀疏检索 | Qdrant Named Vectors、Dense Embedding、BM25/Jieba Sparse |
+| 对象存储 | MinIO；离线模式可使用本地目录 |
+| Agent 与模型适配 | 中心化 Supervisor DAG、OpenAI-compatible LLM/Embedding/Rerank Adapter |
+| 前端演示 | Streamlit |
+| 可靠性 | Transactional Outbox、幂等键、lease/reclaim、指数退避、dead-letter |
+| 工程质量 | uv、Pytest、Ruff、Docker Compose、GitHub Actions |
 
 ## 快速开始
 
-### 依赖
+### 环境要求
 
-- Python 3.12+，[uv](https://docs.astral.sh/uv/)
-- Docker（可选：启动真实 PostgreSQL/Qdrant/MinIO/Redis）
+- Windows PowerShell
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
+- Docker Desktop（运行完整 PostgreSQL、Qdrant、MinIO 和 Redis 演示栈）
 
-### 本地离线模式（无 Docker）
-
-默认配置使用 SQLite + Qdrant 内存模式 + 本地文件对象存储，可完整验证
-上传 → 解析 → 切分 → 索引 → 检索 → 评测闭环：
-
-```powershell
-uv sync
-uv run python scripts/seed_synthetic_data.py   # 合成政策 PDF -> 入库 -> 索引（三案件）
-uv run python scripts/run_evaluation.py        # 默认 frozen_v2 test（121 题）五通道消融
-uv run pytest -m "not integration"             # 单元 + 安全 + 非集成 E2E（CI 同一门禁）
-```
-
-> 注意：离线模式的本地库 `data/creditlens_local.db` 由 `create_all` 创建，
-> **不做增量迁移**。拉取包含 Schema 变更的版本后请删除该文件重新种子；
-> PostgreSQL 环境一律使用 `uv run alembic upgrade head`。
-
-### Docker Compose 模式
+### 一键启动完整演示
 
 ```powershell
-docker compose up -d
-# 默认配置离线运行，应用连接使用 NOBYPASSRLS 业务角色
-Copy-Item .env.example .env.local
-# 迁移账号只用于建表/策略/授权，不作为 API 运行账号
-$env:DATABASE_URL="postgresql+asyncpg://creditlens:creditlens@localhost:5432/creditlens"
-uv run alembic upgrade head
-$env:APP_DB_PASSWORD="creditlens_app"   # 仅本地演示；部署时必须替换
-uv run python scripts/apply_rls.py
-$env:DATABASE_URL="postgresql+asyncpg://creditlens_app:creditlens_app@localhost:5432/creditlens"
-uv run python scripts/seed_synthetic_data.py
-uv run uvicorn apps.api.main:app --reload
+git clone https://github.com/sanxiyusxy-droid/creditlens.git
+Set-Location creditlens
+powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
 ```
 
-已有 `pg_data` 卷也可执行上述 `apply_rls.py` 补齐角色与授权；应用若连接
-`creditlens` 超级用户会绕过 RLS，因此不得用该连接启动 API/Worker。
+启动器依次完成：
 
-## 目录结构
+- 校验本机 Docker Context，拒绝远程 Docker Daemon；
+- 启动基础设施，但不删除已有 volume；
+- 安装依赖，执行 Alembic、RLS 和最小权限角色校验；
+- 幂等写入 3 个合成案件、8 个文档版本和财务事实；
+- 校验 PostgreSQL、Qdrant、MinIO 的数据一致性；
+- 启动 API，执行真实 TCP HTTP 演示验收；
+- 启动 Streamlit 页面。
 
-```
-src/creditlens/
-  common/           配置、ID、哈希、时钟、错误码
-  application/      Port 定义
-  infrastructure/   postgres / qdrant / minio / parsers / llm Adapter
-  ingestion/        上传、解析、结构切分、Outbox、Index Worker
-  retrieval/        统一 Orchestrator（Dense/Sparse/Summary/Exact → RRF → Rerank → Context Packing）
-  evidence/         EvidenceRef -> 原始 PDF 页 Preview
-  evaluation/       GoldQuestion Schema、Recall@K/NDCG/Precision/MRR、Retrieved Evidence P/R（Refusal/Agent 指标预留答案层，不计入报告）
-  agents/           Policy/Financial/Risk/Report Agent + Challenger + Auditor + Supervisor DAG
-  observability/    InvocationEnvelope v2、追加写调用账本、Telemetry Outbox Worker
-migrations/         Alembic
-evaluation/datasets 冻结评测集（稳定 gold_evidence_key 锚点）
-scripts/            种子数据与评测脚本
-data/synthetic/     合成政策等演示数据（不含真实数据）
-```
+访问地址：
 
-## 关键设计约束
+- 演示页面：<http://127.0.0.1:8501>
+- API 文档：<http://127.0.0.1:8000/docs>
+- 就绪检查：<http://127.0.0.1:8000/health/ready>
 
-1. 证据优先：事实性结论必须回到原文页、表格单元格或确定性计算；
-2. 关系库是事实源，向量库可随时重建；
-3. 时点优先：政策适用性由 `as_of_date` 决定，材料可用性由 `decision_cutoff_at` 决定；
-4. 硬过滤（租户/ACL/时点/质量）在召回前执行，不允许改为降权；
-5. Qdrant 命中必须回 PostgreSQL 复核，失败候选带 `rejection_reason`；
-6. 评测锚点使用稳定 `gold_evidence_key`，不绑定解析生成的 UUID；
-7. 已接线 Model/Tool 调用先提交脱敏事实与投递意图，外部导出采用 at-least-once，
-   不宣称 exactly-once。
-
-## 评测
+只执行环境准备和一致性检查：
 
 ```powershell
-uv run python scripts/run_evaluation.py --dataset evaluation/datasets/frozen_v2.json --split test
+powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1 -BootstrapOnly
 ```
 
-`--split dev` 仅用于调参；简历指标只在冻结 `test` 上报。
-输出 Recall@5/10/20、NDCG@K、Precision@K、MRR@10、Retrieved Evidence Precision/Recall、
-per-case 指标与宏平均、独立回表 Leakage 审计（目标为 0）与 P50/P95 延迟，
-报告落盘 `evaluation/reports/`，含可复现 Manifest（Git 溯源与脏工作区标记 /
-dataset·uv.lock·语料 SHA256 / split / alembic revision / collection point count /
-模型版本 / 每个时点组合的 snapshot_id 与内容规范化 snapshot_hash）。
-口径说明：无答案生成层，不宣称 Faithfulness / Citation Accuracy / Refusal Accuracy。
-
-数据口径（v1.1）：3 个合成案件（制造业流贷 / 科技型流贷 / 保理）、6 个逻辑文档、
-8 个文档版本、97 个证据锚点、200 题（182 可答 + 18 不可答），覆盖政策 QA /
-跨文档 / 财务事实 / 版本陷阱 / 口语缩写 / 拒答等意图；dev/test 按案件分层重划分，
-模板组不跨 split（Leakage 自检为 0）。
-
-### 集成测试
+默认使用确定性的本地模型替代，不会把数据发送到外部模型服务。只有在已正确配置模型且明确
+允许发送合成演示数据时，才使用：
 
 ```powershell
-# 一条命令完成：建库 → 业务角色 → Alembic → RLS 基线 → 授权 → Seed → 集成测试
-# 全程使用 NOSUPERUSER NOBYPASSRLS 业务角色（不以超级用户绕过 RLS）
+powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1 -UseConfiguredModels
+```
+
+## 演示路径
+
+推荐按照 8–12 分钟五幕流程展示：
+
+1. **政策时点切换**：同一个问题使用不同审查日期，命中不同版本的政策条款。
+2. **深 RAG Trace**：展开 Query Rewrite、四路召回、候选拒绝、RRF、精排和 Context Packing。
+3. **完整预审 DAG**：运行六职责 Agent，查看带 Evidence 的 Claim 和反证处理。
+4. **证据与 HITL**：从结论返回 PDF 原文页，处理阻断项并生成审批后的报告草稿。
+5. **调用审计**：查看 Model/Tool 终态、Invocation Ledger、Outbox 和 RunEvent。
+
+详细话术见 [演示脚本](docs/演示脚本.md)。
+
+![CreditLens 演示页](docs/images/demo_screenshot.png)
+
+## 主要 API
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/health/live`、`/health/ready` | 存活和就绪检查 |
+| GET | `/api/v1/cases/{case_id}` | 查询案件详情 |
+| POST | `/api/v1/cases/{case_id}/questions` | 发起 Grounded QA |
+| POST | `/api/v1/cases/{case_id}/runs` | 创建完整审查 Run |
+| GET | `/api/v1/runs/{run_id}/events` | 获取执行事件 |
+| POST | `/api/v1/runs/{run_id}/review-decisions` | 提交人工复核决定 |
+| GET | `/api/v1/runs/{run_id}/report` | 获取审查报告草稿 |
+| GET | `/api/v1/runs/{run_id}/trace` | 获取调用账本和 Trace 完整性 |
+| GET | `/api/v1/evidence/preview` | 返回证据原文预览 |
+
+## 评测结果
+
+所有公开指标均来自合成数据，只用于比较方案和证明工程闭环，不代表真实银行业务效果。
+
+### 检索消融
+
+冻结 `frozen_v2` test split 包含 3 个案件、121 题，其中 110 题可答。正式三轮使用
+bge-m3、bge-reranker-v2-m3、BM25/Jieba，并在 PostgreSQL 16 + Qdrant + RLS 业务角色环境运行。
+
+| 配置 | Recall@10 | Recall@20 | MRR@10 |
+|---|---:|---:|---:|
+| Dense-only | 0.9545 | 0.9682 | 0.9485 |
+| Dense + Sparse + RRF | 0.9561 | 0.9606 | 0.9016 |
+| Dense + Summary | 0.7833 | 0.9682 | 0.7623 |
+| 加入 QuerySpec Rewrite | 0.9515 | 0.9606 | 0.8712 |
+| **全链路默认配置** | **0.9682** | **0.9909** | **0.8912** |
+
+全链路相对 Dense-only 提升了深位证据覆盖，但增加了延迟且 MRR@10 更低；因此项目没有把
+“模块更多”包装成“所有指标都更好”。Summary 单独召回效果较弱，只作为融合通道使用。
+三轮独立 Leakage 审计均为 0。
+
+### 答案层重评
+
+`answer_eval_v1` 包含 3 个合成案件、41 题（30 可答、11 不可答）。当前 clean-commit
+确定性评测结果：
+
+| 指标 | 结果 |
+|---|---:|
+| Lexical Correctness | 16.67% |
+| Key-point Recall | 29.09% |
+| Numeric Accuracy | 23.53% |
+| Citation Precision / Recall / F1 | 65.79% / 75.76% / 70.42% |
+| Refusal Accuracy | 90.91% |
+| Technical Failure | 4.88% |
+| Forbidden Violation | 0 |
+
+这里的 Citation F1 是“引用集合匹配度”，不是 Faithfulness；Lexical Correctness 也不是
+语义正确率。完整限制、运行根目录和证据 Hash 见
+[v1.6 演示闭环与评测实证](docs/v1.6_演示闭环与评测实证.md)。
+
+### Multi-Agent 消融
+
+项目执行了 6 个场景 × 4 个变体的确定性组件级消融：
+
+| 变体 | 不支持结论拦截 | 反证处理 | 进入 HITL |
+|---|---:|---:|---:|
+| Full | 3/3 | 2/2 | 4/6 |
+| 去 Challenger | 3/3 | 0/2 | 3/6 |
+| 去 Auditor | 0/3 | 2/2 | 0/6 |
+| Single Agent 基线 | 0/3 | 0/2 | 0/6 |
+
+该实验用于解释 Challenger 和 Auditor 的职责差异，但它是
+`DETERMINISTIC_COMPONENT_HARNESS`，没有执行外部 LLM、HTTP、数据库或完整 RAG，
+不能当作端到端效果或线上延迟。
+
+## 测试
+
+运行静态检查和非集成测试：
+
+```powershell
+uv sync --group dev
+uv run ruff format --check .
+uv run ruff check .
+uv lock --check --offline
+uv run pytest -m "not integration" -q --timeout=180
+```
+
+运行真实 PostgreSQL/Qdrant/RLS 集成测试：
+
+```powershell
 powershell -ExecutionPolicy Bypass -File scripts\run_integration.ps1
 ```
 
-## 项目定位（诚实口径）
+最近一次 v1.6 候选验证：
 
-授信预审 RAG / Multi-Agent **在线化原型**：统一 Retrieval Orchestrator（Dense +
-Sparse + Summary + Exact → RRF → Rerank → Context Packing）、中心化 Supervisor
-固定 DAG 编排六项专业职责（Policy / Financial / Risk / Challenger / Auditor /
-Report）、文档版本化、Snapshot 冻结、RLS 行级隔离、多案件评测集（200 题，
-冻结 test 121 题）、真实栈 CI 与集成测试；v1.5.0 已发布版新增 append-only Model/Tool 调用账本、
-Transactional Telemetry Outbox 与可复核 Trace。
-**不是生产级系统**：无真实登录/OIDC、任务队列为进程内、未做容量与压力验证；
-HITL 已做行锁 + 乐观锁 + 幂等键的并发保护，但未做大规模并发压测；Telemetry Worker
-默认关闭，专用生产 Worker role 尚未实现；正式部署仍需专用 Exporter/Worker 身份、指标
-平台和告警闭环。
+- 非集成：673 passed、16 skipped、23 deselected；
+- 真实栈：23 passed、23 deselected，0 skip/fail；
+- GitHub PR 检查：lint、unit、integration 全部通过。
 
-## 演示（8–12 分钟）
+## 目录结构
 
-```powershell
-docker compose up -d
-powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1
-# 浏览器打开 http://localhost:8501
+```text
+apps/
+  api/                 FastAPI 服务
+  demo/                Streamlit 演示与 HTTP Client
+src/creditlens/
+  agents/              六职责 Agent、Supervisor 和 Grounded QA
+  retrieval/           QuerySpec、多路召回、RRF、精排、Context Packing
+  ingestion/           上传、解析、结构切分、摘要和索引 Outbox
+  evidence/            EvidenceRef 与原文预览
+  observability/       Invocation Ledger、Telemetry Outbox、Exporter
+  evaluation/          检索、答案、消融和 fail-closed 评测
+  infrastructure/      PostgreSQL、Qdrant、MinIO、LLM Adapter
+evaluation/
+  datasets/            冻结评测集和稳定证据锚点
+  schemas/             评测产物 JSON Schema
+  reports/             可提交的历史评测报告
+migrations/            Alembic 数据库迁移
+scripts/               Bootstrap、Seed、验收、评测和运维脚本
+tests/                 unit、security、e2e 和真实栈测试
 ```
 
-![演示页](docs/images/demo_screenshot.png)
+## 安全与一致性设计
 
-五幕编排见 [docs/演示脚本.md](docs/演示脚本.md)：
-① 政策时点切换（同题不同审查日 → 命中不同版本条款）→
-② 完整预审 DAG（202 异步 + Claims 证据表）→ ③ 证据回原始 PDF 页 →
-④ HITL 复核（blocking 全解决才 COMPLETED + 报告版本）→ ⑤ Trace 审计回放。
+- PostgreSQL 是业务事实源，Qdrant 是可重建索引。
+- 租户、案件、ACL、质量和时点约束在召回前硬过滤，不能只做降权。
+- Qdrant 命中必须回 PostgreSQL 复核；失效候选记录明确的拒绝原因。
+- `logical_key + version_label` 定义同一逻辑文档版本，Seed 可重复执行但不会制造重复材料。
+- `source_available_at` 表示材料进入审查系统后最早可被使用的时间，防止历史 Run 被事后材料污染。
+- Invocation 只保存必要元数据与 HMAC 指纹，不持久化 Prompt、模型原文、异常正文或 traceback。
+- Outbox 使用 at-least-once 投递和 Invocation UUID 幂等键，不宣称 exactly-once。
+- 数字证据错绑或模型生成越权授信决定时，系统 fail closed：转人工复核、Claim 标记
+  `NEEDS_REWORK`，且不生成报告。
 
-## v1.2.0 已发布冻结指标（简历口径）
+## 当前边界
 
-评测源码 commit `9e64dbb`，frozen_v2 test split（3 案件 / 121 题 / 110 可答；
-dataset SHA256 前缀 `d3dc24c3527b23f6`），bge-m3 + bge-reranker-v2-m3（API）+
-bm25-jieba-v1，Alembic `0007_evidence_run_key`，真实 PG16 + Qdrant v1.18.0 +
-RLS 业务角色环境下连续运行三次：
+CreditLens 是面向面试和技术验证的在线化原型，还不是生产系统：
 
-- `ablation_frozen_v2_test_20260806T150057Z.json`
-- `ablation_frozen_v2_test_20260806T150712Z.json`
-- `ablation_frozen_v2_test_20260806T151322Z.json`
+- 没有接入真实银行 OIDC、组织权限和密钥管理平台；
+- 异步任务仍以进程内执行为主，没有生产级持久任务队列和 Run reconciler；
+- Telemetry Worker 默认关闭，生产环境仍需要独立 Worker 身份、Exporter、指标和告警；
+- 尚未完成容量、压力、灾备和大规模并发测试；
+- 合成数据评测不能替代真实业务回测、模型风险管理和合规审批。
 
-三份 Manifest 均为 `git_dirty=false`、`git_commit=9e64dbb...`；三轮的 4 个
-Snapshot Hash、`seed_script_sha256` 与真实语料 `seed_corpus_sha256` 逐位一致，
-Leakage=0、unmapped=0。报告源码 commit 用于证明被测输入；标签 `v1.2.0` 承载报告、
-文档与发布口径，因此它与报告 Manifest 中的评测源码 commit 分离。
+## 文档导航
 
-| 通道 | Recall@10 | Recall@20 | MRR@10 | 延迟 P50/P95 |
-|---|---|---|---|---|
-| E0 Dense-only | 0.9545455 | 0.9681818 | 0.9484848 | 210.6–251.5 / 248.6–303.2 ms |
-| E23 +Sparse+RRF | 0.9560606 | 0.9606061 | 0.9015512 | 264.3–324.1 / 392.9–472.0 ms |
-| E4 Dense+Summary | 0.7833333 | 0.9681818 | 0.7622583 | 387.7–474.4 / 434.2–611.0 ms |
-| E5 +QuerySpec Rewrite | 0.9515152 | 0.9606061 | 0.8711580 | 258.3–324.8 / 367.8–492.3 ms |
-| **E7 全链路（默认）** | **0.9681818** | **0.9909091** | **0.8912482** | 875.8–963.6 / 1091.7–1231.6 ms |
+- [技术实现文档](CreditLens_技术实现文档.md)：需求、选型、数据模型、RAG 与 Agent 详细设计
+- [v1.6 演示闭环与评测实证](docs/v1.6_演示闭环与评测实证.md)：命令、证据 Hash、结果和限制
+- [进度报告](docs/进度报告.md)：版本历史、验收记录和剩余事项
+- [面试演示脚本](docs/演示脚本.md)：8–12 分钟演示流程与常见追问
+- [v1.5 调用账本与遥测投递](docs/v1.5_持久调用账本与遥测投递.md)
+- [v1.4 语义盲审与调用观测](docs/v1.4_语义盲审与调用观测.md)
 
-- E0/E23/E4/E5/E7 的 Recall@10、Recall@20 与 MRR@10 三轮均逐位一致；
-- E7 相比 E0：Recall@10 +1.36pp、Recall@20 +2.27pp；MRR@10 低于 Dense，说明
-  全链路换取更完整的深位证据覆盖，并付出更高延迟；
-- 通道决策：E7 相比 E0 有真实召回增益（R@10 +1.4pp、R@20 +2.3pp），保留为
-  在线默认；E4 单独 Summary 显著弱于 Dense（R@10 0.7833 vs 0.9545），
-  Summary 只作为 RRF 参与通道、不单独成链——如实取舍；
-- 正式三轮以远程 bge 模型为简历主指标。离线 Hash Embedding + 词面精排基线报告
-  `ablation_frozen_v2_test_20260806T145238Z.json` 的 E7 Recall@10/20 为
-  **0.9469697/0.9606061**（MRR@10=0.8562374，Leakage=0、unmapped=0），用于证明
-  无外部模型时的可运行性，**不作为简历主指标，也不与正式模型结果混算**。
+## 版本说明
 
-口径说明：无答案生成层，报告指标为检索层 Recall/NDCG/MRR 与
-Retrieved Evidence Precision/Recall，不宣称 Faithfulness / Citation Accuracy /
-Refusal Accuracy。v1.2.0 本地发布验收为 **134 passed / 10 deselected**
-（非集成）以及 **10 passed / 22 deselected**（PG16 + Qdrant + Alembic 0007 +
-RLS 业务角色真实栈）；最终候选 GitHub CI #6 的 lint/unit/integration 三 Job 全绿
-（4m05s）。
-
-## v1.3.0：可审计证据问答闭环
-
-v1.3.0 补齐答案层：Grounded QA 只消费已验证 Evidence，模型只生成受限 Claim 草稿；
-服务端生成权威 ID/状态并执行 Evidence 白名单、数字、阈值方向、明显极性、Locator/Hash/
-Snapshot 门禁；结果分为 `ANSWERED / ABSTAINED / NEEDS_REVIEW / TECHNICAL_FAILURE`，
-技术故障不得伪装成业务拒答。Streamlit 已支持“问题 → 答案状态 → 逐句引用 → 原文预览 →
-审计 Trace”。
-
-`answer_eval_v1` 使用 3 个合成案件、41 题（30 可答、11 不可答）。第二轮正式状态为
-**23 ANSWERED / 8 REFUSED / 6 NEEDS_REVIEW / 4 TECHNICAL_FAILURE**；确定性
-Lexical Correctness **16.67%**、Key-point Recall **23.64%**、Numeric Accuracy
-**20.59%**、Citation-set P/R/F1 **76.67%/69.70%/73.02%**、Refusal Accuracy
-**72.73%**、False Refusal **0**、Technical Failure **9.76%**。相较首轮，技术失败率
-由 17.07% 降至 9.76%，确定性通过率由 19.51% 升至 31.71%。这些是合成集上的
-`DETERMINISTIC_LEXICAL_AND_CITATION_SET` 指标，`semantic_entailment_evaluated=false`；
-**Citation F1 不是 Faithfulness，Lexical Correctness 也不是语义准确率**。剩余 4 个技术
-失败为 1 个数字引用审计失败和 3 个连续 Schema 校验失败，作为当前已知限制保留。
-
-## v1.4.0：失败可解释、受控语义评审与调用观测
-
-- 新请求使用版本化 `grounded_qa_request_v2`；失败幂等重放只接受唯一、最后且与
-  Run/tenant/case/状态转换一致的固定错误枚举。v1.3 已完成请求可在旧 Hash 与原始创建
-  事件同时匹配时兼容重放，旧失败和伪装降级 fail closed；执行取消会保留
-  `CancelledError` 控制流；`shield` 只保护 best-effort 失败收口，并未设置应用层 timeout。
-  DB 可用时通常以 `QA_CALL_CANCELLED` 终结 Run；DB 同时故障时不以清理异常覆盖原取消，
-  仍需生产级 lease/reconciler 收口。
-- 从正式 41 题 prediction 与 gold-free checkpoint 生成可审计语义 Source：**41 Claim /
-  46 supporting evidence**，Source SHA-256 为 `b77c6d8f...6cfb5e5`。完整工具链为
-  `Source → 两套高熵伪名 package/worksheet → 两名隔离真人 → compile submission →`
-  `争议项盲化 adjudication package/worksheet → 第三名隔离真人 → compile →`
-  `score --require-complete`。这里“三名真人”由私有 roster、隔离账号和人工监督保证；代码
-  只能校验两个不同 reviewer 伪名、不同于它们的 adjudicator 伪名及 HUMAN 自我声明，不能
-  证明三个不同物理真人。当前 41 Claim 的技术门禁要求 82 个 rating，且所有非严格共识项均
-  被裁决为最终标签或 `EXCLUDE`。两套 review package 显式共用同一带时区
-  `generated-at`；裁决 package 也显式冻结不早于两份 review `submitted_at` 的独立 aware
-  `generated-at`。固定各自绑定的输入、私有伪名、seed 与时间可逐字节复现产物。代码只
-  校验伪名为 22–128 位 URL-safe 字符；CSPRNG 高熵与不复用属于管理员操作协议。
-- 公开裁决包只暴露匿名随机顺序的 prior decision，不含 rationale、question/claim ID、评审
-  身份或 gold，但 package/worksheet 仍只受控分发；
-  Source、所有 package/worksheet、review/adjudication mapping、身份 roster、submission 和报告
-  均不进入 Git。真人隔离 attestation 是自我声明，不是技术证明。**当前已私有生成两套各
-  41 项的 package + blank worksheet + mapping kit，但尚无真人 label、submission 或
-  adjudication**；`formal-readiness-incomplete.json` 仅诊断当前为 INCOMPLETE、收到 0/82
-  rating，不是正式语义报告或分数，不能引用其中的零值 label rate。未来 final entailed rate
-  也只是 Claim 语义支持代理指标，不是答案正确率，更不能称为 Faithfulness。
-- ToolGateway 记录 `SUCCESS/FAILED/DENIED/CANCELLED` 统一信封，输入输出使用实例密钥
-  HMAC 指纹；同任务预算在调用前原子占位，Run 级 ContextVar 隔离并发事件。FULL_REVIEW
-  只 best-effort 写 `run_events`：普通 sink/DB 失败不反转工具业务结果，但对应 RunEvent 可能
-  缺失，只有内存 record 的 `observability_error_codes` 留痕；sink 取消会继续传播。模型侧仍
-  直接持久化 legacy `MODEL_INVOCATION_*`；`adapt_model_invocation_trace()` 只是显式转换
-  helper；在 v1.4 中，生产 QA 路径尚未自动接入统一 envelope/writer，也没有 durable
-  telemetry outbox/retry 或完整 OTel backend；成本只有在显式版本化价格表和完整 Token 下才估算，
-  不是供应商账单。
-
-执行协议与诚实边界见
-[v1.4 受控语义评审与调用观测](docs/v1.4_语义盲审与调用观测.md)。v1.3 报告仍保持
-`semantic_entailment_evaluated=false`；Citation-set F1 不能因为评测协议就绪而改称
-Faithfulness。
-
-## v1.5.0：持久调用账本与遥测投递（已发布）
-
-- `InvocationEnvelope` 升级为 `invocation_v2`。Grounded QA、Policy Agent 的已接线
-  structured Model 调用，以及 ToolGateway 的 `SUCCESS/FAILED/DENIED/CANCELLED`，统一
-  进入独立短审计事务；`invocation_records` 与 `telemetry_outbox` 同事务提交。v2 sink
-  取代对应 legacy 调用事件，不双写；`generate_text` 等自由文本调用仍不在覆盖范围。
-  v1.5 的取消 timeout 只限制调用方等待 shield 事务的时间，不是 DB deadline；等待超时后
-  底层事务仍可能稍后提交或失败。v1.4 的历史取消路径没有这项调用方 timeout。
-- `invocation_records` 是 append-only 调用事实；同 Invocation UUID、同 Hash、同父绑定可
-  幂等重放，冲突内容或缺失 Outbox fail closed。Tool 参数/结果只保存实例密钥 HMAC 指纹，
-  不保存 Prompt、原始参数、模型原文、异常正文或 traceback。
-- Outbox Worker 使用 at-least-once 投递、Invocation UUID 幂等键、PostgreSQL
-  `SKIP LOCKED`、lease/reclaim、指数退避和 `DEAD`。Exporter 取消留下的过期 lease 在次数
-  耗尽后转 `DEAD`，不会无限重试。`TelemetryDelivery` 显式携带
-  tenant/case/run/invocation/topic。
-- `GET /runs/{id}/trace` 返回 invocations 与投递汇总，并复核 payload、Hash、关系列投影、
-  Outbox 和 `review_runs` 绑定；汇总明确区分 `PENDING/COMPLETE/DEGRADED/EMPTY`，历史未
-  回填 Run 为 `LEGACY_UNAVAILABLE`。`MISSING` 是合法 InvocationRecord 缺对应 Outbox；
-  `INVALID` 是 payload/Hash/投影/绑定损坏；无效持久 payload 不回显。`COMPLETE` 只证明
-  当前持久 Invocation 集合有效且均已投递，不证明所有实际调用都已入账。`EMPTY` 既可能是
-  合法零调用，也可能是提交前丢失；没有 expected-invocation set/reservation/count 时无法区分。
-- Worker 默认 disabled；内置 Noop Exporter fail closed，且只允许 local/dev/test 的显式
-  单租户生命周期验证。当前列级 Outbox `UPDATE` 仍由 API/内置 Worker 共用的
-  `creditlens_app` 持有，数据库不能区分二者；专用生产 Worker role 尚未实现。生产需要专用
-  幂等 Exporter、独立 Worker 和 service role/tenant shard 身份。本版不是 exactly-once，
-  也未提供 OTel、Prometheus、Dashboard、历史回填、Run
-  lease/heartbeat/reconciler 或持久任务队列；数据库事务提交前故障仍不能保证留痕。
-
-完整设计、故障矩阵、部署边界与发布证据见
-[v1.5 持久调用账本与遥测投递](docs/v1.5_持久调用账本与遥测投递.md)。`v1.5.0` 已完成
-PR、合并后 main、release-closure main 与 tag 四道 CI 门禁；发布证据是在 tag 成功后回填，
-不暗示 tag 自身包含随后产生的 tag CI run。
-
-
+项目代码版本为 `1.6.0`。本 README 面向当前 v1.6 候选能力；最终发布状态以
+[GitHub Releases](https://github.com/sanxiyusxy-droid/creditlens/releases) 和 CI Badge 为准
