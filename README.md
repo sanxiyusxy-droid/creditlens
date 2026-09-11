@@ -9,8 +9,7 @@ CreditLens 关注的是授信审查过程中“**政策必须使用正确版本�
 通过多路检索、中心化 Agent 编排、人工复核和完整调用 Trace，生成“有依据、可回放、
 能拒答”的审查辅助结果。
 
-> 本项目只使用合成数据，用于技术演示和面试交流。系统不自动作出授信、拒贷、定价、
-> 额度或放款决定，最终结论必须由具备权限的人员复核。
+> 本项目只使用合成数据，用于演示和交流。系统不自动作出授信、拒贷、定价、额度或放款决定，最终结论必须由具备权限的人员复核。
 
 ## 项目亮点
 
@@ -27,46 +26,7 @@ CreditLens 关注的是授信审查过程中“**政策必须使用正确版本�
 
 ## 系统架构
 
-```mermaid
-flowchart LR
-    U[审查人员 / Streamlit] --> API[FastAPI]
-
-    subgraph DATA[数据与索引]
-        OBJ[MinIO<br/>原始文件与解析产物]
-        PG[(PostgreSQL<br/>业务事实、版本、审计、RLS)]
-        OB[Transactional Outbox]
-        QD[(Qdrant<br/>Dense + Sparse + Summary)]
-        OBJ --> ING[解析 / 结构切分 / 摘要]
-        ING --> PG
-        PG --> OB
-        OB --> IW[Index Worker]
-        IW --> QD
-    end
-
-    API --> QA[Grounded QA]
-    API --> SUP[Supervisor]
-    QA --> RET[Retrieval Orchestrator]
-    SUP --> PA[Policy Agent]
-    SUP --> FA[Financial Agent]
-    SUP --> RA[Risk Agent]
-    SUP --> CH[Challenger]
-    SUP --> AU[Auditor]
-    SUP --> RP[Report Agent]
-    PA & FA & RA --> RET
-    RET --> QD
-    RET --> PG
-    RET --> PACK[RRF → Rerank → Context Packing]
-    PACK --> QA
-    PACK --> PA
-    CH --> AU
-    AU --> HITL[人工复核]
-    HITL --> RP
-
-    QA & SUP --> LEDGER[(Invocation Ledger)]
-    LEDGER --> TO[Telemetry Outbox]
-    TO --> EXP[幂等 Exporter]
-    LEDGER --> TRACE[Trace API / 可视化]
-```
+![creditlens](./creditlens.svg)
 
 ### 一次审查如何运行
 
@@ -143,12 +103,10 @@ flowchart LR
 
 ### 环境要求
 
-- Windows PowerShell
-- Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
 - Docker Desktop（运行完整 PostgreSQL、Qdrant、MinIO 和 Redis 演示栈）
 
-### 一键启动完整演示
+### 一键启动
 
 ```powershell
 git clone https://github.com/sanxiyusxy-droid/creditlens.git
@@ -185,9 +143,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1 -BootstrapOnly
 powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1 -UseConfiguredModels
 ```
 
-## 演示路径
-
-推荐按照 8–12 分钟五幕流程展示：
+## 推荐使用
 
 1. **政策时点切换**：同一个问题使用不同审查日期，命中不同版本的政策条款。
 2. **深 RAG Trace**：展开 Query Rewrite、四路召回、候选拒绝、RRF、精排和 Context Packing。
@@ -195,7 +151,6 @@ powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1 -UseConfiguredMo
 4. **证据与 HITL**：从结论返回 PDF 原文页，处理阻断项并生成审批后的报告草稿。
 5. **调用审计**：查看 Model/Tool 终态、Invocation Ledger、Outbox 和 RunEvent。
 
-详细话术见 [演示脚本](docs/演示脚本.md)。
 
 ![CreditLens 演示页](docs/images/demo_screenshot.png)
 
