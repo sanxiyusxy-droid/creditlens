@@ -33,3 +33,6 @@ evaluation/semantic/
 
 # --- 生成物 ---
 data/synthetic/*.pdf
+
+# 添加
+CreditLens_技术实现文档.md
